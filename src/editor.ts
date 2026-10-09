@@ -55,6 +55,8 @@ export class BCMapEditor {
   private objectCatalog: ObjectDef[] = [];
   private tileImageCache: Map<string, HTMLImageElement> = new Map();
   private objectImageCache: Map<string, HTMLImageElement> = new Map();
+  private tileMap = new Map<number, TileDef>();
+  private objectMap = new Map<number, ObjectDef>();
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -229,6 +231,12 @@ export class BCMapEditor {
       // Floor Letters
       { ID: 900, Type: 'FloorLetter', Style: 'LetterA' },
     ];
+    
+    // Build lookup maps for performance
+    this.tileMap.clear();
+    this.tileCatalog.forEach(t => this.tileMap.set(t.ID, t));
+    this.objectMap.clear();
+    this.objectCatalog.forEach(o => this.objectMap.set(o.ID, o));
   }
 
   private init(): void {
@@ -351,7 +359,7 @@ export class BCMapEditor {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const index = x + y * MAP_WIDTH;
         const tileId = this.mapData.Tiles.charCodeAt(index);
-        const tile = this.tileCatalog.find(t => t.ID === tileId);
+        const tile = this.tileMap.get(tileId);
         if (tile) {
           ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
           ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
@@ -362,8 +370,8 @@ export class BCMapEditor {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const index = x + y * MAP_WIDTH;
         const objId = this.mapData.Objects.charCodeAt(index);
-        if (objId === 100) continue;
-        const obj = this.objectCatalog.find(o => o.ID === objId);
+        if (objId === 10000) continue;
+        const obj = this.objectMap.get(objId);
         if (obj) {
           ctx.fillStyle = this.getObjectColor(obj.Type);
           ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);

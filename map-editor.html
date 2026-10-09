@@ -213,6 +213,8 @@ class BCMapEditor {
         this.objectCatalog = [];
         this.tileImageCache = new Map();
         this.objectImageCache = new Map();
+        this.tileMap = new Map();
+        this.objectMap = new Map();
         this.canvas = document.getElementById(canvasId);
         const ctx = this.canvas.getContext('2d');
         if (!ctx)
@@ -382,6 +384,11 @@ class BCMapEditor {
             // Floor Letters
             { ID: 900, Type: 'FloorLetter', Style: 'LetterA' },
         ];
+        // Build lookup maps for performance
+        this.tileMap.clear();
+        this.tileCatalog.forEach(t => this.tileMap.set(t.ID, t));
+        this.objectMap.clear();
+        this.objectCatalog.forEach(o => this.objectMap.set(o.ID, o));
     }
     init() {
         this.resizeCanvas();
@@ -510,7 +517,7 @@ class BCMapEditor {
             for (let x = 0; x < window.MAP_WIDTH; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const tileId = this.mapData.Tiles.charCodeAt(index);
-                const tile = this.tileCatalog.find(t => t.ID === tileId);
+                const tile = this.tileMap.get(tileId);
                 if (tile) {
                     ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
                     ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
@@ -521,9 +528,9 @@ class BCMapEditor {
             for (let x = 0; x < window.MAP_WIDTH; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const objId = this.mapData.Objects.charCodeAt(index);
-                if (objId === 100)
+                if (objId === 10000)
                     continue;
-                const obj = this.objectCatalog.find(o => o.ID === objId);
+                const obj = this.objectMap.get(objId);
                 if (obj) {
                     ctx.fillStyle = this.getObjectColor(obj.Type);
                     ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
