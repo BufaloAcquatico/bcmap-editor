@@ -59,12 +59,13 @@ describe('Drag-to-Paint', () => {
   it('should not set isPainting on right click', () => {
     editor.onCanvasMouseDown(createMouseEvent({ button: 2 }));
     expect((editor as any).isPainting).toBe(false);
+    expect((editor as any).isPanning).toBe(false);
   });
 
   it('should not set isPainting on middle click', () => {
     editor.onCanvasMouseDown(createMouseEvent({ button: 1 }));
     expect((editor as any).isPainting).toBe(false);
-    expect((editor as any).isPanning).toBe(true);
+    expect((editor as any).isPanning).toBe(false);
   });
 
   it('should not set isPainting with Ctrl+left click (pan)', () => {
@@ -87,6 +88,16 @@ describe('Drag-to-Paint', () => {
     expect(() => editor.onCanvasClick(createMouseEvent())).not.toThrow();
   });
 
+  it('should paint on a plain left click', () => {
+    editor.onCanvasClick(createMouseEvent({ clientX: 107, clientY: 7 }));
+    expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
+  });
+
+  it('should not paint on Ctrl+left click (reserved for panning)', () => {
+    editor.onCanvasClick(createMouseEvent({ clientX: 107, clientY: 7, ctrlKey: true }));
+    expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(210);
+  });
+
   it('should set isPainting and isPanning correctly for different buttons', () => {
     // Left click -> painting
     editor.onCanvasMouseDown(createMouseEvent({ button: 0 }));
@@ -94,16 +105,16 @@ describe('Drag-to-Paint', () => {
     expect((editor as any).isPanning).toBe(false);
     editor.onCanvasMouseUp();
     
-    // Middle click -> panning
+    // Middle click -> no action
     editor.onCanvasMouseDown(createMouseEvent({ button: 1 }));
     expect((editor as any).isPainting).toBe(false);
-    expect((editor as any).isPanning).toBe(true);
+    expect((editor as any).isPanning).toBe(false);
     editor.onCanvasMouseUp();
     
-    // Right click -> panning
+    // Right click -> no action
     editor.onCanvasMouseDown(createMouseEvent({ button: 2 }));
     expect((editor as any).isPainting).toBe(false);
-    expect((editor as any).isPanning).toBe(true);
+    expect((editor as any).isPanning).toBe(false);
     editor.onCanvasMouseUp();
     
     // Ctrl+Left -> panning

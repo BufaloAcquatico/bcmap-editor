@@ -61,6 +61,29 @@
     .search-box { width: 100%; }
     .layer-toggle .btn.active { background-color: #0d6efd; border-color: #0d6efd; }
     .zoom-display { min-width: 80px; text-align: center; }
+    .controls-help {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      padding: 8px 12px;
+      background: rgba(22, 33, 62, 0.85);
+      border: 1px solid #2a2a4a;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: #cfd3dc;
+      pointer-events: none;
+      max-width: 260px;
+    }
+    .controls-help .controls-help-title { font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .controls-help kbd {
+      background: #0f0f23;
+      border: 1px solid #2a2a4a;
+      border-radius: 3px;
+      padding: 0 4px;
+      color: #eaeaea;
+      font-size: 0.7rem;
+    }
   </style>
 </head>
 <body>
@@ -109,6 +132,12 @@
     <!-- Map Panel -->
     <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0; min-height: 0;">
       <canvas id="mapCanvas"></canvas>
+      <div id="controlsHelp" class="controls-help">
+        <div class="controls-help-title">Controls</div>
+        <div><kbd>Left click</kbd> / <kbd>drag</kbd> &mdash; paint</div>
+        <div><kbd>Ctrl</kbd> + <kbd>left drag</kbd> &mdash; pan</div>
+        <div><kbd>Wheel</kbd> &mdash; zoom</div>
+      </div>
     </main>
   </div>
 
@@ -212,8 +241,10 @@ const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3.0;
 const OBJECT_DRAW_MARGIN = 0.2;
 const OBJECT_DRAW_SIZE = 0.6;
-const GRID_OPACITY = 0.3;
-const GRID_LINE_WIDTH = 0.5; // FloorExterior/Grass
+const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
+const GRID_LINE_WIDTH = 0.5;
+const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
+const HOVER_OUTLINE_WIDTH = 2;
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
@@ -224,6 +255,7 @@ class BCMapEditor {
         this.selectedObject = null;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
+        this.hoveredTile = null;
         this.panX = 0;
         this.panY = 0;
         this.isPanning = false;
@@ -300,7 +332,7 @@ class BCMapEditor {
         this.canvas.addEventListener("mousedown", this.onCanvasMouseDown.bind(this));
         this.canvas.addEventListener("mousemove", this.onCanvasMouseMove.bind(this));
         this.canvas.addEventListener("mouseup", this.onCanvasMouseUp.bind(this));
-        this.canvas.addEventListener("mouseleave", this.onCanvasMouseUp.bind(this));
+        this.canvas.addEventListener("mouseleave", this.onCanvasMouseLeave.bind(this));
         window.addEventListener("resize", this.resizeCanvas.bind(this));
     }
     resizeCanvas() {
@@ -351,6 +383,9 @@ class BCMapEditor {
         this.render();
     }
     onCanvasClick(e) {
+        // Ctrl/Cmd + click is reserved for panning; never paint in that case.
+        if (e.ctrlKey || e.metaKey)
+            return;
         const pos = this.getTilePosFromMouse(e);
         this.paintAt(pos);
     }
@@ -368,9 +403,11 @@ class BCMapEditor {
         this.render();
     }
     onCanvasMouseDown(e) {
-        this.isDragging = true;
-        this.isPanning = e.button === 1 || e.button === 2 || e.ctrlKey || e.metaKey;
-        this.isPainting = e.button === 0 && !e.ctrlKey && !e.metaKey && !this.isPanning;
+        const isLeftButton = e.button === 0;
+        // Panning is done by holding Ctrl (or Cmd) and dragging with the left button.
+        this.isPanning = isLeftButton && (e.ctrlKey || e.metaKey);
+        this.isPainting = isLeftButton && !this.isPanning;
+        this.isDragging = this.isPainting || this.isPanning;
         const rect = this.canvas.getBoundingClientRect();
         this.lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
         if (e.button === 2)
@@ -381,33 +418,40 @@ class BCMapEditor {
         }
     }
     onCanvasMouseMove(e) {
-        if (!this.isDragging)
-            return;
         const rect = this.canvas.getBoundingClientRect();
         const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-        const dx = currentPos.x - this.lastMousePos.x;
-        const dy = currentPos.y - this.lastMousePos.y;
-        if (this.isPanning) {
-            this.panX += dx * (window.devicePixelRatio || 1);
-            this.panY += dy * (window.devicePixelRatio || 1);
-            // Clamp pan to keep map reasonably visible within square drawing box
-            const { size: drawSize } = this.getDrawBox();
-            const canvas = this.canvas;
-            const maxPan = canvas.width * 0.3;
-            const minPan = -drawSize + canvas.width * 0.7;
-            if (this.panX > maxPan)
-                this.panX = maxPan;
-            if (this.panY > maxPan)
-                this.panY = maxPan;
-            if (this.panX < minPan)
-                this.panX = minPan;
-            if (this.panY < minPan)
-                this.panY = minPan;
-            this.render();
+        const pos = this.getTilePosFromMouse(e);
+        const hoverChanged = !this.hoveredTile ||
+            this.hoveredTile.X !== pos.X ||
+            this.hoveredTile.Y !== pos.Y;
+        this.hoveredTile = pos;
+        if (this.isDragging) {
+            const dx = currentPos.x - this.lastMousePos.x;
+            const dy = currentPos.y - this.lastMousePos.y;
+            if (this.isPanning) {
+                this.panX += dx * (window.devicePixelRatio || 1);
+                this.panY += dy * (window.devicePixelRatio || 1);
+                // Clamp pan to keep map reasonably visible within square drawing box
+                const { size: drawSize } = this.getDrawBox();
+                const canvas = this.canvas;
+                const maxPan = canvas.width * 0.3;
+                const minPan = -drawSize + canvas.width * 0.7;
+                if (this.panX > maxPan)
+                    this.panX = maxPan;
+                if (this.panY > maxPan)
+                    this.panY = maxPan;
+                if (this.panX < minPan)
+                    this.panX = minPan;
+                if (this.panY < minPan)
+                    this.panY = minPan;
+                this.render();
+            }
+            else if (this.isPainting) {
+                this.paintAt(pos);
+            }
         }
-        else if (this.isPainting) {
-            const pos = this.getTilePosFromMouse(e);
-            this.paintAt(pos);
+        else if (hoverChanged) {
+            this.render();
         }
         this.lastMousePos = currentPos;
     }
@@ -415,6 +459,11 @@ class BCMapEditor {
         this.isDragging = false;
         this.isPanning = false;
         this.isPainting = false;
+    }
+    onCanvasMouseLeave() {
+        this.onCanvasMouseUp();
+        this.hoveredTile = null;
+        this.render();
     }
     getTileColor(type, style) {
         if (type === "FloorExterior" && style === "Grass")
@@ -505,21 +554,32 @@ class BCMapEditor {
                     }
                 }
             }
-            // Render grid
-            ctx.strokeStyle = `rgba(255, 255, 255, ${GRID_OPACITY})`;
-            ctx.lineWidth = GRID_LINE_WIDTH;
-            for (let i = 0; i <= window.MAP_WIDTH; i++) {
-                ctx.beginPath();
-                ctx.moveTo(startX + i * tileSize, startY);
-                ctx.lineTo(startX + i * tileSize, startY + window.MAP_HEIGHT * tileSize);
-                ctx.stroke();
-            }
-            for (let j = 0; j <= window.MAP_HEIGHT; j++) {
-                ctx.beginPath();
-                ctx.moveTo(startX, startY + j * tileSize);
-                ctx.lineTo(startX + window.MAP_WIDTH * tileSize, startY + j * tileSize);
-                ctx.stroke();
-            }
+        }
+        // Render grid (dark, semi-transparent)
+        ctx.strokeStyle = GRID_COLOR;
+        ctx.lineWidth = GRID_LINE_WIDTH;
+        for (let i = 0; i <= window.MAP_WIDTH; i++) {
+            ctx.beginPath();
+            ctx.moveTo(startX + i * tileSize, startY);
+            ctx.lineTo(startX + i * tileSize, startY + window.MAP_HEIGHT * tileSize);
+            ctx.stroke();
+        }
+        for (let j = 0; j <= window.MAP_HEIGHT; j++) {
+            ctx.beginPath();
+            ctx.moveTo(startX, startY + j * tileSize);
+            ctx.lineTo(startX + window.MAP_WIDTH * tileSize, startY + j * tileSize);
+            ctx.stroke();
+        }
+        // Highlight only the hovered tile with a light white outline
+        const hover = this.hoveredTile;
+        if (hover &&
+            hover.X >= 0 &&
+            hover.X < window.MAP_WIDTH &&
+            hover.Y >= 0 &&
+            hover.Y < window.MAP_HEIGHT) {
+            ctx.strokeStyle = HOVER_OUTLINE_COLOR;
+            ctx.lineWidth = HOVER_OUTLINE_WIDTH;
+            ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
     }
     setCurrentLayer(layer) {

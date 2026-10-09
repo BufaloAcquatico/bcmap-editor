@@ -96,4 +96,28 @@ describe('Mouse Interaction and Rendering', () => {
     expect(catalog[0]).toHaveProperty('Type');
     expect(catalog[0]).toHaveProperty('Style');
   });
+
+  it('should render a dark semi-transparent grid', () => {
+    editor.render();
+    expect((mockCtx as any).strokeStyle).toBe('rgba(30, 30, 40, 0.45)');
+  });
+
+  it('should track the hovered tile and outline only that tile', () => {
+    const ctx = mockCtx as any;
+    const event = { clientX: 107, clientY: 7, button: 0, ctrlKey: false, metaKey: false, preventDefault: vi.fn() } as unknown as MouseEvent;
+    editor.onCanvasMouseMove(event);
+    expect((editor as any).hoveredTile).toEqual({ X: 0, Y: 0 });
+    // Last strokeRect must outline tile (0, 0): draw box is 600px at (100, 0), tileSize 15
+    const calls = ctx.strokeRect.mock.calls;
+    expect(calls[calls.length - 1]).toEqual([100, 0, 15, 15]);
+    // Highlight color must be the light white outline
+    expect(ctx.strokeStyle).toBe('rgba(255, 255, 255, 0.9)');
+  });
+
+  it('should clear the hovered tile on mouse leave', () => {
+    editor.onCanvasMouseMove({ clientX: 107, clientY: 7 } as unknown as MouseEvent);
+    expect((editor as any).hoveredTile).not.toBeNull();
+    editor.onCanvasMouseLeave();
+    expect((editor as any).hoveredTile).toBeNull();
+  });
 });
