@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BCMap Editor</title>
+  <!-- Bootstrap 5 Dark Mode CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bs-body-bg: #1a1a2e;
+      --bs-body-color: #eaeaea;
+      --bs-primary: #0d6efd;
+      --bs-secondary: #6c757d;
+    }
+    body { background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+    .sidebar { background-color: #16213e; border-right: 1px solid #2a2a4a; }
+    .map-panel { background-color: #0f0f23; }
+    .btn-toolbar .btn { border-radius: 0.375rem; }
+    .category-header { cursor: pointer; user-select: none; }
+    .category-header:hover { background-color: #2a2a4a; }
+    .sprite-item { 
+      display: inline-block; 
+      width: 48px; 
+      height: 48px; 
+      margin: 2px; 
+      border: 2px solid transparent; 
+      border-radius: 4px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      cursor: pointer;
+    }
+    .sprite-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.5); }
+    .sprite-item:hover { border-color: #6c757d; }
+    .sprite-item img { width: 100%; height: 100%; object-fit: contain; }
+    #mapCanvas { 
+      display: block; 
+      cursor: crosshair; 
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
+    .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
+    .modal-content { background-color: #1a1a2e; color: #eaeaea; border: 1px solid #2a2a4a; }
+    .modal-header, .modal-footer { border-color: #2a2a4a; }
+    .form-control, .form-select { background-color: #0f0f23; border-color: #2a2a4a; color: #eaeaea; }
+    .form-control:focus, .form-select:focus { background-color: #0f0f23; border-color: #0d6efd; color: #eaeaea; box-shadow: 0 0 0 0.25rem rgba(13,110,253,0.25); }
+    .search-box { width: 100%; }
+    .layer-toggle .btn.active { background-color: #0d6efd; border-color: #0d6efd; }
+    .zoom-display { min-width: 80px; text-align: center; }
+  </style>
+</head>
+<body>
+  <!-- Top Toolbar -->
+  <div class="toolbar p-2 d-flex justify-content-between align-items-center">
+    <div class="d-flex gap-2">
+      <button id="btnNew" class="btn btn-sm btn-outline-light" title="New Map"><i class="bi bi-file-earmark-plus"></i></button>
+      <button id="btnImport" class="btn btn-sm btn-outline-light" title="Import Map"><i class="bi bi-upload"></i></button>
+      <button id="btnExport" class="btn btn-sm btn-outline-light" title="Export Map"><i class="bi bi-download"></i></button>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <div class="btn-group layer-toggle" role="group">
+        <input type="radio" class="btn-check" name="layer" id="layerTile" value="tile" checked autocomplete="off">
+        <label class="btn btn-sm btn-outline-light" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
+        <input type="radio" class="btn-check" name="layer" id="layerObject" value="object" autocomplete="off">
+        <label class="btn btn-sm btn-outline-light" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
+      </div>
+      <div class="zoom-display text-light">
+        Zoom: <span id="zoomLevel">100%</span>
+      </div>
+      <button id="btnZoomIn" class="btn btn-sm btn-outline-light" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+      <button id="btnZoomOut" class="btn btn-sm btn-outline-light" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+      <button id="btnZoomReset" class="btn btn-sm btn-outline-light" title="Reset Zoom"><i class="bi bi-arrows-fullscreen"></i></button>
+    </div>
+  </div>
+
+  <!-- Main Layout -->
+  <div class="d-flex flex-1" style="height: calc(100vh - 90px);">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar d-flex flex-column" style="width: 320px; min-width: 320px; max-width: 400px; overflow: hidden;">
+      <div class="p-2 border-bottom border-secondary">
+        <div class="input-group input-group-sm">
+          <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
+          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects...">
+        </div>
+      </div>
+      <div class="flex-1 overflow-auto" id="sidebarContent">
+        <!-- Tile Picker Sections -->
+        <div id="tileCategories"></div>
+        <hr class="border-secondary my-2">
+        <!-- Object Picker Sections -->
+        <div id="objectCategories"></div>
+      </div>
+    </aside>
+
+    <!-- Map Panel -->
+    <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0;">
+      <div class="position-relative flex-1 d-flex justify-content-center align-items-center" style="min-height: 0;">
+        <canvas id="mapCanvas"></canvas>
+      </div>
+    </main>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar p-2 d-flex justify-content-between align-items-center">
+    <div id="statusPosition">Position: (0, 0)</div>
+    <div id="statusSelection">No selection</div>
+    <div id="statusMapSize">Map: 40x40</div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-upload"></i> Import Map</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="importCode" class="form-label">Paste Map Code (LZString compressed)</label>
+            <textarea id="importCode" class="form-control" rows="8" style="font-family: monospace; font-size: 0.75rem;"></textarea>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="importReplace" checked>
+            <label class="form-check-label" for="importReplace">Replace current map</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnImportConfirm"><i class="bi bi-check"></i> Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Modal -->
+  <div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-download"></i> Export Map</h5>
+          <button type="button" class class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="exportName" class="form-label">Map Name</label>
+            <input type="text" id="exportName" class="form-control" value="my-map" placeholder="Enter map name">
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="exportIncludeObjects" checked>
+            <label class="form-check-label" for="exportIncludeObjects">Include objects</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnExportConfirm"><i class="bi bi-check"></i> Export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Map Confirmation Modal -->
+  <div class="modal fade" id="newMapModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-file-earmark-plus"></i> New Map</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Create a new map? This will replace the current map with a default grass field.</p>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="newMapConfirm" required>
+            <label class="form-check-label" for="newMapConfirm">I understand this will discard unsaved changes</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnNewConfirm" disabled><i class="bi bi-trash"></i> Create New</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <script>(function() {
+"use strict";
+// BCMap Editor - TypeScript Source
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BCMapEditor = exports.GRASS_TILE_ID = exports.MAP_HEIGHT = exports.MAP_WIDTH = void 0;
+const lz_string_1 = require("lz-string");
+exports.MAP_WIDTH = 40;
+exports.MAP_HEIGHT = 40;
+exports.GRASS_TILE_ID = 210; // FloorExterior/Grass
+class BCMapEditor {
+    constructor(canvasId) {
+        this.zoom = 1.0;
+        this.maxZoom = 10.0;
+        this.minZoom = 3.0 / 40.0; // min: 3x3 visible
+        this.currentLayer = 'tile';
+        this.selectedTile = null;
+        this.selectedObject = null;
+        this.isDragging = false;
+        this.lastMousePos = { x: 0, y: 0 };
+        this.tileCatalog = [];
+        this.objectCatalog = [];
+        this.canvas = document.getElementById(canvasId);
+        const ctx = this.canvas.getContext('2d');
+        if (!ctx)
+            throw new Error('Failed to get canvas context');
+        this.ctx = ctx;
+        this.mapData = this.createDefaultMap();
+        this.initCatalogs();
+        this.init();
+    }
+    createDefaultMap() {
+        // Initialize with 40x40 grass tiles (Grass ID 210 = char code 210)
+        const grassChar = String.fromCharCode(exports.GRASS_TILE_ID);
+        const tiles = grassChar.repeat(exports.MAP_WIDTH * exports.MAP_HEIGHT);
+        const objects = String.fromCharCode(100).repeat(exports.MAP_WIDTH * exports.MAP_HEIGHT); // Blank
+        return {
+            Type: 'Always',
+            Tiles: tiles,
+            Objects: objects
+        };
+    }
+    initCatalogs() {
+        // Basic tiles from MAP_SYSTEM_DOCUMENTATION.md
+        this.tileCatalog = [
+            { ID: 100, Type: 'Floor', Style: 'OakWood' },
+            { ID: 110, Type: 'Floor', Style: 'Stone' },
+            { ID: 115, Type: 'Floor', Style: 'Pavement' },
+            { ID: 120, Type: 'Floor', Style: 'Ceramic' },
+            { ID: 121, Type: 'Floor', Style: 'CeramicDark' },
+            { ID: 130, Type: 'Floor', Style: 'CarpetPink' },
+            { ID: 131, Type: 'Floor', Style: 'CarpetBlue' },
+            { ID: 132, Type: 'Floor', Style: 'CarpetRed' },
+            { ID: 140, Type: 'Floor', Style: 'Padded' },
+            { ID: 150, Type: 'Floor', Style: 'LatexFloor' },
+            { ID: 160, Type: 'Floor', Style: 'Tile' },
+            { ID: 170, Type: 'Floor', Style: 'HexBlue' },
+            { ID: 171, Type: 'Floor', Style: 'HexPurple' },
+            { ID: 172, Type: 'Floor', Style: 'Machine' },
+            { ID: 199, Type: 'Floor', Style: 'HalfWall' },
+            { ID: 200, Type: 'FloorExterior', Style: 'Dirt' },
+            { ID: 210, Type: 'FloorExterior', Style: 'Grass' },
+            { ID: 215, Type: 'FloorExterior', Style: 'LongGrass' },
+            { ID: 220, Type: 'FloorExterior', Style: 'Sand' },
+            { ID: 230, Type: 'FloorExterior', Style: 'Gravel' },
+            { ID: 235, Type: 'FloorExterior', Style: 'Asphalt' },
+            { ID: 240, Type: 'FloorExterior', Style: 'Snow' },
+            { ID: 250, Type: 'FloorExterior', Style: 'StoneSquareGray' },
+            { ID: 260, Type: 'FloorExterior', Style: 'ScatteredLeaves' },
+            { ID: 270, Type: 'FloorExterior', Style: 'ScatteredLeavesDirt' },
+            { ID: 280, Type: 'FloorExterior', Style: 'ScatteredLeavesThick' },
+            { ID: 1000, Type: 'Wall', Style: 'MixedWood' },
+            { ID: 1001, Type: 'Wall', Style: 'CedarWood' },
+            { ID: 1010, Type: 'Wall', Style: 'Log' },
+            { ID: 1020, Type: 'Wall', Style: 'Japanese' },
+            { ID: 1030, Type: 'Wall', Style: 'Stone' },
+            { ID: 1040, Type: 'Wall', Style: 'Brick' },
+            { ID: 1050, Type: 'Wall', Style: 'Dungeon' },
+            { ID: 1060, Type: 'Wall', Style: 'Square' },
+            { ID: 1070, Type: 'Wall', Style: 'Steel' },
+            { ID: 1080, Type: 'Wall', Style: 'Padded' },
+            { ID: 1090, Type: 'Wall', Style: 'Tile' },
+            { ID: 1100, Type: 'Wall', Style: 'Lattice' },
+            { ID: 1200, Type: 'Wall', Style: 'HexBlue' },
+            { ID: 1201, Type: 'Wall', Style: 'HexPurple' },
+            { ID: 1202, Type: 'Wall', Style: 'PipeBlue' },
+            { ID: 1203, Type: 'Wall', Style: 'PipePurple' },
+            { ID: 1204, Type: 'Wall', Style: 'SteelBlack' },
+            { ID: 1205, Type: 'Wall', Style: 'SteelGary' },
+            { ID: 2000, Type: 'Water', Style: 'Pool' },
+            { ID: 2010, Type: 'Water', Style: 'Sea' },
+            { ID: 2020, Type: 'Water', Style: 'Ocean' },
+            { ID: 2025, Type: 'Water', Style: 'OceanCyan' },
+            { ID: 2030, Type: 'Water', Style: 'OceanCalm' },
+            { ID: 2040, Type: 'Water', Style: 'Swamp' },
+            { ID: 2050, Type: 'Water', Style: 'Waves' },
+            { ID: 2060, Type: 'Water', Style: 'Shallow' },
+            { ID: 2090, Type: 'Water', Style: 'Lava' }
+        ];
+        // Basic objects
+        this.objectCatalog = [
+            { ID: 100, Type: 'FloorDecoration', Style: 'Blank' },
+            { ID: 110, Type: 'FloorDecoration', Style: 'EntryFlag' },
+            { ID: 115, Type: 'FloorDecoration', Style: 'ExitFlag' },
+            { ID: 160, Type: 'FloorDecoration', Style: 'KeyBronze' },
+            { ID: 162, Type: 'FloorDecoration', Style: 'KeySilver' },
+            { ID: 164, Type: 'FloorDecoration', Style: 'KeyGold' },
+            { ID: 166, Type: 'FloorDecoration', Style: 'Bed' },
+            { ID: 200, Type: 'FloorDecorationThemed', Style: 'Blank' },
+            { ID: 300, Type: 'FloorDecorationThemed', Style: 'ShibariFrame' },
+            { ID: 500, Type: 'FloorDecorationParty', Style: 'Blank' },
+            { ID: 510, Type: 'FloorDecorationParty', Style: 'BalloonFiveColor' },
+            { ID: 600, Type: 'FloorDecorationCamping', Style: 'Blank' },
+            { ID: 610, Type: 'FloorDecorationCamping', Style: 'LogFire' },
+            { ID: 700, Type: 'FloorDecorationExpanding', Style: 'Blank' },
+            { ID: 710, Type: 'FloorDecorationExpanding', Style: 'CouchPinkPreview' },
+            { ID: 800, Type: 'FloorDecorationAnimal', Style: 'Blank' },
+            { ID: 810, Type: 'FloorDecorationAnimal', Style: 'CatCaramelHappy' },
+            { ID: 820, Type: 'FloorDecorationAnimal', Style: 'DogBrownHappy' },
+            { ID: 830, Type: 'FloorDecorationAnimal', Style: 'RabbitBrownStand' },
+            { ID: 840, Type: 'FloorDecorationAnimal', Style: 'ChickenBrownIdleLeft' },
+            { ID: 1000, Type: 'FloorItem', Style: 'Blank' },
+            { ID: 1010, Type: 'FloorItem', Style: 'Kennel' },
+            { ID: 1020, Type: 'FloorItem', Style: 'X-Cross' },
+            { ID: 1030, Type: 'FloorItem', Style: 'BondageBench' },
+            { ID: 1040, Type: 'FloorItem', Style: 'Trolley' },
+            { ID: 1050, Type: 'FloorItem', Style: 'Locker' },
+            { ID: 1060, Type: 'FloorItem', Style: 'WoodenBox' },
+            { ID: 1070, Type: 'FloorItem', Style: 'Coffin' },
+            { ID: 1080, Type: 'FloorItem', Style: 'TheDisplayFrame' },
+            { ID: 1090, Type: 'FloorItem', Style: 'Pole' },
+            { ID: 1095, Type: 'FloorItem', Style: 'MedicalBed' },
+            { ID: 1096, Type: 'FloorItem', Style: 'FuturisticCrate' },
+            { ID: 1100, Type: 'FloorNumber', Style: 'Blank' },
+            { ID: 1101, Type: 'FloorNumber', Style: 'Number1' },
+            { ID: 1200, Type: 'FloorLetter', Style: 'Blank' },
+            { ID: 1201, Type: 'FloorLetter', Style: 'LetterA' },
+            { ID: 1300, Type: 'FloorIcon', Style: 'Blank' },
+            { ID: 1301, Type: 'FloorIcon', Style: 'IconCircle' },
+            { ID: 2000, Type: 'FloorObstacle', Style: 'Blank' },
+            { ID: 2093, Type: 'FloorObstacle', Style: 'VelourRopeBarrier' },
+            { ID: 2095, Type: 'FloorObstacle', Style: 'OakTree' },
+            { ID: 2097, Type: 'FloorObstacle', Style: 'LeaflessTree' },
+            { ID: 2100, Type: 'FloorObstacle', Style: 'PineTree' },
+            { ID: 2110, Type: 'FloorObstacle', Style: 'PalmTree' },
+            { ID: 2120, Type: 'FloorObstacle', Style: 'Sakura' },
+            { ID: 2130, Type: 'FloorObstacle', Style: 'Cactus' },
+            { ID: 2140, Type: 'FloorObstacle', Style: 'ChristmasTree' },
+            { ID: 2150, Type: 'FloorObstacle', Style: 'Window' },
+            { ID: 2160, Type: 'FloorObstacle', Style: 'TrashCan' },
+            { ID: 2170, Type: 'FloorObstacle', Style: 'RoadCone' },
+            { ID: 2180, Type: 'FloorObstacle', Style: 'LampPost' },
+            { ID: 2190, Type: 'FloorObstacle', Style: 'Pillar' },
+            { ID: 3000, Type: 'WallDecoration', Style: 'Blank' },
+            { ID: 3010, Type: 'WallDecoration', Style: 'Painting' },
+            { ID: 3020, Type: 'WallDecoration', Style: 'Mirror' },
+            { ID: 3030, Type: 'WallDecoration', Style: 'Candelabra0' },
+            { ID: 3040, Type: 'WallDecoration', Style: 'Whip' },
+            { ID: 3050, Type: 'WallDecoration', Style: 'Fireplace' },
+            { ID: 3060, Type: 'WallDecoration', Style: 'Stocking' },
+            { ID: 4000, Type: 'WallPath', Style: 'Blank' },
+            { ID: 4010, Type: 'WallPath', Style: 'WoodOpen' },
+            { ID: 4011, Type: 'WallPath', Style: 'WoodClosed' },
+            { ID: 4012, Type: 'WallPath', Style: 'WoodLocked' },
+            { ID: 4013, Type: 'WallPath', Style: 'WoodLockedBronze' },
+            { ID: 4014, Type: 'WallPath', Style: 'WoodLockedSilver' },
+            { ID: 4015, Type: 'WallPath', Style: 'WoodLockedGold' },
+            { ID: 4020, Type: 'WallPath', Style: 'Metal' },
+            { ID: 4021, Type: 'WallPath', Style: 'MetalUp' },
+            { ID: 4022, Type: 'WallPath', Style: 'MetalDown' },
+            { ID: 4023, Type: 'WallPath', Style: 'MetalLockedBronze' },
+            { ID: 4024, Type: 'WallPath', Style: 'MetalLockedSilver' },
+            { ID: 4025, Type: 'WallPath', Style: 'MetalLockedGold' },
+            { ID: 4030, Type: 'WallPath', Style: 'BrownDoor' },
+            { ID: 4031, Type: 'WallPath', Style: 'BrownDoorOpen' },
+            { ID: 5010, Type: 'Banners', Style: 'Blank' },
+            { ID: 5011, Type: 'Banners', Style: 'Blue' },
+            { ID: 5012, Type: 'Banners', Style: 'Green' },
+            { ID: 5013, Type: 'Banners', Style: 'Yellow' },
+            { ID: 5014, Type: 'Banners', Style: 'PaladinBanner' }
+        ];
+    }
+    init() {
+        this.resizeCanvas();
+        this.render();
+        // Add event listeners
+        this.canvas.addEventListener('click', this.onCanvasClick.bind(this));
+        this.canvas.addEventListener('wheel', this.onCanvasWheel.bind(this));
+        this.canvas.addEventListener('mousedown', this.onCanvasMouseDown.bind(this));
+        this.canvas.addEventListener('mousemove', this.onCanvasMouseMove.bind(this));
+        this.canvas.addEventListener('mouseup', this.onCanvasMouseUp.bind(this));
+        this.canvas.addEventListener('mouseleave', this.onCanvasMouseUp.bind(this));
+        window.addEventListener('resize', this.resizeCanvas.bind(this));
+    }
+    resizeCanvas() {
+        const rect = this.canvas.parentElement?.getBoundingClientRect();
+        if (rect) {
+            this.canvas.width = rect.width;
+            this.canvas.height = rect.height;
+            this.render();
+        }
+    }
+    onCanvasClick(e) {
+        const pos = this.getTilePosFromMouse(e);
+        if (pos.X < 0 || pos.X >= exports.MAP_WIDTH || pos.Y < 0 || pos.Y >= exports.MAP_HEIGHT)
+            return;
+        const index = pos.X + pos.Y * exports.MAP_WIDTH;
+        if (this.currentLayer === 'tile' && this.selectedTile) {
+            this.mapData.Tiles = this.mapData.Tiles.substring(0, index) +
+                String.fromCharCode(this.selectedTile.ID) +
+                this.mapData.Tiles.substring(index + 1);
+        }
+        else if (this.currentLayer === 'object' && this.selectedObject) {
+            this.mapData.Objects = this.mapData.Objects.substring(0, index) +
+                String.fromCharCode(this.selectedObject.ID) +
+                this.mapData.Objects.substring(index + 1);
+        }
+        this.render();
+    }
+    getTilePosFromMouse(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        const tileWidth = canvasWidth / exports.MAP_WIDTH * this.zoom;
+        const tileHeight = canvasHeight / exports.MAP_HEIGHT * this.zoom;
+        const startX = (canvasWidth - exports.MAP_WIDTH * tileWidth) / 2;
+        const startY = (canvasHeight - exports.MAP_HEIGHT * tileHeight) / 2;
+        const tileX = Math.floor((mouseX - startX) / tileWidth);
+        const tileY = Math.floor((mouseY - startY) / tileHeight);
+        return { X: tileX, Y: tileY };
+    }
+    onCanvasWheel(e) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            this.zoom = Math.min(this.maxZoom, this.zoom * 1.1);
+        }
+        else {
+            this.zoom = Math.max(this.minZoom, this.zoom * 0.9);
+        }
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        if (zoomLevelEl) {
+            zoomLevelEl.textContent = Math.round(this.zoom * 100) + '%';
+        }
+        this.render();
+    }
+    onCanvasMouseDown(e) {
+        this.isDragging = true;
+        const rect = this.canvas.getBoundingClientRect();
+        this.lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+    onCanvasMouseMove(e) {
+        if (!this.isDragging)
+            return;
+        // Drag logic would go here if needed
+        const rect = this.canvas.getBoundingClientRect();
+        const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.lastMousePos = currentPos;
+    }
+    onCanvasMouseUp() {
+        this.isDragging = false;
+    }
+    render() {
+        const ctx = this.ctx;
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        // Clear canvas
+        ctx.fillStyle = '#0f0f23';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        const tileWidth = (canvasWidth / exports.MAP_WIDTH) * this.zoom;
+        const tileHeight = (canvasHeight / exports.MAP_HEIGHT) * this.zoom;
+        const startX = (canvasWidth - exports.MAP_WIDTH * tileWidth) / 2;
+        const startY = (canvasHeight - exports.MAP_HEIGHT * tileHeight) / 2;
+        // Render tiles
+        for (let y = 0; y < exports.MAP_HEIGHT; y++) {
+            for (let x = 0; x < exports.MAP_WIDTH; x++) {
+                const index = x + y * exports.MAP_WIDTH;
+                const tileId = this.mapData.Tiles.charCodeAt(index);
+                const tile = this.tileCatalog.find(t => t.ID === tileId);
+                if (tile) {
+                    // Simple colored boxes for tiles (placeholder - will use sprites later)
+                    ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+                    ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                }
+            }
+        }
+        // Render objects
+        for (let y = 0; y < exports.MAP_HEIGHT; y++) {
+            for (let x = 0; x < exports.MAP_WIDTH; x++) {
+                const index = x + y * exports.MAP_WIDTH;
+                const objId = this.mapData.Objects.charCodeAt(index);
+                if (objId === 100)
+                    continue; // Blank
+                const obj = this.objectCatalog.find(o => o.ID === objId);
+                if (obj) {
+                    ctx.fillStyle = this.getObjectColor(obj.Type);
+                    ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+                }
+            }
+        }
+        // Draw grid
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= exports.MAP_WIDTH; i++) {
+            ctx.beginPath();
+            ctx.moveTo(startX + i * tileWidth, startY);
+            ctx.lineTo(startX + i * tileWidth, startY + exports.MAP_HEIGHT * tileHeight);
+            ctx.stroke();
+        }
+        for (let j = 0; j <= exports.MAP_HEIGHT; j++) {
+            ctx.beginPath();
+            ctx.moveTo(startX, startY + j * tileHeight);
+            ctx.lineTo(startX + exports.MAP_WIDTH * tileWidth, startY + j * tileHeight);
+            ctx.stroke();
+        }
+    }
+    getTileColor(type, style) {
+        if (type === 'FloorExterior' && style === 'Grass')
+            return '#228B22';
+        if (type === 'FloorExterior')
+            return '#8B7355';
+        if (type === 'Floor')
+            return '#D2691E';
+        if (type === 'Wall')
+            return '#808080';
+        if (type === 'Water')
+            return '#4169E1';
+        return '#654321';
+    }
+    getObjectColor(type) {
+        if (type.includes('Decoration'))
+            return '#DAA520';
+        if (type === 'FloorItem')
+            return '#9370DB';
+        if (type === 'FloorObstacle')
+            return '#8B0000';
+        if (type === 'WallDecoration')
+            return '#228B22';
+        if (type === 'WallPath')
+            return '#654321';
+        if (type === 'Banners')
+            return '#FF6347';
+        return '#FF69B4';
+    }
+    setCurrentLayer(layer) {
+        this.currentLayer = layer;
+    }
+    setSelectedTile(tile) {
+        this.selectedTile = tile;
+    }
+    setSelectedObject(obj) {
+        this.selectedObject = obj;
+    }
+    exportMap(name) {
+        const data = {
+            Type: this.mapData.Type,
+            Tiles: this.mapData.Tiles,
+            Objects: this.mapData.Objects
+        };
+        const jsonStr = JSON.stringify(data);
+        return (0, lz_string_1.compressToBase64)(jsonStr);
+    }
+    importMap(code) {
+        try {
+            const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
+            if (!jsonStr)
+                throw new Error('Invalid map code');
+            const data = JSON.parse(jsonStr);
+            this.mapData = data;
+            this.render();
+        }
+        catch (e) {
+            throw new Error('Failed to import map: ' + e);
+        }
+    }
+    getMapData() {
+        return this.mapData;
+    }
+    newMap() {
+        this.mapData = this.createDefaultMap();
+        this.render();
+    }
+    getTileCatalog() {
+        return this.tileCatalog;
+    }
+    getObjectCatalog() {
+        return this.objectCatalog;
+    }
+}
+exports.BCMapEditor = BCMapEditor;
+
+"use strict";
+document.addEventListener('DOMContentLoaded', () => {
+    const editor = new window.BCMapEditor('mapCanvas');
+    // Store editor globally
+    window.editor = editor;
+    // Layer toggle
+    const layerRadios = document.querySelectorAll('input[name="layer"]');
+    layerRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            const target = e.target;
+            if (target.checked) {
+                editor.setCurrentLayer(target.value);
+            }
+        });
+    });
+    // New map
+    const btnNew = document.getElementById('btnNew');
+    const newMapModal = new bootstrap.Modal(document.getElementById('newMapModal'));
+    const newMapConfirm = document.getElementById('newMapConfirm');
+    const btnNewConfirm = document.getElementById('btnNewConfirm');
+    btnNew?.addEventListener('click', () => {
+        newMapModal.show();
+    });
+    newMapConfirm?.addEventListener('change', () => {
+        btnNewConfirm.disabled = !newMapConfirm.checked;
+    });
+    btnNewConfirm?.addEventListener('click', () => {
+        editor.newMap();
+        newMapModal.hide();
+        newMapConfirm.checked = false;
+        btnNewConfirm.disabled = true;
+    });
+    // Import
+    const btnImport = document.getElementById('btnImport');
+    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
+    btnImport?.addEventListener('click', () => {
+        importModal.show();
+    });
+    const btnImportConfirm = document.getElementById('btnImportConfirm');
+    const importCode = document.getElementById('importCode');
+    btnImportConfirm?.addEventListener('click', () => {
+        try {
+            editor.importMap(importCode.value);
+            importModal.hide();
+            importCode.value = '';
+        }
+        catch (e) {
+            alert(e.message);
+        }
+    });
+    // Export
+    const btnExport = document.getElementById('btnExport');
+    const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
+    btnExport?.addEventListener('click', () => {
+        exportModal.show();
+    });
+    const btnExportConfirm = document.getElementById('btnExportConfirm');
+    const exportName = document.getElementById('exportName');
+    btnExportConfirm?.addEventListener('click', () => {
+        try {
+            const code = editor.exportMap(exportName.value || 'my-map');
+            const blob = new Blob([code], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${exportName.value || 'my-map'}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            exportModal.hide();
+        }
+        catch (e) {
+            alert(e.message);
+        }
+    });
+    // Zoom controls
+    const btnZoomIn = document.getElementById('btnZoomIn');
+    const btnZoomOut = document.getElementById('btnZoomOut');
+    const btnZoomReset = document.getElementById('btnZoomReset');
+    btnZoomIn?.addEventListener('click', () => {
+        editor.zoom = Math.min(editor.maxZoom, editor.zoom * 1.1);
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        if (zoomLevelEl)
+            zoomLevelEl.textContent = Math.round(editor.zoom * 100) + '%';
+        editor.render();
+    });
+    btnZoomOut?.addEventListener('click', () => {
+        editor.zoom = Math.max(editor.minZoom, editor.zoom * 0.9);
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        if (zoomLevelEl)
+            zoomLevelEl.textContent = Math.round(editor.zoom * 100) + '%';
+        editor.render();
+    });
+    btnZoomReset?.addEventListener('click', () => {
+        editor.zoom = 1.0;
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        if (zoomLevelEl)
+            zoomLevelEl.textContent = '100%';
+        editor.render();
+    });
+});
+
+
+})();</script>
+</body>
+</html>
