@@ -215,7 +215,10 @@ class BCMapEditor {
         this.objectImageCache = new Map();
         this.tileMap = new Map();
         this.objectMap = new Map();
-        this.canvas = document.getElementById(canvasId);
+        const canvasElement = document.getElementById(canvasId);
+        if (!canvasElement)
+            throw new Error(`Canvas element #${canvasId} not found`);
+        this.canvas = canvasElement;
         const ctx = this.canvas.getContext('2d');
         if (!ctx)
             throw new Error('Failed to get canvas context');

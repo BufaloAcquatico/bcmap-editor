@@ -59,7 +59,9 @@ export class BCMapEditor {
   private objectMap = new Map<number, ObjectDef>();
 
   constructor(canvasId: string) {
-    this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
+    const canvasElement = document.getElementById(canvasId);
+    if (!canvasElement) throw new Error(`Canvas element #${canvasId} not found`);
+    this.canvas = canvasElement as HTMLCanvasElement;
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get canvas context');
     this.ctx = ctx;
