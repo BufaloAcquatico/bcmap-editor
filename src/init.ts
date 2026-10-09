@@ -107,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomLevelEl = document.getElementById('zoomLevel');
     if (zoomLevelEl) zoomLevelEl.textContent = '100%';
     (editor as any).render();
+  });
+  
   // Search
   const searchInput = document.getElementById('searchInput') as HTMLInputElement;
   searchInput?.addEventListener('input', () => {
@@ -120,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
         (el as HTMLElement).style.display = 'none';
       }
     });
-  });
-
+  
   });
 });
