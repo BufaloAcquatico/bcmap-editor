@@ -36,6 +36,7 @@ docker compose up -d
 ## Map Format
 
 This editor uses the same LZString-compressed format as ropeybot:
+
 - Map data is compressed with lz-string and base64 encoded
 - Export saves as `<mapname>.txt` containing the map code
 - Import accepts any valid map code from ropeybot maps
@@ -83,6 +84,7 @@ npm run test:e2e:docker:unit
 ```
 
 **Files:**
+
 - `Dockerfile.test` - Test image based on `mcr.microsoft.com/playwright:v1.40-focal`
 - `docker-compose.test.yml` - Compose file with volume mounts for fast iteration
 

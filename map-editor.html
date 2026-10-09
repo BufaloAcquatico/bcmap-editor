@@ -409,7 +409,10 @@ class BCMapEditor {
         this.isPainting = isLeftButton && !this.isPanning;
         this.isDragging = this.isPainting || this.isPanning;
         const rect = this.canvas.getBoundingClientRect();
-        this.lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        this.lastMousePos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        };
         if (e.button === 2)
             e.preventDefault();
         if (this.isPainting) {
@@ -419,7 +422,10 @@ class BCMapEditor {
     }
     onCanvasMouseMove(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const currentPos = {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        };
         const pos = this.getTilePosFromMouse(e);
         const hoverChanged = !this.hoveredTile ||
             this.hoveredTile.X !== pos.X ||
@@ -666,7 +672,8 @@ class BCMapEditor {
         tileCategories.innerHTML = "";
         tileGroups.forEach((tiles, type) => {
             const header = document.createElement("div");
-            header.className = "category-header p-2 border-bottom border-secondary";
+            header.className =
+                "category-header p-2 border-bottom border-secondary";
             header.textContent = type;
             const container = document.createElement("div");
             container.className = "category-content p-2 d-flex flex-wrap";
@@ -674,8 +681,11 @@ class BCMapEditor {
                 const item = document.createElement("div");
                 item.className = "sprite-item";
                 const key = tile.Type + "/" + tile.Style;
-                item.style.backgroundImage = "url(assets/tiles/" + key + ".png)";
-                item.title = tile.Name ? tile.Name + " (" + tile.Style + ")" : tile.Style;
+                item.style.backgroundImage =
+                    "url(assets/tiles/" + key + ".png)";
+                item.title = tile.Name
+                    ? tile.Name + " (" + tile.Style + ")"
+                    : tile.Style;
                 item.addEventListener("click", () => {
                     document
                         .querySelectorAll("#tileCategories .sprite-item")
@@ -711,7 +721,8 @@ class BCMapEditor {
         objectCategories.innerHTML = "";
         objGroups.forEach((objs, group) => {
             const header = document.createElement("div");
-            header.className = "category-header p-2 border-bottom border-secondary";
+            header.className =
+                "category-header p-2 border-bottom border-secondary";
             header.textContent = group;
             const container = document.createElement("div");
             container.className = "category-content p-2 d-flex flex-wrap";
@@ -720,7 +731,8 @@ class BCMapEditor {
                 item.className = "sprite-item";
                 if (obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
-                    item.style.backgroundImage = "url(assets/objects/" + key + ".png)";
+                    item.style.backgroundImage =
+                        "url(assets/objects/" + key + ".png)";
                     item.title = obj.Style;
                 }
                 else {
@@ -769,15 +781,15 @@ class BCMapEditor {
 window.BCMapEditor = BCMapEditor;
 
 "use strict";
-document.addEventListener('DOMContentLoaded', () => {
-    const editor = new window.BCMapEditor('mapCanvas');
+document.addEventListener("DOMContentLoaded", () => {
+    const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
     window.editor = editor;
     editor.populatePickers();
     // Layer toggle
     const layerRadios = document.querySelectorAll('input[name="layer"]');
-    layerRadios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
+    layerRadios.forEach((radio) => {
+        radio.addEventListener("change", (e) => {
             const target = e.target;
             if (target.checked) {
                 editor.setCurrentLayer(target.value);
@@ -785,57 +797,57 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     // New map
-    const btnNew = document.getElementById('btnNew');
-    const newMapModal = new bootstrap.Modal(document.getElementById('newMapModal'));
-    const newMapConfirm = document.getElementById('newMapConfirm');
-    const btnNewConfirm = document.getElementById('btnNewConfirm');
-    btnNew?.addEventListener('click', () => {
+    const btnNew = document.getElementById("btnNew");
+    const newMapModal = new bootstrap.Modal(document.getElementById("newMapModal"));
+    const newMapConfirm = document.getElementById("newMapConfirm");
+    const btnNewConfirm = document.getElementById("btnNewConfirm");
+    btnNew?.addEventListener("click", () => {
         newMapModal.show();
     });
-    newMapConfirm?.addEventListener('change', () => {
+    newMapConfirm?.addEventListener("change", () => {
         btnNewConfirm.disabled = !newMapConfirm.checked;
     });
-    btnNewConfirm?.addEventListener('click', () => {
+    btnNewConfirm?.addEventListener("click", () => {
         editor.newMap();
         newMapModal.hide();
         newMapConfirm.checked = false;
         btnNewConfirm.disabled = true;
     });
     // Import
-    const btnImport = document.getElementById('btnImport');
-    const importModal = new bootstrap.Modal(document.getElementById('importModal'));
-    btnImport?.addEventListener('click', () => {
+    const btnImport = document.getElementById("btnImport");
+    const importModal = new bootstrap.Modal(document.getElementById("importModal"));
+    btnImport?.addEventListener("click", () => {
         importModal.show();
     });
-    const btnImportConfirm = document.getElementById('btnImportConfirm');
-    const importCode = document.getElementById('importCode');
-    btnImportConfirm?.addEventListener('click', () => {
+    const btnImportConfirm = document.getElementById("btnImportConfirm");
+    const importCode = document.getElementById("importCode");
+    btnImportConfirm?.addEventListener("click", () => {
         try {
             editor.importMap(importCode.value);
             importModal.hide();
-            importCode.value = '';
+            importCode.value = "";
         }
         catch (e) {
             alert(e.message);
         }
     });
     // Export
-    const btnExport = document.getElementById('btnExport');
-    const exportModal = new bootstrap.Modal(document.getElementById('exportModal'));
-    btnExport?.addEventListener('click', () => {
+    const btnExport = document.getElementById("btnExport");
+    const exportModal = new bootstrap.Modal(document.getElementById("exportModal"));
+    btnExport?.addEventListener("click", () => {
         exportModal.show();
     });
-    const btnExportConfirm = document.getElementById('btnExportConfirm');
-    const exportName = document.getElementById('exportName');
-    btnExportConfirm?.addEventListener('click', () => {
+    const btnExportConfirm = document.getElementById("btnExportConfirm");
+    const exportName = document.getElementById("exportName");
+    btnExportConfirm?.addEventListener("click", () => {
         try {
-            const code = editor.exportMap(exportName.value || 'my-map');
-            const blob = new Blob([code], { type: 'text/plain' });
+            const code = editor.exportMap(exportName.value || "my-map");
+            const blob = new Blob([code], { type: "text/plain" });
             const url = URL.createObjectURL(blob);
             try {
-                const a = document.createElement('a');
+                const a = document.createElement("a");
                 a.href = url;
-                a.download = `${exportName.value || 'my-map'}.txt`;
+                a.download = `${exportName.value || "my-map"}.txt`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -850,47 +862,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     // Zoom controls
-    const btnZoomIn = document.getElementById('btnZoomIn');
-    const btnZoomOut = document.getElementById('btnZoomOut');
-    const btnZoomReset = document.getElementById('btnZoomReset');
-    btnZoomIn?.addEventListener('click', () => {
+    const btnZoomIn = document.getElementById("btnZoomIn");
+    const btnZoomOut = document.getElementById("btnZoomOut");
+    const btnZoomReset = document.getElementById("btnZoomReset");
+    btnZoomIn?.addEventListener("click", () => {
         editor.zoom = Math.min(editor.maxZoom, editor.zoom * 1.1);
-        const zoomLevelEl = document.getElementById('zoomLevel');
+        const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
-            zoomLevelEl.textContent = Math.round(editor.zoom * 100) + '%';
+            zoomLevelEl.textContent =
+                Math.round(editor.zoom * 100) + "%";
         editor.render();
     });
-    btnZoomOut?.addEventListener('click', () => {
+    btnZoomOut?.addEventListener("click", () => {
         editor.zoom = Math.max(editor.minZoom, editor.zoom * 0.9);
-        const zoomLevelEl = document.getElementById('zoomLevel');
+        const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
-            zoomLevelEl.textContent = Math.round(editor.zoom * 100) + '%';
+            zoomLevelEl.textContent =
+                Math.round(editor.zoom * 100) + "%";
         editor.render();
     });
-    btnZoomReset?.addEventListener('click', () => {
+    btnZoomReset?.addEventListener("click", () => {
         editor.zoom = 1.0;
         editor.panX = 0;
         editor.panY = 0;
-        const zoomLevelEl = document.getElementById('zoomLevel');
+        const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
-            zoomLevelEl.textContent = '100%';
+            zoomLevelEl.textContent = "100%";
         editor.render();
     });
     // Search
-    const searchInput = document.getElementById('searchInput');
-    searchInput?.addEventListener('input', () => {
+    const searchInput = document.getElementById("searchInput");
+    searchInput?.addEventListener("input", () => {
         const term = searchInput.value.toLowerCase();
         // Only search in visible picker
         const visiblePicker = document.querySelector('#tileCategories:not([style*="display: none"]), #objectCategories:not([style*="display: none"])');
         if (visiblePicker) {
-            visiblePicker.querySelectorAll('.sprite-item').forEach(el => {
-                const title = el.getAttribute('title') || '';
-                const txt = el.textContent || '';
-                if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
-                    el.style.display = '';
+            visiblePicker.querySelectorAll(".sprite-item").forEach((el) => {
+                const title = el.getAttribute("title") || "";
+                const txt = el.textContent || "";
+                if (title.toLowerCase().includes(term) ||
+                    txt.toLowerCase().includes(term)) {
+                    el.style.display = "";
                 }
                 else {
-                    el.style.display = 'none';
+                    el.style.display = "none";
                 }
             });
         }

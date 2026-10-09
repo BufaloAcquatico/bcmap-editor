@@ -1,27 +1,27 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  test:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/dist
-    # Run E2E tests
-    command: pnpm test:e2e
-    # For debugging, uncomment below:
-    # command: sleep infinity
-    # Then: docker compose -f docker-compose.test.yml run test pnpm test:e2e
+    test:
+        build:
+            context: .
+            dockerfile: Dockerfile.test
+        volumes:
+            - .:/app
+            - /app/node_modules
+            - /app/dist
+        # Run E2E tests
+        command: pnpm test:e2e
+        # For debugging, uncomment below:
+        # command: sleep infinity
+        # Then: docker compose -f docker-compose.test.yml run test pnpm test:e2e
 
-  # Optional: run unit tests too
-  test-unit:
-    build:
-      context: .
-      dockerfile: Dockerfile.test
-    volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/dist
-    command: pnpm test
+    # Optional: run unit tests too
+    test-unit:
+        build:
+            context: .
+            dockerfile: Dockerfile.test
+        volumes:
+            - .:/app
+            - /app/node_modules
+            - /app/dist
+        command: pnpm test
