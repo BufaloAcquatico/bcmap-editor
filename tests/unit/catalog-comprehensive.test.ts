@@ -8,6 +8,7 @@ const mockCtx = {
     restore: () => {},
     translate: () => {},
     scale: () => {},
+    setTransform: () => {},
     drawImage: () => {},
     fillRect: () => {},
     strokeRect: () => {},

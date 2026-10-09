@@ -184,26 +184,20 @@ export class BCMapEditor {
             this.canvas.style.height = rect.height + "px";
             this.canvas.width = rect.width * dpr;
             this.canvas.height = rect.height * dpr;
-            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             this.render();
         }
     }
 
     private getTilePosFromMouse(e: MouseEvent): Point {
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        // Use CSS pixel coordinates (canvas style size) for mouse, since rect is in CSS pixels
-        const cssWidth = this.canvas.clientWidth;
-        const cssHeight = this.canvas.clientHeight;
-        const { startX, startY, tileSize } = this.getDrawBox();
-        // getDrawBox uses canvas.width/height (device pixels), need to convert
+        // getDrawBox works in device pixels, so convert the CSS-pixel pointer
+        // position to device pixels before comparing.
         const dpr = window.devicePixelRatio || 1;
-        const cssStartX = startX / dpr;
-        const cssStartY = startY / dpr;
-        const cssTileSize = tileSize / dpr;
-        const tileX = Math.floor((mouseX - cssStartX) / cssTileSize);
-        const tileY = Math.floor((mouseY - cssStartY) / cssTileSize);
+        const mouseX = (e.clientX - rect.left) * dpr;
+        const mouseY = (e.clientY - rect.top) * dpr;
+        const { startX, startY, tileSize } = this.getDrawBox();
+        const tileX = Math.floor((mouseX - startX) / tileSize);
+        const tileY = Math.floor((mouseY - startY) / tileSize);
         return { X: tileX, Y: tileY };
     }
 
@@ -406,10 +400,16 @@ export class BCMapEditor {
     } {
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
-        const drawSize = Math.min(canvasWidth, canvasHeight) * this.zoom;
+        // Snap the map to whole device pixels so tile edges land exactly on the
+        // pixel grid. Fractional tile sizes cause anti-aliased seams between
+        // adjacent sprites that look like a leftover grid.
+        const drawSize =
+            Math.round(
+                (Math.min(canvasWidth, canvasHeight) * this.zoom) / MAP_WIDTH,
+            ) * MAP_WIDTH;
         const tileSize = drawSize / MAP_WIDTH;
-        const startX = (canvasWidth - drawSize) / 2 + this.panX;
-        const startY = (canvasHeight - drawSize) / 2 + this.panY;
+        const startX = Math.round((canvasWidth - drawSize) / 2 + this.panX);
+        const startY = Math.round((canvasHeight - drawSize) / 2 + this.panY);
         return { size: drawSize, startX, startY, tileSize };
     }
 
@@ -417,6 +417,9 @@ export class BCMapEditor {
         const ctx = this.ctx;
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
+        // Draw in device-pixel space (getDrawBox returns device pixels); the
+        // canvas backing store is already sized by devicePixelRatio.
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#0f0f23";
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 

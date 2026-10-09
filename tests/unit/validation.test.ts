@@ -9,6 +9,7 @@ const mockCtx = {
     restore: vi.fn(),
     translate: vi.fn(),
     scale: vi.fn(),
+    setTransform: vi.fn(),
     drawImage: vi.fn(),
     fillRect: vi.fn(),
     strokeRect: vi.fn(),

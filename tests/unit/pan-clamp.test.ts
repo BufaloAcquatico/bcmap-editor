@@ -101,9 +101,10 @@ describe("Pan clamping", () => {
     });
 
     it("stays within the overscroll margin when the map fits (regression)", () => {
-        (editor as any).zoom = 0.5; // drawSize 300, margin 15
+        (editor as any).zoom = 0.5; // drawSize snaps to 320 (40-px steps)
         ctrlDrag(editor, { x: 0, y: 0 }, { x: 20, y: 10 });
-        expect((editor as any).panX).toBe(15); // clamped to 2 tiles
+        const margin = 2 * (editor as any).getDrawBox().tileSize;
+        expect((editor as any).panX).toBe(margin); // clamped to 2 tiles
         expect((editor as any).panY).toBe(10);
     });
 

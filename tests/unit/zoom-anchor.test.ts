@@ -84,8 +84,14 @@ describe("Position-based zoom", () => {
             x: (anchor.x - boxAfter.startX) / boxAfter.tileSize,
             y: (anchor.y - boxAfter.startY) / boxAfter.tileSize,
         };
-        expect(worldAfter.x).toBeCloseTo(worldBefore.x, 5);
-        expect(worldAfter.y).toBeCloseTo(worldBefore.y, 5);
+        // Pixel snapping can shift the anchor by at most half a snapped pixel.
+        const maxDrift = 0.5 / boxAfter.tileSize + 1e-9;
+        expect(Math.abs(worldAfter.x - worldBefore.x)).toBeLessThanOrEqual(
+            maxDrift,
+        );
+        expect(Math.abs(worldAfter.y - worldBefore.y)).toBeLessThanOrEqual(
+            maxDrift,
+        );
     });
 
     it("keeps pan within the clamp limits after an anchored zoom", () => {
