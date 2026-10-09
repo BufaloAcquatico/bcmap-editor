@@ -186,6 +186,64 @@ test("zoom and pan controls work", async ({ page }: { page: Page }) => {
     expect(zoomText).toMatch(/100%/);
 });
 
+test("ctrl+drag panning does not snap", async ({ page }: { page: Page }) => {
+    await page.goto("http://localhost:8080/map-editor.html");
+    await page.waitForSelector("#mapCanvas");
+
+    const canvas = page.locator("#mapCanvas");
+    const box = (await canvas.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    // Low zoom: the whole map fits, so panning must stay put (used to snap).
+    await page.evaluate(() => (window as any).editor.setZoom(0.25));
+    await page.mouse.move(cx, cy);
+    await page.keyboard.down("Control");
+    await page.mouse.down();
+    await page.mouse.move(cx + 12, cy + 12, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+
+    let pan = await page.evaluate(() => ({
+        x: (window as any).editor.panX,
+        y: (window as any).editor.panY,
+    }));
+    expect(Math.abs(pan.x)).toBeLessThan(1);
+    expect(Math.abs(pan.y)).toBeLessThan(1);
+
+    // High zoom: panning applies and stays within the per-axis limits.
+    await page.evaluate(() => {
+        const e = (window as any).editor;
+        e.resetView();
+        e.setZoom(3);
+    });
+    const limits = await page.evaluate(() => {
+        const e = (window as any).editor;
+        const c = e.canvas;
+        const draw = Math.min(c.width, c.height) * e.zoom;
+        return {
+            x: Math.max(0, (draw - c.width) / 2),
+            y: Math.max(0, (draw - c.height) / 2),
+        };
+    });
+    const dragX = Math.min(100, limits.x);
+    const dragY = Math.min(60, limits.y);
+
+    await page.mouse.move(cx, cy);
+    await page.keyboard.down("Control");
+    await page.mouse.down();
+    await page.mouse.move(cx + dragX, cy + dragY, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+
+    pan = await page.evaluate(() => ({
+        x: (window as any).editor.panX,
+        y: (window as any).editor.panY,
+    }));
+    expect(pan.x).toBeCloseTo(dragX, 0);
+    expect(pan.y).toBeCloseTo(dragY, 0);
+});
+
 test("layer toggle switches pickers", async ({ page }: { page: Page }) => {
     await page.goto("http://localhost:8080/map-editor.html");
     await page.waitForSelector("#layerTile");

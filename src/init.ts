@@ -106,36 +106,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnZoomReset = document.getElementById("btnZoomReset");
 
     btnZoomIn?.addEventListener("click", () => {
-        (editor as any).zoom = Math.min(
-            (editor as any).maxZoom,
-            (editor as any).zoom * 1.1,
-        );
-        const zoomLevelEl = document.getElementById("zoomLevel");
-        if (zoomLevelEl)
-            zoomLevelEl.textContent =
-                Math.round((editor as any).zoom * 100) + "%";
-        (editor as any).render();
+        editor.setZoom(editor.zoom * 1.1);
     });
 
     btnZoomOut?.addEventListener("click", () => {
-        (editor as any).zoom = Math.max(
-            (editor as any).minZoom,
-            (editor as any).zoom * 0.9,
-        );
-        const zoomLevelEl = document.getElementById("zoomLevel");
-        if (zoomLevelEl)
-            zoomLevelEl.textContent =
-                Math.round((editor as any).zoom * 100) + "%";
-        (editor as any).render();
+        editor.setZoom(editor.zoom * 0.9);
     });
 
     btnZoomReset?.addEventListener("click", () => {
-        (editor as any).zoom = 1.0;
-        (editor as any).panX = 0;
-        (editor as any).panY = 0;
-        const zoomLevelEl = document.getElementById("zoomLevel");
-        if (zoomLevelEl) zoomLevelEl.textContent = "100%";
-        (editor as any).render();
+        editor.resetView();
     });
 
     // Search

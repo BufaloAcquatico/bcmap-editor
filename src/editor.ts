@@ -216,14 +216,16 @@ export class BCMapEditor {
 
     private onCanvasWheel(e: WheelEvent): void {
         e.preventDefault();
-        if (e.deltaY < 0) {
-            this.zoom = Math.min(this.maxZoom, this.zoom * ZOOM_IN_FACTOR);
-        } else {
-            this.zoom = Math.max(this.minZoom, this.zoom * ZOOM_OUT_FACTOR);
-        }
+        const factor = e.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
+        this.setZoom(this.zoom * factor);
+    }
+
+    public setZoom(zoom: number): void {
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
         const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
             zoomLevelEl.textContent = Math.round(this.zoom * 100) + "%";
+        this.clampPan();
         this.render();
     }
 
@@ -264,15 +266,7 @@ export class BCMapEditor {
             if (this.isPanning) {
                 this.panX += dx * (window.devicePixelRatio || 1);
                 this.panY += dy * (window.devicePixelRatio || 1);
-                // Clamp pan to keep map reasonably visible within square drawing box
-                const { size: drawSize } = this.getDrawBox();
-                const canvas = this.canvas;
-                const maxPan = canvas.width * 0.3;
-                const minPan = -drawSize + canvas.width * 0.7;
-                if (this.panX > maxPan) this.panX = maxPan;
-                if (this.panY > maxPan) this.panY = maxPan;
-                if (this.panX < minPan) this.panX = minPan;
-                if (this.panY < minPan) this.panY = minPan;
+                this.clampPan();
                 this.render();
             } else if (this.isPainting) {
                 this.paintAt(pos);
@@ -312,6 +306,17 @@ export class BCMapEditor {
         if (type === "WallPath") return "#654321";
         if (type === "Banners") return "#FF6347";
         return "#FF69B4";
+    }
+
+    private clampPan(): void {
+        // Keep the square drawing box clamped to the viewport borders on each
+        // axis independently. Limits are always >= 0 so they can never invert,
+        // and they stay symmetric around the centered position.
+        const { size: drawSize } = this.getDrawBox();
+        const limitX = Math.max(0, (drawSize - this.canvas.width) / 2);
+        const limitY = Math.max(0, (drawSize - this.canvas.height) / 2);
+        this.panX = Math.max(-limitX, Math.min(limitX, this.panX));
+        this.panY = Math.max(-limitY, Math.min(limitY, this.panY));
     }
 
     private getDrawBox(): {
@@ -480,10 +485,7 @@ export class BCMapEditor {
                 }
             }
             this.mapData = parsed as MapData;
-            this.panX = 0;
-            this.panY = 0;
-            this.zoom = 1.0;
-            this.render();
+            this.resetView();
         } catch (e) {
             throw new Error("Failed to import map: " + e);
         }
@@ -493,9 +495,15 @@ export class BCMapEditor {
     }
     public newMap(): void {
         this.mapData = this.createDefaultMap();
+        this.resetView();
+    }
+
+    public resetView(): void {
+        this.zoom = 1.0;
         this.panX = 0;
         this.panY = 0;
-        this.zoom = 1.0;
+        const zoomLevelEl = document.getElementById("zoomLevel");
+        if (zoomLevelEl) zoomLevelEl.textContent = "100%";
         this.render();
     }
 
