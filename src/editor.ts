@@ -48,6 +48,9 @@ export class BCMapEditor {
   private selectedObject: ObjectDef | null = null;
   private isDragging = false;
   private lastMousePos = { x: 0, y: 0 };
+  private panX = 0;
+  private panY = 0;
+  private isPanning = false;
   private tileCatalog: TileDef[] = [];
   private objectCatalog: ObjectDef[] = [];
   private tileImageCache: Map<string, HTMLImageElement> = new Map();
@@ -216,19 +219,29 @@ export class BCMapEditor {
 
   private onCanvasMouseDown(e: MouseEvent): void {
     this.isDragging = true;
+    this.isPanning = e.button === 1 || e.button === 2 || (e.ctrlKey || e.metaKey);
     const rect = this.canvas.getBoundingClientRect();
     this.lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if (e.button === 2) e.preventDefault();
   }
 
   private onCanvasMouseMove(e: MouseEvent): void {
     if (!this.isDragging) return;
     const rect = this.canvas.getBoundingClientRect();
     const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const dx = currentPos.x - this.lastMousePos.x;
+    const dy = currentPos.y - this.lastMousePos.y;
+    if (this.isPanning) {
+      this.panX += dx;
+      this.panY += dy;
+      this.render();
+    }
     this.lastMousePos = currentPos;
   }
 
   private onCanvasMouseUp(): void {
     this.isDragging = false;
+    this.isPanning = false;
   }
 
   private getTileColor(type: string, style: string): string {
