@@ -122,24 +122,27 @@ document.addEventListener("DOMContentLoaded", () => {
         "searchInput",
     ) as HTMLInputElement;
     searchInput?.addEventListener("input", () => {
-        const term = searchInput.value.toLowerCase();
-        // Only search in visible picker
-        const visiblePicker = document.querySelector(
-            '#tileCategories:not([style*="display: none"]), #objectCategories:not([style*="display: none"])',
-        );
-        if (visiblePicker) {
-            visiblePicker.querySelectorAll(".sprite-item").forEach((el) => {
-                const title = el.getAttribute("title") || "";
-                const txt = el.textContent || "";
-                if (
-                    title.toLowerCase().includes(term) ||
-                    txt.toLowerCase().includes(term)
-                ) {
-                    (el as HTMLElement).style.display = "";
-                } else {
-                    (el as HTMLElement).style.display = "none";
-                }
-            });
-        }
+        editor.filterPickers(searchInput.value);
+    });
+
+    // Grid toggle (button + G keybind)
+    const btnToggleGrid = document.getElementById("btnToggleGrid");
+    const syncGridButton = () => {
+        btnToggleGrid?.classList.toggle("active", editor.getGridVisible());
+    };
+    btnToggleGrid?.addEventListener("click", () => {
+        editor.toggleGrid();
+        syncGridButton();
+    });
+    window.addEventListener("keydown", (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key.toLowerCase() !== "g") return;
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
+            return;
+        e.preventDefault();
+        editor.toggleGrid();
+        syncGridButton();
     });
 });
