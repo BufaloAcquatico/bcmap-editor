@@ -26,8 +26,11 @@
     .sidebar { background-color: #16213e; border-right: 1px solid #2a2a4a; }
     .map-panel { background-color: #0f0f23; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     .btn-toolbar .btn { border-radius: 0.375rem; }
-    .category-header { cursor: pointer; user-select: none; }
+    .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; }
     .category-header:hover { background-color: #2a2a4a; }
+    .category-caret { font-size: 0.75rem; transition: transform 0.15s ease; }
+    .category-caret.expanded { transform: rotate(90deg); }
+    .category-content { display: flex; flex-wrap: wrap; }
     .sprite-item { 
       display: inline-block; 
       width: 48px; 
@@ -59,7 +62,10 @@
     .form-control, .form-select { background-color: #0f0f23; border-color: #2a2a4a; color: #eaeaea; }
     .form-control:focus, .form-select:focus { background-color: #0f0f23; border-color: #0d6efd; color: #eaeaea; box-shadow: 0 0 0 0.25rem rgba(13,110,253,0.25); }
     .search-box { width: 100%; }
-    .layer-toggle .btn.active { background-color: #0d6efd; border-color: #0d6efd; }
+    .layer-tabs { border-bottom: 1px solid #2a2a4a; }
+    .layer-tabs .nav-link { color: #adb5bd; cursor: pointer; }
+    .layer-tabs .nav-link:hover { color: #fff; }
+    .layer-tabs .btn-check:checked + .nav-link { color: #fff; border-color: #0d6efd; }
     .zoom-display { min-width: 80px; text-align: center; }
     .controls-help {
       position: absolute;
@@ -95,18 +101,13 @@
       <button id="btnExport" class="btn btn-sm btn-outline-light" title="Export Map"><i class="bi bi-download"></i></button>
     </div>
     <div class="d-flex gap-2 align-items-center">
-      <div class="btn-group layer-toggle" role="group">
-        <input type="radio" class="btn-check" name="layer" id="layerTile" value="tile" checked autocomplete="off">
-        <label class="btn btn-sm btn-outline-light" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
-        <input type="radio" class="btn-check" name="layer" id="layerObject" value="object" autocomplete="off">
-        <label class="btn btn-sm btn-outline-light" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
-      </div>
       <div class="zoom-display text-light">
         Zoom: <span id="zoomLevel">100%</span>
       </div>
       <button id="btnZoomIn" class="btn btn-sm btn-outline-light" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
       <button id="btnZoomOut" class="btn btn-sm btn-outline-light" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
       <button id="btnZoomReset" class="btn btn-sm btn-outline-light" title="Reset Zoom"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btnToggleGrid" class="btn btn-sm btn-outline-light active" title="Toggle Grid (G)"><i class="bi bi-grid"></i></button>
     </div>
   </div>
 
@@ -114,6 +115,12 @@
   <div class="flex-1 d-flex" style="flex: 1; min-height: 0; overflow: hidden;">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar d-flex flex-column" style="width: 320px; min-width: 320px; max-width: 400px; overflow: hidden;">
+      <div class="nav nav-tabs layer-tabs px-2 pt-2">
+        <input type="radio" class="btn-check" name="layer" id="layerTile" value="tile" checked autocomplete="off">
+        <label class="nav-link" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
+        <input type="radio" class="btn-check" name="layer" id="layerObject" value="object" autocomplete="off">
+        <label class="nav-link" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
+      </div>
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
@@ -123,7 +130,6 @@
       <div class="flex-1 overflow-auto" id="sidebarContent">
         <!-- Tile Picker Sections -->
         <div id="tileCategories"></div>
-        <hr class="border-secondary my-2">
         <!-- Object Picker Sections -->
         <div id="objectCategories"></div>
       </div>
@@ -137,13 +143,14 @@
         <div><kbd>Left click</kbd> / <kbd>drag</kbd> &mdash; paint</div>
         <div><kbd>Ctrl</kbd> + <kbd>left drag</kbd> &mdash; pan</div>
         <div><kbd>Wheel</kbd> &mdash; zoom</div>
+        <div><kbd>G</kbd> &mdash; toggle grid</div>
       </div>
     </main>
   </div>
 
   <!-- Status Bar -->
   <div class="status-bar p-2 d-flex justify-content-between align-items-center">
-    <div id="statusPosition">Position: (0, 0)</div>
+    <div id="statusPosition">Position: (—, —)</div>
     <div id="statusSelection">No selection</div>
     <div id="statusMapSize">Map: 40x40</div>
   </div>
@@ -657,8 +664,9 @@ const catalog_1 = window;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.GRASS_TILE_ID = 210;
-const ZOOM_IN_FACTOR = 1.1;
-const ZOOM_OUT_FACTOR = 0.9;
+const WHEEL_ZOOM_FACTOR = 1.08;
+const ZOOM_ANIMATION_EASE = 0.25;
+const ZOOM_ANIMATION_EPSILON = 0.001;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3.0;
 const OBJECT_DRAW_MARGIN = 0.2;
@@ -689,6 +697,15 @@ class BCMapEditor {
         this.objectImageCache = new Map();
         this.tileMap = new Map();
         this.objectMap = new Map();
+        this.searchTerm = "";
+        this.tileCategoryEls = [];
+        this.objectCategoryEls = [];
+        this.tilePickerItemById = new Map();
+        this.objectPickerItemById = new Map();
+        this.showGrid = true;
+        this.zoomTarget = 1.0;
+        this.zoomAnchor = null;
+        this.zoomAnimating = false;
         const canvasElement = document.getElementById(canvasId);
         if (!canvasElement)
             throw new Error(`Canvas element #${canvasId} not found`);
@@ -699,6 +716,7 @@ class BCMapEditor {
         this.ctx = ctx;
         this.mapData = this.createDefaultMap();
         this.initCatalogs();
+        this.applyDefaultSelection();
         this.init();
         this.preloadImages();
     }
@@ -814,16 +832,67 @@ class BCMapEditor {
     }
     onCanvasWheel(e) {
         e.preventDefault();
-        const factor = e.deltaY < 0 ? ZOOM_IN_FACTOR : ZOOM_OUT_FACTOR;
-        this.setZoom(this.zoom * factor);
+        const rect = this.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const anchor = {
+            x: (e.clientX - rect.left) * dpr,
+            y: (e.clientY - rect.top) * dpr,
+        };
+        const factor = e.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR;
+        const base = this.zoomAnimating ? this.zoomTarget : this.zoom;
+        this.zoomTarget = Math.max(this.minZoom, Math.min(this.maxZoom, base * factor));
+        this.zoomAnchor = anchor;
+        if (!this.zoomAnimating) {
+            this.zoomAnimating = true;
+            this.animateZoomStep();
+        }
     }
-    setZoom(zoom) {
-        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
+    animateZoomStep() {
+        const anchor = this.zoomAnchor;
+        const next = this.zoom + (this.zoomTarget - this.zoom) * ZOOM_ANIMATION_EASE;
+        const done = Math.abs(this.zoomTarget - next) < ZOOM_ANIMATION_EPSILON ||
+            next === this.zoom;
+        this.applyZoom(done ? this.zoomTarget : next, anchor ?? undefined);
+        if (done) {
+            this.zoomAnimating = false;
+            this.zoomAnchor = null;
+            return;
+        }
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => this.animateZoomStep());
+        }
+        else {
+            this.zoomAnimating = false;
+            this.zoomAnchor = null;
+        }
+    }
+    applyZoom(zoom, anchor) {
+        const target = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
+        if (anchor) {
+            const before = this.getDrawBox();
+            const worldX = (anchor.x - before.startX) / before.tileSize;
+            const worldY = (anchor.y - before.startY) / before.tileSize;
+            this.zoom = target;
+            const after = this.getDrawBox();
+            this.panX += anchor.x - (after.startX + worldX * after.tileSize);
+            this.panY += anchor.y - (after.startY + worldY * after.tileSize);
+        }
+        else {
+            this.zoom = target;
+        }
         const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
             zoomLevelEl.textContent = Math.round(this.zoom * 100) + "%";
         this.clampPan();
         this.render();
+    }
+    setZoom(zoom, anchor) {
+        // A manual zoom cancels any in-flight wheel animation.
+        const target = Math.max(this.minZoom, Math.min(this.maxZoom, zoom));
+        this.zoomAnimating = false;
+        this.zoomAnchor = null;
+        this.zoomTarget = target;
+        this.applyZoom(target, anchor);
     }
     onCanvasMouseDown(e) {
         const isLeftButton = e.button === 0;
@@ -854,6 +923,7 @@ class BCMapEditor {
             this.hoveredTile.X !== pos.X ||
             this.hoveredTile.Y !== pos.Y;
         this.hoveredTile = pos;
+        this.updateStatusPosition(pos);
         if (this.isDragging) {
             const dx = currentPos.x - this.lastMousePos.x;
             const dy = currentPos.y - this.lastMousePos.y;
@@ -880,6 +950,7 @@ class BCMapEditor {
     onCanvasMouseLeave() {
         this.onCanvasMouseUp();
         this.hoveredTile = null;
+        this.updateStatusPosition(null);
         this.render();
     }
     getTileColor(type, style) {
@@ -985,19 +1056,21 @@ class BCMapEditor {
             }
         }
         // Render grid (dark, semi-transparent)
-        ctx.strokeStyle = GRID_COLOR;
-        ctx.lineWidth = GRID_LINE_WIDTH;
-        for (let i = 0; i <= window.MAP_WIDTH; i++) {
-            ctx.beginPath();
-            ctx.moveTo(startX + i * tileSize, startY);
-            ctx.lineTo(startX + i * tileSize, startY + window.MAP_HEIGHT * tileSize);
-            ctx.stroke();
-        }
-        for (let j = 0; j <= window.MAP_HEIGHT; j++) {
-            ctx.beginPath();
-            ctx.moveTo(startX, startY + j * tileSize);
-            ctx.lineTo(startX + window.MAP_WIDTH * tileSize, startY + j * tileSize);
-            ctx.stroke();
+        if (this.showGrid) {
+            ctx.strokeStyle = GRID_COLOR;
+            ctx.lineWidth = GRID_LINE_WIDTH;
+            for (let i = 0; i <= window.MAP_WIDTH; i++) {
+                ctx.beginPath();
+                ctx.moveTo(startX + i * tileSize, startY);
+                ctx.lineTo(startX + i * tileSize, startY + window.MAP_HEIGHT * tileSize);
+                ctx.stroke();
+            }
+            for (let j = 0; j <= window.MAP_HEIGHT; j++) {
+                ctx.beginPath();
+                ctx.moveTo(startX, startY + j * tileSize);
+                ctx.lineTo(startX + window.MAP_WIDTH * tileSize, startY + j * tileSize);
+                ctx.stroke();
+            }
         }
         // Highlight only the hovered tile with a light white outline
         const hover = this.hoveredTile;
@@ -1011,15 +1084,69 @@ class BCMapEditor {
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
     }
+    updateStatusPosition(pos) {
+        const el = document.getElementById("statusPosition");
+        if (!el)
+            return;
+        if (pos &&
+            pos.X >= 0 &&
+            pos.X < window.MAP_WIDTH &&
+            pos.Y >= 0 &&
+            pos.Y < window.MAP_HEIGHT) {
+            el.textContent = `Position: (${pos.X}, ${pos.Y})`;
+        }
+        else {
+            el.textContent = "Position: (—, —)";
+        }
+    }
+    updateStatusSelection() {
+        const el = document.getElementById("statusSelection");
+        if (!el)
+            return;
+        if (this.currentLayer === "object" && this.selectedObject) {
+            el.textContent =
+                this.selectedObject.Style === "Blank"
+                    ? "Selection: Blank (Erase)"
+                    : `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
+        }
+        else if (this.currentLayer === "tile" && this.selectedTile) {
+            el.textContent = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
+        }
+        else {
+            el.textContent = "No selection";
+        }
+    }
+    applyDefaultSelection() {
+        if (!this.selectedTile) {
+            this.selectedTile = this.tileMap.get(window.GRASS_TILE_ID) ?? null;
+        }
+        if (!this.selectedObject) {
+            this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
+        }
+        this.updateStatusSelection();
+        this.syncPickerSelection();
+    }
     setCurrentLayer(layer) {
         this.currentLayer = layer;
+        this.applyDefaultSelection();
         this.updatePickerVisibility();
+        this.filterPickers(this.searchTerm);
     }
     setSelectedTile(tile) {
         this.selectedTile = tile;
+        this.updateStatusSelection();
+        this.syncPickerSelection();
     }
     setSelectedObject(obj) {
         this.selectedObject = obj;
+        this.updateStatusSelection();
+        this.syncPickerSelection();
+    }
+    getSelectedTile() {
+        return this.selectedTile;
+    }
+    getSelectedObject() {
+        return this.selectedObject;
     }
     exportMap(name) {
         const data = {
@@ -1073,22 +1200,98 @@ class BCMapEditor {
     }
     newMap() {
         this.mapData = this.createDefaultMap();
+        this.selectedTile = this.tileMap.get(window.GRASS_TILE_ID) ?? null;
+        this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
+        this.updateStatusSelection();
+        this.syncPickerSelection();
         this.resetView();
     }
     resetView() {
         this.zoom = 1.0;
         this.panX = 0;
         this.panY = 0;
+        this.zoomTarget = 1.0;
+        this.zoomAnchor = null;
+        this.zoomAnimating = false;
         const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl)
             zoomLevelEl.textContent = "100%";
         this.render();
+    }
+    toggleGrid() {
+        this.setGridVisible(!this.showGrid);
+    }
+    setGridVisible(visible) {
+        this.showGrid = visible;
+        this.render();
+    }
+    getGridVisible() {
+        return this.showGrid;
+    }
+    createCategoryHeader(name) {
+        const header = document.createElement("div");
+        header.className =
+            "category-header p-2 border-bottom border-secondary d-flex align-items-center gap-2";
+        const caret = document.createElement("i");
+        caret.className = "bi bi-caret-right-fill category-caret";
+        const label = document.createElement("span");
+        label.textContent = name;
+        header.appendChild(caret);
+        header.appendChild(label);
+        const content = document.createElement("div");
+        content.className = "category-content p-2";
+        const entry = { content, caret, collapsed: false };
+        header.addEventListener("click", () => this.setCategoryCollapsed(entry, !entry.collapsed));
+        return { header, entry };
+    }
+    setCategoryCollapsed(entry, collapsed) {
+        entry.collapsed = collapsed;
+        entry.content.style.display = collapsed ? "none" : "";
+        if (collapsed)
+            entry.caret.classList?.remove("expanded");
+        else
+            entry.caret.classList?.add("expanded");
+    }
+    syncPickerSelection() {
+        this.tilePickerItemById.forEach((el, id) => {
+            el.classList?.toggle("selected", this.selectedTile?.ID === id);
+        });
+        this.objectPickerItemById.forEach((el, id) => {
+            el.classList?.toggle("selected", this.selectedObject?.ID === id);
+        });
+    }
+    filterPickers(term) {
+        this.searchTerm = term;
+        const lowered = term.trim().toLowerCase();
+        const entries = this.currentLayer === "tile"
+            ? this.tileCategoryEls
+            : this.objectCategoryEls;
+        entries.forEach((entry) => {
+            const items = entry.content.querySelectorAll(".sprite-item");
+            let matches = 0;
+            items.forEach((el) => {
+                const htmlEl = el;
+                const title = htmlEl.getAttribute?.("title") || "";
+                const txt = htmlEl.textContent || "";
+                const match = lowered === "" ||
+                    title.toLowerCase().includes(lowered) ||
+                    txt.toLowerCase().includes(lowered);
+                htmlEl.style.display = match ? "" : "none";
+                if (match)
+                    matches++;
+            });
+            this.setCategoryCollapsed(entry, lowered === "" ? true : matches === 0);
+        });
     }
     populatePickers() {
         const tileCategories = document.getElementById("tileCategories");
         const objectCategories = document.getElementById("objectCategories");
         if (!tileCategories || !objectCategories)
             return;
+        this.tileCategoryEls = [];
+        this.objectCategoryEls = [];
+        this.tilePickerItemById.clear();
+        this.objectPickerItemById.clear();
         const tileGroups = new Map();
         this.tileCatalog.forEach((t) => {
             if (!tileGroups.has(t.Type))
@@ -1097,12 +1300,9 @@ class BCMapEditor {
         });
         tileCategories.innerHTML = "";
         tileGroups.forEach((tiles, type) => {
-            const header = document.createElement("div");
-            header.className =
-                "category-header p-2 border-bottom border-secondary";
-            header.textContent = type;
-            const container = document.createElement("div");
-            container.className = "category-content p-2 d-flex flex-wrap";
+            const { header, entry } = this.createCategoryHeader(type);
+            this.tileCategoryEls.push(entry);
+            const container = entry.content;
             tiles.forEach((tile) => {
                 const item = document.createElement("div");
                 item.className = "sprite-item";
@@ -1111,13 +1311,10 @@ class BCMapEditor {
                     "url(assets/tiles/" + key + ".png)";
                 item.title = tile.Style;
                 item.addEventListener("click", () => {
-                    document
-                        .querySelectorAll("#tileCategories .sprite-item")
-                        .forEach((el) => el.classList.remove("selected"));
-                    item.classList.add("selected");
-                    this.selectedTile = tile;
+                    this.setSelectedTile(tile);
                 });
                 container.appendChild(item);
+                this.tilePickerItemById.set(tile.ID, item);
             });
             tileCategories.appendChild(header);
             tileCategories.appendChild(container);
@@ -1144,12 +1341,9 @@ class BCMapEditor {
         });
         objectCategories.innerHTML = "";
         objGroups.forEach((objs, group) => {
-            const header = document.createElement("div");
-            header.className =
-                "category-header p-2 border-bottom border-secondary";
-            header.textContent = group;
-            const container = document.createElement("div");
-            container.className = "category-content p-2 d-flex flex-wrap";
+            const { header, entry } = this.createCategoryHeader(group);
+            this.objectCategoryEls.push(entry);
+            const container = entry.content;
             objs.forEach((obj) => {
                 const item = document.createElement("div");
                 item.className = "sprite-item";
@@ -1165,18 +1359,18 @@ class BCMapEditor {
                     item.title = "Blank (Erase)";
                 }
                 item.addEventListener("click", () => {
-                    document
-                        .querySelectorAll("#objectCategories .sprite-item")
-                        .forEach((el) => el.classList.remove("selected"));
-                    item.classList.add("selected");
-                    this.selectedObject = obj;
+                    this.setSelectedObject(obj);
                 });
                 container.appendChild(item);
+                this.objectPickerItemById.set(obj.ID, item);
             });
             objectCategories.appendChild(header);
             objectCategories.appendChild(container);
         });
+        this.tileCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true));
+        this.objectCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true));
         this.updatePickerVisibility();
+        this.syncPickerSelection();
     }
     updatePickerVisibility() {
         const tileCategories = document.getElementById("tileCategories");
@@ -1301,22 +1495,29 @@ document.addEventListener("DOMContentLoaded", () => {
     // Search
     const searchInput = document.getElementById("searchInput");
     searchInput?.addEventListener("input", () => {
-        const term = searchInput.value.toLowerCase();
-        // Only search in visible picker
-        const visiblePicker = document.querySelector('#tileCategories:not([style*="display: none"]), #objectCategories:not([style*="display: none"])');
-        if (visiblePicker) {
-            visiblePicker.querySelectorAll(".sprite-item").forEach((el) => {
-                const title = el.getAttribute("title") || "";
-                const txt = el.textContent || "";
-                if (title.toLowerCase().includes(term) ||
-                    txt.toLowerCase().includes(term)) {
-                    el.style.display = "";
-                }
-                else {
-                    el.style.display = "none";
-                }
-            });
-        }
+        editor.filterPickers(searchInput.value);
+    });
+    // Grid toggle (button + G keybind)
+    const btnToggleGrid = document.getElementById("btnToggleGrid");
+    const syncGridButton = () => {
+        btnToggleGrid?.classList.toggle("active", editor.getGridVisible());
+    };
+    btnToggleGrid?.addEventListener("click", () => {
+        editor.toggleGrid();
+        syncGridButton();
+    });
+    window.addEventListener("keydown", (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey)
+            return;
+        if (e.key.toLowerCase() !== "g")
+            return;
+        const target = e.target;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
+            return;
+        e.preventDefault();
+        editor.toggleGrid();
+        syncGridButton();
     });
 });
 
