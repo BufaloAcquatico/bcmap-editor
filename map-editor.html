@@ -202,6 +202,7 @@
 // BCMap Editor - TypeScript Source
 window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
 const lz_string_1 = LZString;
+const catalog_1 = 
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.GRASS_TILE_ID = 210;
@@ -273,7 +274,7 @@ class BCMapEditor {
     createDefaultMap() {
         const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
         const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
-        const objects = String.fromCharCode(10000).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+        const objects = String.fromCharCode(catalog_1.BLANK_OBJECT_ID).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
         return {
             Type: "Always",
             Tiles: tiles,
@@ -281,134 +282,10 @@ class BCMapEditor {
         };
     }
     initCatalogs() {
-        this.tileCatalog = [
-            { ID: 100, Type: "Floor", Style: "OakWood" },
-            { ID: 110, Type: "Floor", Style: "Stone" },
-            { ID: 115, Type: "Floor", Style: "Pavement" },
-            { ID: 120, Type: "Floor", Style: "Ceramic" },
-            { ID: 121, Type: "Floor", Style: "CeramicDark" },
-            { ID: 130, Type: "Floor", Style: "CarpetPink" },
-            { ID: 131, Type: "Floor", Style: "CarpetBlue" },
-            { ID: 132, Type: "Floor", Style: "CarpetRed" },
-            { ID: 140, Type: "Floor", Style: "Padded" },
-            { ID: 150, Type: "Floor", Style: "LatexFloor" },
-            { ID: 160, Type: "Floor", Style: "Tile" },
-            { ID: 170, Type: "Floor", Style: "HexBlue" },
-            { ID: 171, Type: "Floor", Style: "HexPurple" },
-            { ID: 172, Type: "Floor", Style: "Machine" },
-            { ID: 199, Type: "Floor", Style: "HalfWall" },
-            { ID: 200, Type: "FloorExterior", Style: "Dirt" },
-            { ID: 210, Type: "FloorExterior", Style: "Grass" },
-            { ID: 215, Type: "FloorExterior", Style: "LongGrass" },
-            { ID: 220, Type: "FloorExterior", Style: "Sand" },
-            { ID: 230, Type: "FloorExterior", Style: "Gravel" },
-            { ID: 235, Type: "FloorExterior", Style: "Asphalt" },
-            { ID: 240, Type: "FloorExterior", Style: "Snow" },
-            { ID: 250, Type: "FloorExterior", Style: "StoneSquareGray" },
-            { ID: 260, Type: "FloorExterior", Style: "ScatteredLeaves" },
-            { ID: 270, Type: "FloorExterior", Style: "ScatteredLeavesDirt" },
-            { ID: 280, Type: "FloorExterior", Style: "ScatteredLeavesThick" },
-            { ID: 1000, Type: "Wall", Style: "MixedWood" },
-            { ID: 1001, Type: "Wall", Style: "CedarWood" },
-            { ID: 1010, Type: "Wall", Style: "Log" },
-            { ID: 1020, Type: "Wall", Style: "Japanese" },
-            { ID: 1030, Type: "Wall", Style: "Stone" },
-            { ID: 1040, Type: "Wall", Style: "Brick" },
-            { ID: 1050, Type: "Wall", Style: "Dungeon" },
-            { ID: 1060, Type: "Wall", Style: "Square" },
-            { ID: 1070, Type: "Wall", Style: "Steel" },
-            { ID: 1080, Type: "Wall", Style: "Padded" },
-            { ID: 1090, Type: "Wall", Style: "Tile" },
-            { ID: 1100, Type: "Wall", Style: "Lattice" },
-            { ID: 1200, Type: "Wall", Style: "HexBlue" },
-            { ID: 1201, Type: "Wall", Style: "HexPurple" },
-            { ID: 1202, Type: "Wall", Style: "PipeBlue" },
-            { ID: 1203, Type: "Wall", Style: "PipePurple" },
-            { ID: 1204, Type: "Wall", Style: "SteelBlack" },
-            { ID: 1205, Type: "Wall", Style: "SteelGary" },
-            { ID: 2000, Type: "Water", Style: "Pool" },
-            { ID: 2010, Type: "Water", Style: "Sea" },
-            { ID: 2020, Type: "Water", Style: "Ocean" },
-            { ID: 2025, Type: "Water", Style: "OceanCyan" },
-            { ID: 2030, Type: "Water", Style: "OceanCalm" },
-            { ID: 2040, Type: "Water", Style: "Swamp" },
-            { ID: 2050, Type: "Water", Style: "Waves" },
-            { ID: 2060, Type: "Water", Style: "Shallow" },
-            { ID: 2090, Type: "Water", Style: "Lava" },
-        ];
-        this.objectCatalog = [
-            // Blank (erase)
-            { ID: 10000, Type: "Blank", Style: "Blank" },
-            // Floor Decorations - Animal
-            { ID: 101, Type: "FloorDecorationAnimal", Style: "CatCaramelHappy" },
-            { ID: 102, Type: "FloorDecorationAnimal", Style: "ChickenBrownIdleLeft" },
-            { ID: 103, Type: "FloorDecorationAnimal", Style: "DogBrownHappy" },
-            { ID: 104, Type: "FloorDecorationAnimal", Style: "RabbitBrownStand" },
-            // Floor Decorations - Camping
-            { ID: 105, Type: "FloorDecorationCamping", Style: "LogFire" },
-            // Floor Decorations - Expanding
-            { ID: 106, Type: "FloorDecorationExpanding", Style: "CouchPinkPreview" },
-            // Floor Decorations - Party
-            { ID: 107, Type: "FloorDecorationParty", Style: "BalloonFiveColor" },
-            // Floor Decorations - Themed
-            { ID: 108, Type: "FloorDecorationThemed", Style: "ShibariFrame" },
-            // Floor Items
-            { ID: 200, Type: "FloorItem", Style: "BondageBench" },
-            { ID: 201, Type: "FloorItem", Style: "Coffin" },
-            { ID: 202, Type: "FloorItem", Style: "FuturisticCrate" },
-            { ID: 203, Type: "FloorItem", Style: "Kennel" },
-            { ID: 204, Type: "FloorItem", Style: "MedicalBed" },
-            { ID: 205, Type: "FloorItem", Style: "Pole" },
-            { ID: 206, Type: "FloorItem", Style: "TheDisplayFrame" },
-            { ID: 207, Type: "FloorItem", Style: "Trolley" },
-            { ID: 208, Type: "FloorItem", Style: "WoodenBox" },
-            { ID: 209, Type: "FloorItem", Style: "X-Cross" },
-            // Floor Obstacles
-            { ID: 300, Type: "FloorObstacle", Style: "Cactus" },
-            { ID: 301, Type: "FloorObstacle", Style: "ChristmasTree" },
-            { ID: 302, Type: "FloorObstacle", Style: "LampPost" },
-            { ID: 303, Type: "FloorObstacle", Style: "LeaflessTree" },
-            { ID: 304, Type: "FloorObstacle", Style: "OakTree" },
-            { ID: 305, Type: "FloorObstacle", Style: "PalmTree" },
-            { ID: 306, Type: "FloorObstacle", Style: "PineTree" },
-            { ID: 307, Type: "FloorObstacle", Style: "RoadCone" },
-            { ID: 308, Type: "FloorObstacle", Style: "Sakura" },
-            { ID: 309, Type: "FloorObstacle", Style: "TrashCan" },
-            { ID: 310, Type: "FloorObstacle", Style: "VelourRopeBarrier" },
-            { ID: 311, Type: "FloorObstacle", Style: "Window" },
-            { ID: 312, Type: "FloorObstacle", Style: "Pillar" },
-            // Wall Decorations
-            { ID: 400, Type: "WallDecoration", Style: "Candelabra0" },
-            { ID: 401, Type: "WallDecoration", Style: "Painting" },
-            { ID: 402, Type: "WallDecoration", Style: "Stocking" },
-            { ID: 403, Type: "WallDecoration", Style: "Whip" },
-            // Wall Paths
-            { ID: 500, Type: "WallPath", Style: "BrownDoor" },
-            { ID: 501, Type: "WallPath", Style: "BrownDoorOpen" },
-            { ID: 502, Type: "WallPath", Style: "Metal" },
-            { ID: 503, Type: "WallPath", Style: "MetalDown" },
-            { ID: 504, Type: "WallPath", Style: "MetalLockedBronze" },
-            { ID: 505, Type: "WallPath", Style: "MetalLockedGold" },
-            { ID: 506, Type: "WallPath", Style: "MetalLockedSilver" },
-            { ID: 507, Type: "WallPath", Style: "MetalUp" },
-            { ID: 508, Type: "WallPath", Style: "WoodClosed" },
-            { ID: 509, Type: "WallPath", Style: "WoodLocked" },
-            { ID: 510, Type: "WallPath", Style: "WoodLockedBronze" },
-            { ID: 511, Type: "WallPath", Style: "WoodLockedGold" },
-            { ID: 512, Type: "WallPath", Style: "WoodLockedSilver" },
-            { ID: 513, Type: "WallPath", Style: "WoodOpen" },
-            // Banners
-            { ID: 600, Type: "Banners", Style: "Blue" },
-            { ID: 601, Type: "Banners", Style: "Green" },
-            { ID: 602, Type: "Banners", Style: "PaladinBanner" },
-            { ID: 603, Type: "Banners", Style: "Yellow" },
-            // Floor Icons
-            { ID: 700, Type: "FloorIcon", Style: "IconCircle" },
-            // Floor Numbers
-            { ID: 800, Type: "FloorNumber", Style: "Number1" },
-            // Floor Letters
-            { ID: 900, Type: "FloorLetter", Style: "LetterA" },
-        ];
+        // The catalog lives in ./catalog.ts and mirrors the game data exactly.
+        // Entries are preserved verbatim - styles are intentionally NOT de-duplicated.
+        this.tileCatalog = [...catalog_1.TILE_CATALOG];
+        this.objectCatalog = [...catalog_1.OBJECT_CATALOG];
         // Build lookup maps for performance
         this.tileMap.clear();
         this.tileCatalog.forEach((t) => this.tileMap.set(t.ID, t));
@@ -610,7 +487,7 @@ class BCMapEditor {
             for (let x = 0; x < window.MAP_WIDTH; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const objId = this.mapData.Objects.charCodeAt(index);
-                if (objId === 10000)
+                if (objId === catalog_1.BLANK_OBJECT_ID)
                     continue;
                 const obj = this.objectMap.get(objId);
                 if (obj && obj.Style !== "Blank") {
@@ -738,7 +615,7 @@ class BCMapEditor {
                 item.className = "sprite-item";
                 const key = tile.Type + "/" + tile.Style;
                 item.style.backgroundImage = "url(assets/tiles/" + key + ".png)";
-                item.title = tile.Style;
+                item.title = tile.Name ? tile.Name + " (" + tile.Style + ")" : tile.Style;
                 item.addEventListener("click", () => {
                     document
                         .querySelectorAll("#tileCategories .sprite-item")
