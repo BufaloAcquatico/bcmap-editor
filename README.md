@@ -1,0 +1,56 @@
+# BCMap Editor
+
+A browser-based map editor for the ropeybot map system. This editor allows you to create, edit, import, and export 40x40 tile-based maps for Bondage Club using the same format as the ropeybot map system.
+
+## Features
+
+- **40x40 Grid**: Classic grid-based map editing
+- **Two-Layer System**: Separate tile (background) and object (foreground) layers
+- **BC Asset Sprites**: Loads actual game sprites from downloaded BC assets
+- **Categorized Picker**: Tile and object pickers organized by category with search
+- **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with middle-click or Ctrl+drag
+- **Import/Export**: LZString compressed map codes (same format as ropeybot)
+- **Dark Mode UI**: Clean dark theme with Bootstrap 5
+- **Local Assets**: All sprites stored locally for offline use
+
+## Getting Started
+
+1. Open `map-editor.html` in a web browser
+2. Select a tile from the left sidebar (tile layer is selected by default)
+3. Click on the map to paint
+4. Switch to object layer to paint objects/decoration
+5. Use zoom/pan controls or mouse to navigate
+
+## Map Format
+
+This editor uses the same LZString-compressed format as ropeybot:
+- Map data is compressed with lz-string and base64 encoded
+- Export saves as `<mapname>.txt` containing the map code
+- Import accepts any valid map code from ropeybot maps
+
+## Development
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build
+npm run build
+
+# Download assets (if needed)
+npm run download-assets
+
+# Run unit tests
+npm test
+
+# Run E2E tests (requires Playwright browsers)
+npm run test:e2e
+```
+
+## Technical Details
+
+- TypeScript → compiled and embedded in HTML
+- Canvas 2D rendering with image caching
+- Bootstrap 5 for UI
+- LZString for compression
+- Vitest + Playwright for testing
