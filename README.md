@@ -6,9 +6,11 @@ A browser-based map editor for the ropeybot map system. This editor allows you t
 
 - **40x40 Grid**: Classic grid-based map editing
 - **Two-Layer System**: Separate tile (background) and object (foreground) layers
+- **Full Game Catalog**: All 153 tiles and 225 objects from Bondage Club's ChatRoomMap data, kept verbatim
 - **BC Asset Sprites**: Loads actual game sprites from downloaded BC assets
 - **Categorized Picker**: Tile and object pickers organized by category with search
-- **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with middle-click or Ctrl+drag
+- **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with Ctrl/Cmd + left-drag
+- **On-canvas Controls**: Quick reference shown in the bottom-right corner of the map
 - **Import/Export**: LZString compressed map codes (same format as ropeybot)
 - **Dark Mode UI**: Clean dark theme with Bootstrap 5
 - **Local Assets**: All sprites stored locally for offline use
@@ -29,9 +31,18 @@ docker compose up -d
 
 1. Open `map-editor.html` in a web browser
 2. Select a tile from the left sidebar (tile layer is selected by default)
-3. Click on the map to paint
+3. Click on the map to paint (hold and drag to paint multiple tiles)
 4. Switch to object layer to paint objects/decoration
-5. Use zoom/pan controls or mouse to navigate
+5. Pan with Ctrl/Cmd + left-drag, zoom with the mouse wheel
+
+## Controls
+
+| Action            | Input                             |
+| ----------------- | --------------------------------- |
+| Paint tile/object | Left click or left-drag           |
+| Pan               | Ctrl/Cmd + left-drag              |
+| Zoom              | Mouse wheel                       |
+| Erase object      | Select a `Blank` object and paint |
 
 ## Map Format
 
@@ -50,8 +61,18 @@ pnpm install
 # Build
 npm run build
 
-# Download assets (if needed)
+# Download assets (drive from the shared catalog, with throttling)
 npm run download-assets
+
+# Options: skip existing files by default; add --force to re-download
+#   --force            re-download every asset
+#   --concurrency=N    parallel requests (default 2)
+#   --delay=MS         delay between requests (default 150)
+#   --retries=N        retries per asset (default 3)
+
+# Format / verify formatting (Prettier, 4-space indent)
+npm run format
+npm run format:check
 
 # Run unit tests
 npm test
