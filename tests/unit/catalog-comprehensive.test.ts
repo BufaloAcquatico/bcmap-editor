@@ -59,8 +59,8 @@ describe('Catalog - Comprehensive', () => {
     });
   });
 
-  it('should include Blank object with ID 10000', () => {
-    const blank = objects.find(o => o.ID === 10000);
+  it('should include Blank object with ID 100', () => {
+    const blank = objects.find(o => o.ID === 100);
     expect(blank).toBeDefined();
     expect(blank?.Style).toBe('Blank');
   });

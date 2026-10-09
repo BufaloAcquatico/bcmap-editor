@@ -78,7 +78,7 @@ describe('Mouse Interaction and Rendering', () => {
     expect(data.Tiles.length).toBe(1600);
     expect(data.Objects.length).toBe(1600);
     expect(data.Tiles.charCodeAt(0)).toBe(210);
-    expect(data.Objects.charCodeAt(0)).toBe(10000);
+    expect(data.Objects.charCodeAt(0)).toBe(100);
   });
 
   it('should getTileCatalog return non-empty array with proper structure', () => {

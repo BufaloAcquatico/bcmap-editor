@@ -74,10 +74,10 @@ describe('BCMapEditor', () => {
       expect(firstTile).toBe(GRASS_TILE_ID);
     });
     
-    it('should create default map with blank objects (ID 10000)', () => {
+    it('should create default map with blank objects (ID 100)', () => {
       const mapData = editor.getMapData();
       const firstObj = mapData.Objects.charCodeAt(0);
-      expect(firstObj).toBe(10000);
+      expect(firstObj).toBe(100);
     });
   });
 
@@ -131,7 +131,7 @@ describe('BCMapEditor', () => {
     });
     
     it('should set selected object', () => {
-      const obj = { ID: 10000, Type: 'Blank', Style: 'Blank' };
+      const obj = { ID: 100, Type: 'FloorDecoration', Style: 'Blank' };
       editor.setSelectedObject(obj);
       expect(() => editor.setSelectedObject(obj)).not.toThrow();
     });
@@ -184,7 +184,7 @@ describe('BCMapEditor', () => {
       expect(mapData.Type).toBe('Always');
       expect(mapData.Tiles.length).toBe(1600);
       expect(mapData.Tiles.charCodeAt(0)).toBe(GRASS_TILE_ID);
-      expect(mapData.Objects.charCodeAt(0)).toBe(10000);
+      expect(mapData.Objects.charCodeAt(0)).toBe(100);
     });
   });
 
@@ -201,11 +201,11 @@ describe('BCMapEditor', () => {
       expect(catalog.length).toBeGreaterThan(0);
     });
     
-    it('should have blank object in catalog with ID 10000', () => {
+    it('should have blank object in catalog with ID 100', () => {
       const catalog = editor.getObjectCatalog();
       const blank = catalog.find(c => c.Style === 'Blank');
       expect(blank).toBeDefined();
-      expect(blank?.ID).toBe(10000);
+      expect(blank?.ID).toBe(100);
     });
   });
 

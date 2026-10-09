@@ -37,19 +37,19 @@ describe('Validation and Edge Cases', () => {
   });
 
   it('should reject import with wrong tile length', () => {
-    const bad = {Type:'Always', Tiles: 'A'.repeat(1599), Objects: String.fromCharCode(10000).repeat(1600)};
+    const bad = {Type:'Always', Tiles: 'A'.repeat(1599), Objects: String.fromCharCode(100).repeat(1600)};
     const code = compressToBase64(JSON.stringify(bad));
     expect(() => editor.importMap(code)).toThrow();
   });
 
   it('should reject import with wrong object length', () => {
-    const bad = {Type:'Always', Tiles: String.fromCharCode(210).repeat(1600), Objects: String.fromCharCode(10000).repeat(1599)};
+    const bad = {Type:'Always', Tiles: String.fromCharCode(210).repeat(1600), Objects: String.fromCharCode(100).repeat(1599)};
     const code = compressToBase64(JSON.stringify(bad));
     expect(() => editor.importMap(code)).toThrow();
   });
 
   it('should reject import with missing Tiles', () => {
-    const bad = {Type:'Always', Objects: String.fromCharCode(10000).repeat(1600)};
+    const bad = {Type:'Always', Objects: String.fromCharCode(100).repeat(1600)};
     const code = compressToBase64(JSON.stringify(bad));
     expect(() => editor.importMap(code)).toThrow();
   });
@@ -61,7 +61,7 @@ describe('Validation and Edge Cases', () => {
   });
 
   it('should reject import with invalid tile ID', () => {
-    const bad = {Type:'Always', Tiles: String.fromCharCode(99999).repeat(1600), Objects: String.fromCharCode(10000).repeat(1600)};
+    const bad = {Type:'Always', Tiles: String.fromCharCode(99999).repeat(1600), Objects: String.fromCharCode(100).repeat(1600)};
     const code = compressToBase64(JSON.stringify(bad));
     expect(() => editor.importMap(code)).toThrow(/Invalid tile ID/);
   });
