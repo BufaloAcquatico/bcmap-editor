@@ -107,5 +107,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomLevelEl = document.getElementById('zoomLevel');
     if (zoomLevelEl) zoomLevelEl.textContent = '100%';
     (editor as any).render();
+  // Search
+  const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+  searchInput?.addEventListener('input', () => {
+    const term = searchInput.value.toLowerCase();
+    document.querySelectorAll('#tileCategories .sprite-item, #objectCategories .sprite-item').forEach(el => {
+      const title = el.getAttribute('title') || '';
+      const txt = el.textContent || '';
+      if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
+        (el as HTMLElement).style.display = '';
+      } else {
+        (el as HTMLElement).style.display = 'none';
+      }
+    });
+  });
+
   });
 });
