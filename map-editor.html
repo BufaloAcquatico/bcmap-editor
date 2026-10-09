@@ -311,7 +311,7 @@ class BCMapEditor {
         ];
         this.objectCatalog = [
             // Blank (erase)
-            { ID: 100, Type: 'Blank', Style: 'Blank' },
+            { ID: 10000, Type: 'Blank', Style: 'Blank' },
             // Floor Decorations - Animal
             { ID: 101, Type: 'FloorDecorationAnimal', Style: 'CatCaramelHappy' },
             { ID: 102, Type: 'FloorDecorationAnimal', Style: 'ChickenBrownIdleLeft' },
@@ -560,6 +560,9 @@ class BCMapEditor {
             if (!jsonStr)
                 throw new Error('Invalid map code');
             this.mapData = JSON.parse(jsonStr);
+            this.panX = 0;
+            this.panY = 0;
+            this.zoom = 1.0;
             this.render();
         }
         catch (e) {
@@ -567,7 +570,7 @@ class BCMapEditor {
         }
     }
     getMapData() { return this.mapData; }
-    newMap() { this.mapData = this.createDefaultMap(); this.render(); }
+    newMap() { this.mapData = this.createDefaultMap(); this.panX = 0; this.panY = 0; this.zoom = 1.0; this.render(); }
     populatePickers() {
         const tileCategories = document.getElementById('tileCategories');
         const objectCategories = document.getElementById('objectCategories');
