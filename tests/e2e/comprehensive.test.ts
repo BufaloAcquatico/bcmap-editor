@@ -56,11 +56,11 @@ test("object picker categories load with thumbnails", async ({
         .count();
     expect(objItems).toBeGreaterThan(0);
 
-    // Check BLANK item exists
+    // Every Blank object entry from the catalog is present (one per object type)
     const blankItem = await page
         .locator('#objectCategories .sprite-item:has-text("BLANK"):visible')
         .count();
-    expect(blankItem).toBe(1);
+    expect(blankItem).toBe(13);
 });
 
 test("search filter works for tiles", async ({ page }: { page: Page }) => {

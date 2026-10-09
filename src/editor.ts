@@ -522,9 +522,7 @@ export class BCMapEditor {
                 const key = tile.Type + "/" + tile.Style;
                 item.style.backgroundImage =
                     "url(assets/tiles/" + key + ".png)";
-                item.title = tile.Name
-                    ? tile.Name + " (" + tile.Style + ")"
-                    : tile.Style;
+                item.title = tile.Style;
                 item.addEventListener("click", () => {
                     document
                         .querySelectorAll("#tileCategories .sprite-item")

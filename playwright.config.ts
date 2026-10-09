@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "playwright/test";
+import { register } from "ts-node";
 
-// Register ts-node for TypeScript config support
-import "ts-node/register";
+// Transpile (do not type-check) test files using the lenient test tsconfig.
+register({ transpileOnly: true, project: "tsconfig.test.json" });
 
 export default defineConfig({
     testDir: "./tests/e2e",

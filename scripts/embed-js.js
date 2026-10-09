@@ -4,7 +4,7 @@ const path = require("path");
 const distDir = path.join(__dirname, "..", "dist");
 const htmlFile = path.join(__dirname, "..", "map-editor.html");
 
-const files = ["editor.js", "init.js"];
+const files = ["catalog.js", "editor.js", "init.js"];
 let combined = "";
 files.forEach((f) => {
     const content = fs.readFileSync(path.join(distDir, f), "utf8");
@@ -25,6 +25,8 @@ combined = combined
         /const lz_string_1 = require\("lz-string"\);/g,
         "const lz_string_1 = LZString;",
     )
+    // Point the compiled catalog import at the globals defined above
+    .replace(/const (\w+) = require\("\.\/catalog"\);?/g, "const $1 = window;")
     // Remove any other require() calls
     .replace(/require\([^)]+\);?/g, "")
     // Replace remaining exports.X usages (e.g., exports.MAP_WIDTH in class methods)
