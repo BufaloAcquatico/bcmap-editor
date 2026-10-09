@@ -50,6 +50,8 @@ export class BCMapEditor {
   private lastMousePos = { x: 0, y: 0 };
   private tileCatalog: TileDef[] = [];
   private objectCatalog: ObjectDef[] = [];
+  private tileImageCache: Map<string, HTMLImageElement> = new Map();
+  private objectImageCache: Map<string, HTMLImageElement> = new Map();
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -59,13 +61,33 @@ export class BCMapEditor {
     this.mapData = this.createDefaultMap();
     this.initCatalogs();
     this.init();
+    this.preloadImages();
+  }
+
+  private preloadImages(): void {
+    this.tileCatalog.forEach(tile => {
+      const key = tile.Type + '/' + tile.Style;
+      if (!this.tileImageCache.has(key)) {
+        const img = new Image();
+        img.src = 'assets/tiles/' + key + '.png';
+        this.tileImageCache.set(key, img);
+      }
+    });
+    this.objectCatalog.forEach(obj => {
+      if (obj.Style === 'Blank') return;
+      const key = obj.Type + '/' + obj.Style;
+      if (!this.objectImageCache.has(key)) {
+        const img = new Image();
+        img.src = 'assets/objects/' + key + '.png';
+        this.objectImageCache.set(key, img);
+      }
+    });
   }
 
   private createDefaultMap(): MapData {
-    // Initialize with 40x40 grass tiles (Grass ID 210 = char code 210)
     const grassChar = String.fromCharCode(GRASS_TILE_ID);
     const tiles = grassChar.repeat(MAP_WIDTH * MAP_HEIGHT);
-    const objects = String.fromCharCode(100).repeat(MAP_WIDTH * MAP_HEIGHT); // Blank
+    const objects = String.fromCharCode(100).repeat(MAP_WIDTH * MAP_HEIGHT);
     return {
       Type: 'Always',
       Tiles: tiles,
@@ -73,8 +95,8 @@ export class BCMapEditor {
     };
   }
 
+
   private initCatalogs(): void {
-    // Basic tiles from MAP_SYSTEM_DOCUMENTATION.md
     this.tileCatalog = [
       { ID: 100, Type: 'Floor', Style: 'OakWood' },
       { ID: 110, Type: 'Floor', Style: 'Stone' },
@@ -130,95 +152,11 @@ export class BCMapEditor {
       { ID: 2060, Type: 'Water', Style: 'Shallow' },
       { ID: 2090, Type: 'Water', Style: 'Lava' }
     ];
-
-    // Basic objects
-    this.objectCatalog = [
-      { ID: 100, Type: 'FloorDecoration', Style: 'Blank' },
-      { ID: 110, Type: 'FloorDecoration', Style: 'EntryFlag' },
-      { ID: 115, Type: 'FloorDecoration', Style: 'ExitFlag' },
-      { ID: 160, Type: 'FloorDecoration', Style: 'KeyBronze' },
-      { ID: 162, Type: 'FloorDecoration', Style: 'KeySilver' },
-      { ID: 164, Type: 'FloorDecoration', Style: 'KeyGold' },
-      { ID: 166, Type: 'FloorDecoration', Style: 'Bed' },
-      { ID: 200, Type: 'FloorDecorationThemed', Style: 'Blank' },
-      { ID: 300, Type: 'FloorDecorationThemed', Style: 'ShibariFrame' },
-      { ID: 500, Type: 'FloorDecorationParty', Style: 'Blank' },
-      { ID: 510, Type: 'FloorDecorationParty', Style: 'BalloonFiveColor' },
-      { ID: 600, Type: 'FloorDecorationCamping', Style: 'Blank' },
-      { ID: 610, Type: 'FloorDecorationCamping', Style: 'LogFire' },
-      { ID: 700, Type: 'FloorDecorationExpanding', Style: 'Blank' },
-      { ID: 710, Type: 'FloorDecorationExpanding', Style: 'CouchPinkPreview' },
-      { ID: 800, Type: 'FloorDecorationAnimal', Style: 'Blank' },
-      { ID: 810, Type: 'FloorDecorationAnimal', Style: 'CatCaramelHappy' },
-      { ID: 820, Type: 'FloorDecorationAnimal', Style: 'DogBrownHappy' },
-      { ID: 830, Type: 'FloorDecorationAnimal', Style: 'RabbitBrownStand' },
-      { ID: 840, Type: 'FloorDecorationAnimal', Style: 'ChickenBrownIdleLeft' },
-      { ID: 1000, Type: 'FloorItem', Style: 'Blank' },
-      { ID: 1010, Type: 'FloorItem', Style: 'Kennel' },
-      { ID: 1020, Type: 'FloorItem', Style: 'X-Cross' },
-      { ID: 1030, Type: 'FloorItem', Style: 'BondageBench' },
-      { ID: 1040, Type: 'FloorItem', Style: 'Trolley' },
-      { ID: 1050, Type: 'FloorItem', Style: 'Locker' },
-      { ID: 1060, Type: 'FloorItem', Style: 'WoodenBox' },
-      { ID: 1070, Type: 'FloorItem', Style: 'Coffin' },
-      { ID: 1080, Type: 'FloorItem', Style: 'TheDisplayFrame' },
-      { ID: 1090, Type: 'FloorItem', Style: 'Pole' },
-      { ID: 1095, Type: 'FloorItem', Style: 'MedicalBed' },
-      { ID: 1096, Type: 'FloorItem', Style: 'FuturisticCrate' },
-      { ID: 1100, Type: 'FloorNumber', Style: 'Blank' },
-      { ID: 1101, Type: 'FloorNumber', Style: 'Number1' },
-      { ID: 1200, Type: 'FloorLetter', Style: 'Blank' },
-      { ID: 1201, Type: 'FloorLetter', Style: 'LetterA' },
-      { ID: 1300, Type: 'FloorIcon', Style: 'Blank' },
-      { ID: 1301, Type: 'FloorIcon', Style: 'IconCircle' },
-      { ID: 2000, Type: 'FloorObstacle', Style: 'Blank' },
-      { ID: 2093, Type: 'FloorObstacle', Style: 'VelourRopeBarrier' },
-      { ID: 2095, Type: 'FloorObstacle', Style: 'OakTree' },
-      { ID: 2097, Type: 'FloorObstacle', Style: 'LeaflessTree' },
-      { ID: 2100, Type: 'FloorObstacle', Style: 'PineTree' },
-      { ID: 2110, Type: 'FloorObstacle', Style: 'PalmTree' },
-      { ID: 2120, Type: 'FloorObstacle', Style: 'Sakura' },
-      { ID: 2130, Type: 'FloorObstacle', Style: 'Cactus' },
-      { ID: 2140, Type: 'FloorObstacle', Style: 'ChristmasTree' },
-      { ID: 2150, Type: 'FloorObstacle', Style: 'Window' },
-      { ID: 2160, Type: 'FloorObstacle', Style: 'TrashCan' },
-      { ID: 2170, Type: 'FloorObstacle', Style: 'RoadCone' },
-      { ID: 2180, Type: 'FloorObstacle', Style: 'LampPost' },
-      { ID: 2190, Type: 'FloorObstacle', Style: 'Pillar' },
-      { ID: 3000, Type: 'WallDecoration', Style: 'Blank' },
-      { ID: 3010, Type: 'WallDecoration', Style: 'Painting' },
-      { ID: 3020, Type: 'WallDecoration', Style: 'Mirror' },
-      { ID: 3030, Type: 'WallDecoration', Style: 'Candelabra0' },
-      { ID: 3040, Type: 'WallDecoration', Style: 'Whip' },
-      { ID: 3050, Type: 'WallDecoration', Style: 'Fireplace' },
-      { ID: 3060, Type: 'WallDecoration', Style: 'Stocking' },
-      { ID: 4000, Type: 'WallPath', Style: 'Blank' },
-      { ID: 4010, Type: 'WallPath', Style: 'WoodOpen' },
-      { ID: 4011, Type: 'WallPath', Style: 'WoodClosed' },
-      { ID: 4012, Type: 'WallPath', Style: 'WoodLocked' },
-      { ID: 4013, Type: 'WallPath', Style: 'WoodLockedBronze' },
-      { ID: 4014, Type: 'WallPath', Style: 'WoodLockedSilver' },
-      { ID: 4015, Type: 'WallPath', Style: 'WoodLockedGold' },
-      { ID: 4020, Type: 'WallPath', Style: 'Metal' },
-      { ID: 4021, Type: 'WallPath', Style: 'MetalUp' },
-      { ID: 4022, Type: 'WallPath', Style: 'MetalDown' },
-      { ID: 4023, Type: 'WallPath', Style: 'MetalLockedBronze' },
-      { ID: 4024, Type: 'WallPath', Style: 'MetalLockedSilver' },
-      { ID: 4025, Type: 'WallPath', Style: 'MetalLockedGold' },
-      { ID: 4030, Type: 'WallPath', Style: 'BrownDoor' },
-      { ID: 4031, Type: 'WallPath', Style: 'BrownDoorOpen' },
-      { ID: 5010, Type: 'Banners', Style: 'Blank' },
-      { ID: 5011, Type: 'Banners', Style: 'Blue' },
-      { ID: 5012, Type: 'Banners', Style: 'Green' },
-      { ID: 5013, Type: 'Banners', Style: 'Yellow' },
-      { ID: 5014, Type: 'Banners', Style: 'PaladinBanner' }
-    ];
   }
 
   private init(): void {
     this.resizeCanvas();
     this.render();
-    // Add event listeners
     this.canvas.addEventListener('click', this.onCanvasClick.bind(this));
     this.canvas.addEventListener('wheel', this.onCanvasWheel.bind(this));
     this.canvas.addEventListener('mousedown', this.onCanvasMouseDown.bind(this));
@@ -237,40 +175,31 @@ export class BCMapEditor {
     }
   }
 
-  private onCanvasClick(e: MouseEvent): void {
-    const pos = this.getTilePosFromMouse(e);
-    if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT) return;
-
-    const index = pos.X + pos.Y * MAP_WIDTH;
-    
-    if (this.currentLayer === 'tile' && this.selectedTile) {
-      this.mapData.Tiles = this.mapData.Tiles.substring(0, index) + 
-        String.fromCharCode(this.selectedTile.ID) + 
-        this.mapData.Tiles.substring(index + 1);
-    } else if (this.currentLayer === 'object' && this.selectedObject) {
-      this.mapData.Objects = this.mapData.Objects.substring(0, index) + 
-        String.fromCharCode(this.selectedObject.ID) + 
-        this.mapData.Objects.substring(index + 1);
-    }
-    this.render();
-  }
-
   private getTilePosFromMouse(e: MouseEvent): Point {
     const rect = this.canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const canvasWidth = this.canvas.width;
     const canvasHeight = this.canvas.height;
-    
-    const tileWidth = canvasWidth / MAP_WIDTH * this.zoom;
-    const tileHeight = canvasHeight / MAP_HEIGHT * this.zoom;
+    const tileWidth = (canvasWidth / MAP_WIDTH) * this.zoom;
+    const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
     const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2;
     const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2;
-    
     const tileX = Math.floor((mouseX - startX) / tileWidth);
     const tileY = Math.floor((mouseY - startY) / tileHeight);
-    
     return { X: tileX, Y: tileY };
+  }
+
+  private onCanvasClick(e: MouseEvent): void {
+    const pos = this.getTilePosFromMouse(e);
+    if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT) return;
+    const index = pos.X + pos.Y * MAP_WIDTH;
+    if (this.currentLayer === 'tile' && this.selectedTile) {
+      this.mapData.Tiles = this.mapData.Tiles.substring(0, index) + String.fromCharCode(this.selectedTile.ID) + this.mapData.Tiles.substring(index + 1);
+    } else if (this.currentLayer === 'object' && this.selectedObject) {
+      this.mapData.Objects = this.mapData.Objects.substring(0, index) + String.fromCharCode(this.selectedObject.ID) + this.mapData.Objects.substring(index + 1);
+    }
+    this.render();
   }
 
   private onCanvasWheel(e: WheelEvent): void {
@@ -281,9 +210,7 @@ export class BCMapEditor {
       this.zoom = Math.max(this.minZoom, this.zoom * 0.9);
     }
     const zoomLevelEl = document.getElementById('zoomLevel');
-    if (zoomLevelEl) {
-      zoomLevelEl.textContent = Math.round(this.zoom * 100) + '%';
-    }
+    if (zoomLevelEl) zoomLevelEl.textContent = Math.round(this.zoom * 100) + '%';
     this.render();
   }
 
@@ -295,7 +222,6 @@ export class BCMapEditor {
 
   private onCanvasMouseMove(e: MouseEvent): void {
     if (!this.isDragging) return;
-    // Drag logic would go here if needed
     const rect = this.canvas.getBoundingClientRect();
     const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     this.lastMousePos = currentPos;
@@ -303,65 +229,6 @@ export class BCMapEditor {
 
   private onCanvasMouseUp(): void {
     this.isDragging = false;
-  }
-
-  private render(): void {
-    const ctx = this.ctx;
-    const canvasWidth = this.canvas.width;
-    const canvasHeight = this.canvas.height;
-    
-    // Clear canvas
-    ctx.fillStyle = '#0f0f23';
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-    
-    const tileWidth = (canvasWidth / MAP_WIDTH) * this.zoom;
-    const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
-    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2;
-    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2;
-    
-    // Render tiles
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        const index = x + y * MAP_WIDTH;
-        const tileId = this.mapData.Tiles.charCodeAt(index);
-        const tile = this.tileCatalog.find(t => t.ID === tileId);
-        if (tile) {
-          // Simple colored boxes for tiles (placeholder - will use sprites later)
-          ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
-          ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
-        }
-      }
-    }
-    
-    // Render objects
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        const index = x + y * MAP_WIDTH;
-        const objId = this.mapData.Objects.charCodeAt(index);
-        if (objId === 100) continue; // Blank
-        const obj = this.objectCatalog.find(o => o.ID === objId);
-        if (obj) {
-          ctx.fillStyle = this.getObjectColor(obj.Type);
-          ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
-        }
-      }
-    }
-    
-    // Draw grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i <= MAP_WIDTH; i++) {
-      ctx.beginPath();
-      ctx.moveTo(startX + i * tileWidth, startY);
-      ctx.lineTo(startX + i * tileWidth, startY + MAP_HEIGHT * tileHeight);
-      ctx.stroke();
-    }
-    for (let j = 0; j <= MAP_HEIGHT; j++) {
-      ctx.beginPath();
-      ctx.moveTo(startX, startY + j * tileHeight);
-      ctx.lineTo(startX + MAP_WIDTH * tileWidth, startY + j * tileHeight);
-      ctx.stroke();
-    }
   }
 
   private getTileColor(type: string, style: string): string {
@@ -383,55 +250,74 @@ export class BCMapEditor {
     return '#FF69B4';
   }
 
+  private render(): void {
+    const ctx = this.ctx;
+    const canvasWidth = this.canvas.width;
+    const canvasHeight = this.canvas.height;
+    ctx.fillStyle = '#0f0f23';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    const tileWidth = (canvasWidth / MAP_WIDTH) * this.zoom;
+    const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
+    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2;
+    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2;
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        const index = x + y * MAP_WIDTH;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileCatalog.find(t => t.ID === tileId);
+        if (tile) {
+          ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+          ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+        }
+      }
+    }
+    for (let y = 0; y < MAP_HEIGHT; y++) {
+      for (let x = 0; x < MAP_WIDTH; x++) {
+        const index = x + y * MAP_WIDTH;
+        const objId = this.mapData.Objects.charCodeAt(index);
+        if (objId === 100) continue;
+        const obj = this.objectCatalog.find(o => o.ID === objId);
+        if (obj) {
+          ctx.fillStyle = this.getObjectColor(obj.Type);
+          ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+        }
+      }
+    }
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= MAP_WIDTH; i++) {
+      ctx.beginPath();
+      ctx.moveTo(startX + i * tileWidth, startY);
+      ctx.lineTo(startX + i * tileWidth, startY + MAP_HEIGHT * tileHeight);
+      ctx.stroke();
+    }
+    for (let j = 0; j <= MAP_HEIGHT; j++) {
+      ctx.beginPath();
+      ctx.moveTo(startX, startY + j * tileHeight);
+      ctx.lineTo(startX + MAP_WIDTH * tileWidth, startY + j * tileHeight);
+      ctx.stroke();
+    }
+  }
+
   public setCurrentLayer(layer: 'tile' | 'object'): void {
     this.currentLayer = layer;
   }
-
-  public setSelectedTile(tile: TileDef | null): void {
-    this.selectedTile = tile;
-  }
-
-  public setSelectedObject(obj: ObjectDef | null): void {
-    this.selectedObject = obj;
-  }
-
+  public setSelectedTile(tile: TileDef | null): void { this.selectedTile = tile; }
+  public setSelectedObject(obj: ObjectDef | null): void { this.selectedObject = obj; }
   public exportMap(name: string): string {
-    const data = {
-      Type: this.mapData.Type,
-      Tiles: this.mapData.Tiles,
-      Objects: this.mapData.Objects
-    };
-    const jsonStr = JSON.stringify(data);
-    return compressToBase64(jsonStr);
+    const data = { Type: this.mapData.Type, Tiles: this.mapData.Tiles, Objects: this.mapData.Objects };
+    return compressToBase64(JSON.stringify(data));
   }
-
   public importMap(code: string): void {
     try {
       const jsonStr = decompressFromBase64(code);
       if (!jsonStr) throw new Error('Invalid map code');
-      const data = JSON.parse(jsonStr) as MapData;
-      this.mapData = data;
+      this.mapData = JSON.parse(jsonStr) as MapData;
       this.render();
-    } catch (e) {
-      throw new Error('Failed to import map: ' + e);
-    }
+    } catch (e) { throw new Error('Failed to import map: ' + e); }
   }
-
-  public getMapData(): MapData {
-    return this.mapData;
-  }
-
-  public newMap(): void {
-    this.mapData = this.createDefaultMap();
-    this.render();
-  }
-
-  public getTileCatalog(): TileDef[] {
-    return this.tileCatalog;
-  }
-
-  public getObjectCatalog(): ObjectDef[] {
-    return this.objectCatalog;
-  }
+  public getMapData(): MapData { return this.mapData; }
+  public newMap(): void { this.mapData = this.createDefaultMap(); this.render(); }
+  public getTileCatalog(): TileDef[] { return this.tileCatalog; }
+  public getObjectCatalog(): ObjectDef[] { return this.objectCatalog; }
 }
-export {};
