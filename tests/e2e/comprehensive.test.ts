@@ -16,18 +16,20 @@ test('tile picker categories load with thumbnails', async ({ page }: { page: Pag
   expect(categories).toContain('Wall');
   expect(categories).toContain('Water');
   
-  // Check thumbnails load (images in tileCategories)
-  const tileImages = await page.locator('#tileCategories img').count();
-  expect(tileImages).toBeGreaterThan(0);
+  // Check thumbnails load (background-image style on sprite-items)
+  const tileItems = await page.locator('#tileCategories .sprite-item').count();
+  expect(tileItems).toBeGreaterThan(0);
 });
 
 test('object picker categories load with thumbnails', async ({ page }: { page: Page }) => {
   await page.goto('http://localhost:8080/map-editor.html');
-  await page.waitForSelector('#objectCategories .category-header');
   
-  // Check object categories exist (based on grouping logic in populatePickers)
-  const categories = await page.locator('#objectCategories .category-header').allTextContents();
-  expect(categories).toContain('Blank');
+  // Switch to object layer first
+  await page.click('label[for="layerObject"]');
+  await page.waitForSelector('#objectCategories .category-header:visible');
+  
+  // Check object categories exist
+  const categories = await page.locator('#objectCategories .category-header:visible').allTextContents();
   expect(categories).toContain('Floor Decorations');
   expect(categories).toContain('Floor Items');
   expect(categories).toContain('Floor Obstacles');
@@ -35,11 +37,11 @@ test('object picker categories load with thumbnails', async ({ page }: { page: P
   expect(categories).toContain('Banners');
   
   // Check thumbnails load
-  const objImages = await page.locator('#objectCategories img').count();
-  expect(objImages).toBeGreaterThan(0);
+  const objItems = await page.locator('#objectCategories .sprite-item:visible').count();
+  expect(objItems).toBeGreaterThan(0);
   
   // Check BLANK item exists
-  const blankItem = await page.locator('#objectCategories .sprite-item:has-text("BLANK")').count();
+  const blankItem = await page.locator('#objectCategories .sprite-item:has-text("BLANK"):visible').count();
   expect(blankItem).toBe(1);
 });
 
@@ -68,12 +70,20 @@ test('search filter works for objects', async ({ page }: { page: Page }) => {
   await page.goto('http://localhost:8080/map-editor.html');
   await page.waitForSelector('#searchInput');
   
+  // Switch to object layer
+  await page.click('label[for="layerObject"]');
+  await page.waitForSelector('#objectCategories .sprite-item:visible');
+  
   // Search for "Bench"
   await page.fill('#searchInput', 'Bench');
   await page.waitForTimeout(100);
   
   const visibleObjects = await page.locator('#objectCategories .sprite-item:visible').count();
   expect(visibleObjects).toBeGreaterThan(0);
+  
+  // Clear
+  await page.fill('#searchInput', '');
+  await page.waitForTimeout(100);
 });
 
 test('click-to-paint tile layer', async ({ page }: { page: Page }) => {
@@ -89,12 +99,10 @@ test('click-to-paint tile layer', async ({ page }: { page: Page }) => {
   const canvas = page.locator('#mapCanvas');
   const box = await canvas.boundingBox();
   if (box) {
-    // Click near center
     await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
     await page.waitForTimeout(100);
   }
   
-  // Verify no errors in console
   const errors: string[] = [];
   page.on('console', msg => {
     if (msg.type() === 'error') errors.push(msg.text());
@@ -105,11 +113,10 @@ test('click-to-paint tile layer', async ({ page }: { page: Page }) => {
 test('click-to-paint object layer', async ({ page }: { page: Page }) => {
   await page.goto('http://localhost:8080/map-editor.html');
   await page.waitForSelector('#mapCanvas');
-  await page.waitForSelector('#objectCategories .sprite-item');
   
-  // Switch to object layer (click label, input is hidden)
+  // Switch to object layer
   await page.click('label[for="layerObject"]');
-  await page.waitForTimeout(100);
+  await page.waitForSelector('#objectCategories .sprite-item:visible');
   
   // Select an object (BondageBench)
   await page.click('#objectCategories .sprite-item[title="BondageBench"]');
@@ -151,22 +158,28 @@ test('zoom and pan controls work', async ({ page }: { page: Page }) => {
   expect(zoomText).toMatch(/100%/);
 });
 
-test('layer toggle works', async ({ page }: { page: Page }) => {
+test('layer toggle switches pickers', async ({ page }: { page: Page }) => {
   await page.goto('http://localhost:8080/map-editor.html');
   await page.waitForSelector('#layerTile');
   await page.waitForSelector('#layerObject');
   
-  // Default should be tile layer
+  // Default should be tile layer - tile picker visible
   const tileLayer = page.locator('#layerTile');
   await expect(tileLayer).toBeChecked();
+  await expect(page.locator('#tileCategories')).toBeVisible();
+  await expect(page.locator('#objectCategories')).toBeHidden();
   
-  // Switch to object layer (click label, input is hidden)
+  // Switch to object layer
   await page.click('label[for="layerObject"]');
   await expect(page.locator('#layerObject')).toBeChecked();
+  await expect(page.locator('#objectCategories')).toBeVisible();
+  await expect(page.locator('#tileCategories')).toBeHidden();
   
   // Switch back
   await page.click('label[for="layerTile"]');
   await expect(page.locator('#layerTile')).toBeChecked();
+  await expect(page.locator('#tileCategories')).toBeVisible();
+  await expect(page.locator('#objectCategories')).toBeHidden();
 });
 
 test('canvas renders 40x40 grid', async ({ page }: { page: Page }) => {
@@ -183,5 +196,5 @@ test('canvas renders 40x40 grid', async ({ page }: { page: Page }) => {
   // Canvas should fill parent (no horizontal scroll)
   const bodyScroll = await page.evaluate(() => document.body.scrollWidth);
   const windowWidth = await page.evaluate(() => window.innerWidth);
-  expect(bodyScroll).toBeLessThanOrEqual(windowWidth + 10); // Small tolerance
+  expect(bodyScroll).toBeLessThanOrEqual(windowWidth + 10);
 });

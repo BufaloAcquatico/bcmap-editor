@@ -361,29 +361,49 @@ export class BCMapEditor {
     const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
     const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2 + this.panX;
     const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2 + this.panY;
+    
+    // Render tiles using cached sprites
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const index = x + y * MAP_WIDTH;
         const tileId = this.mapData.Tiles.charCodeAt(index);
         const tile = this.tileMap.get(tileId);
         if (tile) {
-          ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
-          ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+          const key = tile.Type + '/' + tile.Style;
+          const img = this.tileImageCache.get(key);
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+          } else {
+            // Fallback to color if image not loaded
+            ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+            ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+          }
         }
       }
     }
+    
+    // Render objects using cached sprites
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const index = x + y * MAP_WIDTH;
         const objId = this.mapData.Objects.charCodeAt(index);
         if (objId === 10000) continue;
         const obj = this.objectMap.get(objId);
-        if (obj) {
-          ctx.fillStyle = this.getObjectColor(obj.Type);
-          ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+        if (obj && obj.Style !== 'Blank') {
+          const key = obj.Type + '/' + obj.Style;
+          const img = this.objectImageCache.get(key);
+          if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+          } else {
+            // Fallback to color if image not loaded
+            ctx.fillStyle = this.getObjectColor(obj.Type);
+            ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+          }
         }
       }
     }
+    
+    // Render grid
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= MAP_WIDTH; i++) {
@@ -402,6 +422,7 @@ export class BCMapEditor {
 
   public setCurrentLayer(layer: 'tile' | 'object'): void {
     this.currentLayer = layer;
+    this.updatePickerVisibility();
   }
   public setSelectedTile(tile: TileDef | null): void { this.selectedTile = tile; }
   public setSelectedObject(obj: ObjectDef | null): void { this.selectedObject = obj; }
@@ -446,11 +467,8 @@ export class BCMapEditor {
         const item = document.createElement('div');
         item.className = 'sprite-item';
         const key = tile.Type + '/' + tile.Style;
-        const img = new Image();
-        img.src = 'assets/tiles/' + key + '.png';
-        img.alt = tile.Style;
+        item.style.backgroundImage = 'url(assets/tiles/' + key + '.png)';
         item.title = tile.Style;
-        item.appendChild(img);
         item.addEventListener('click', () => {
           document.querySelectorAll('#tileCategories .sprite-item').forEach(el => el.classList.remove('selected'));
           item.classList.add('selected');
@@ -485,11 +503,8 @@ export class BCMapEditor {
         item.className = 'sprite-item';
         if (obj.Style !== 'Blank') {
           const key = obj.Type + '/' + obj.Style;
-          const img = new Image();
-          img.src = 'assets/objects/' + key + '.png';
-          img.alt = obj.Style;
+          item.style.backgroundImage = 'url(assets/objects/' + key + '.png)';
           item.title = obj.Style;
-          item.appendChild(img);
         } else {
           item.innerHTML = '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
           item.title = 'Blank (Erase)';
@@ -504,6 +519,20 @@ export class BCMapEditor {
       objectCategories.appendChild(header);
       objectCategories.appendChild(container);
     });
+    this.updatePickerVisibility();
+  }
+
+  public updatePickerVisibility(): void {
+    const tileCategories = document.getElementById('tileCategories');
+    const objectCategories = document.getElementById('objectCategories');
+    if (!tileCategories || !objectCategories) return;
+    if (this.currentLayer === 'tile') {
+      tileCategories.style.display = '';
+      objectCategories.style.display = 'none';
+    } else {
+      tileCategories.style.display = 'none';
+      objectCategories.style.display = '';
+    }
   }
 
   public getTileCatalog(): TileDef[] { return this.tileCatalog; }

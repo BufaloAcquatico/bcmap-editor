@@ -113,15 +113,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('searchInput') as HTMLInputElement;
   searchInput?.addEventListener('input', () => {
     const term = searchInput.value.toLowerCase();
-    document.querySelectorAll('#tileCategories .sprite-item, #objectCategories .sprite-item').forEach(el => {
-      const title = el.getAttribute('title') || '';
-      const txt = el.textContent || '';
-      if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
-        (el as HTMLElement).style.display = '';
-      } else {
-        (el as HTMLElement).style.display = 'none';
-      }
-    });
+    // Only search in visible picker
+    const visiblePicker = document.querySelector('#tileCategories:not([style*="display: none"]), #objectCategories:not([style*="display: none"])');
+    if (visiblePicker) {
+      visiblePicker.querySelectorAll('.sprite-item').forEach(el => {
+        const title = el.getAttribute('title') || '';
+        const txt = el.textContent || '';
+        if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
+          (el as HTMLElement).style.display = '';
+        } else {
+          (el as HTMLElement).style.display = 'none';
+        }
+      });
+    }
   
   });
 });

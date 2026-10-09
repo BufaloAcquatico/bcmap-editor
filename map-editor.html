@@ -97,7 +97,7 @@
 
     <!-- Map Panel -->
     <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0;">
-      <div class="position-relative flex-1 d-flex justify-content-center align-items-center" style="min-height: 0;">
+      <div class="position-relative flex-1 d-flex flex-column" style="min-height: 0;">
         <canvas id="mapCanvas"></canvas>
       </div>
     </main>
@@ -520,17 +520,27 @@ class BCMapEditor {
         const tileHeight = (canvasHeight / window.MAP_HEIGHT) * this.zoom;
         const startX = (canvasWidth - window.MAP_WIDTH * tileWidth) / 2 + this.panX;
         const startY = (canvasHeight - window.MAP_HEIGHT * tileHeight) / 2 + this.panY;
+        // Render tiles using cached sprites
         for (let y = 0; y < window.MAP_HEIGHT; y++) {
             for (let x = 0; x < window.MAP_WIDTH; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const tileId = this.mapData.Tiles.charCodeAt(index);
                 const tile = this.tileMap.get(tileId);
                 if (tile) {
-                    ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
-                    ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                    const key = tile.Type + '/' + tile.Style;
+                    const img = this.tileImageCache.get(key);
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.drawImage(img, startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                    }
+                    else {
+                        // Fallback to color if image not loaded
+                        ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+                        ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                    }
                 }
             }
         }
+        // Render objects using cached sprites
         for (let y = 0; y < window.MAP_HEIGHT; y++) {
             for (let x = 0; x < window.MAP_WIDTH; x++) {
                 const index = x + y * window.MAP_WIDTH;
@@ -538,12 +548,21 @@ class BCMapEditor {
                 if (objId === 10000)
                     continue;
                 const obj = this.objectMap.get(objId);
-                if (obj) {
-                    ctx.fillStyle = this.getObjectColor(obj.Type);
-                    ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+                if (obj && obj.Style !== 'Blank') {
+                    const key = obj.Type + '/' + obj.Style;
+                    const img = this.objectImageCache.get(key);
+                    if (img && img.complete && img.naturalWidth > 0) {
+                        ctx.drawImage(img, startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                    }
+                    else {
+                        // Fallback to color if image not loaded
+                        ctx.fillStyle = this.getObjectColor(obj.Type);
+                        ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+                    }
                 }
             }
         }
+        // Render grid
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 0.5;
         for (let i = 0; i <= window.MAP_WIDTH; i++) {
@@ -561,6 +580,7 @@ class BCMapEditor {
     }
     setCurrentLayer(layer) {
         this.currentLayer = layer;
+        this.updatePickerVisibility();
     }
     setSelectedTile(tile) { this.selectedTile = tile; }
     setSelectedObject(obj) { this.selectedObject = obj; }
@@ -614,11 +634,8 @@ class BCMapEditor {
                 const item = document.createElement('div');
                 item.className = 'sprite-item';
                 const key = tile.Type + '/' + tile.Style;
-                const img = new Image();
-                img.src = 'assets/tiles/' + key + '.png';
-                img.alt = tile.Style;
+                item.style.backgroundImage = 'url(assets/tiles/' + key + '.png)';
                 item.title = tile.Style;
-                item.appendChild(img);
                 item.addEventListener('click', () => {
                     document.querySelectorAll('#tileCategories .sprite-item').forEach(el => el.classList.remove('selected'));
                     item.classList.add('selected');
@@ -658,11 +675,8 @@ class BCMapEditor {
                 item.className = 'sprite-item';
                 if (obj.Style !== 'Blank') {
                     const key = obj.Type + '/' + obj.Style;
-                    const img = new Image();
-                    img.src = 'assets/objects/' + key + '.png';
-                    img.alt = obj.Style;
+                    item.style.backgroundImage = 'url(assets/objects/' + key + '.png)';
                     item.title = obj.Style;
-                    item.appendChild(img);
                 }
                 else {
                     item.innerHTML = '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
@@ -678,6 +692,21 @@ class BCMapEditor {
             objectCategories.appendChild(header);
             objectCategories.appendChild(container);
         });
+        this.updatePickerVisibility();
+    }
+    updatePickerVisibility() {
+        const tileCategories = document.getElementById('tileCategories');
+        const objectCategories = document.getElementById('objectCategories');
+        if (!tileCategories || !objectCategories)
+            return;
+        if (this.currentLayer === 'tile') {
+            tileCategories.style.display = '';
+            objectCategories.style.display = 'none';
+        }
+        else {
+            tileCategories.style.display = 'none';
+            objectCategories.style.display = '';
+        }
     }
     getTileCatalog() { return this.tileCatalog; }
     getObjectCatalog() { return this.objectCatalog; }
@@ -791,16 +820,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput');
     searchInput?.addEventListener('input', () => {
         const term = searchInput.value.toLowerCase();
-        document.querySelectorAll('#tileCategories .sprite-item, #objectCategories .sprite-item').forEach(el => {
-            const title = el.getAttribute('title') || '';
-            const txt = el.textContent || '';
-            if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
-                el.style.display = '';
-            }
-            else {
-                el.style.display = 'none';
-            }
-        });
+        // Only search in visible picker
+        const visiblePicker = document.querySelector('#tileCategories:not([style*="display: none"]), #objectCategories:not([style*="display: none"])');
+        if (visiblePicker) {
+            visiblePicker.querySelectorAll('.sprite-item').forEach(el => {
+                const title = el.getAttribute('title') || '';
+                const txt = el.textContent || '';
+                if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
+                    el.style.display = '';
+                }
+                else {
+                    el.style.display = 'none';
+                }
+            });
+        }
     });
 });
 
