@@ -186,8 +186,8 @@ export class BCMapEditor {
     const canvasHeight = this.canvas.height;
     const tileWidth = (canvasWidth / MAP_WIDTH) * this.zoom;
     const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
-    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2;
-    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2;
+    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2 + this.panX;
+    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2 + this.panY;
     const tileX = Math.floor((mouseX - startX) / tileWidth);
     const tileY = Math.floor((mouseY - startY) / tileHeight);
     return { X: tileX, Y: tileY };
@@ -271,8 +271,8 @@ export class BCMapEditor {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     const tileWidth = (canvasWidth / MAP_WIDTH) * this.zoom;
     const tileHeight = (canvasHeight / MAP_HEIGHT) * this.zoom;
-    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2;
-    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2;
+    const startX = (canvasWidth - MAP_WIDTH * tileWidth) / 2 + this.panX;
+    const startY = (canvasHeight - MAP_HEIGHT * tileHeight) / 2 + this.panY;
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const index = x + y * MAP_WIDTH;
