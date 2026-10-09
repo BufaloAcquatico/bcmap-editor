@@ -667,6 +667,7 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
+const PAN_OVERSCROLL_TILES = 2;
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
@@ -911,11 +912,13 @@ class BCMapEditor {
     }
     clampPan() {
         // Keep the square drawing box clamped to the viewport borders on each
-        // axis independently. Limits are always >= 0 so they can never invert,
+        // axis independently, with a small overscroll so the map edge becomes
+        // visible as feedback. Limits are always >= 0 so they can never invert,
         // and they stay symmetric around the centered position.
-        const { size: drawSize } = this.getDrawBox();
-        const limitX = Math.max(0, (drawSize - this.canvas.width) / 2);
-        const limitY = Math.max(0, (drawSize - this.canvas.height) / 2);
+        const { size: drawSize, tileSize } = this.getDrawBox();
+        const margin = PAN_OVERSCROLL_TILES * tileSize;
+        const limitX = Math.max(0, (drawSize - this.canvas.width) / 2) + margin;
+        const limitY = Math.max(0, (drawSize - this.canvas.height) / 2) + margin;
         this.panX = Math.max(-limitX, Math.min(limitX, this.panX));
         this.panY = Math.max(-limitY, Math.min(limitY, this.panY));
     }

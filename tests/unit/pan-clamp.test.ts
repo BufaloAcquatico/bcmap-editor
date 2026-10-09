@@ -100,25 +100,25 @@ describe("Pan clamping", () => {
         editor = new BCMapEditor("testCanvas");
     });
 
-    it("does not snap when the map fits fully (regression)", () => {
-        (editor as any).zoom = 0.5; // drawSize 300 < viewport
+    it("stays within the overscroll margin when the map fits (regression)", () => {
+        (editor as any).zoom = 0.5; // drawSize 300, margin 15
         ctrlDrag(editor, { x: 0, y: 0 }, { x: 20, y: 10 });
-        expect((editor as any).panX).toBe(0);
-        expect((editor as any).panY).toBe(0);
+        expect((editor as any).panX).toBe(15); // clamped to 2 tiles
+        expect((editor as any).panY).toBe(10);
     });
 
     it("clamps symmetrically per axis when zoomed in", () => {
-        (editor as any).zoom = 3; // drawSize 1800
+        (editor as any).zoom = 3; // drawSize 1800, margin 90
         ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 10000 });
-        expect((editor as any).panX).toBe(500); // (1800 - 800) / 2
-        expect((editor as any).panY).toBe(600); // (1800 - 600) / 2
+        expect((editor as any).panX).toBe(590); // (1800 - 800) / 2 + 90
+        expect((editor as any).panY).toBe(690); // (1800 - 600) / 2 + 90
     });
 
     it("clamps to the negative border without a shift", () => {
         (editor as any).zoom = 3;
         ctrlDrag(editor, { x: 0, y: 0 }, { x: -10000, y: -10000 });
-        expect((editor as any).panX).toBe(-500);
-        expect((editor as any).panY).toBe(-600);
+        expect((editor as any).panX).toBe(-590);
+        expect((editor as any).panY).toBe(-690);
     });
 
     it("preserves a pan within the limits", () => {
@@ -126,6 +126,19 @@ describe("Pan clamping", () => {
         ctrlDrag(editor, { x: 0, y: 0 }, { x: 50, y: 40 });
         expect((editor as any).panX).toBe(50);
         expect((editor as any).panY).toBe(40);
+    });
+
+    it("scales the overscroll margin with zoom", () => {
+        // zoom 1 -> drawSize 600, margin 30
+        (editor as any).zoom = 1;
+        ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
+        expect((editor as any).panX).toBe(30);
+
+        // zoom 2 -> drawSize 1200, margin 60: (1200 - 800) / 2 + 60
+        (editor as any).panX = 0;
+        (editor as any).zoom = 2;
+        ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
+        expect((editor as any).panX).toBe(260);
     });
 
     it("setZoom clamps to the zoom range", () => {

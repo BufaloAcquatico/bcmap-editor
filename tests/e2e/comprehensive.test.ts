@@ -186,7 +186,11 @@ test("zoom and pan controls work", async ({ page }: { page: Page }) => {
     expect(zoomText).toMatch(/100%/);
 });
 
-test("ctrl+drag panning does not snap", async ({ page }: { page: Page }) => {
+test("ctrl+drag panning does not snap and overscrolls 2 tiles", async ({
+    page,
+}: {
+    page: Page;
+}) => {
     await page.goto("http://localhost:8080/map-editor.html");
     await page.waitForSelector("#mapCanvas");
 
@@ -195,53 +199,58 @@ test("ctrl+drag panning does not snap", async ({ page }: { page: Page }) => {
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
 
-    // Low zoom: the whole map fits, so panning must stay put (used to snap).
+    const readPan = () =>
+        page.evaluate(() => ({
+            x: (window as any).editor.panX,
+            y: (window as any).editor.panY,
+        }));
+
+    const dragBy = async (dx: number, dy: number) => {
+        await page.mouse.move(cx, cy);
+        await page.keyboard.down("Control");
+        await page.mouse.down();
+        await page.mouse.move(cx + dx, cy + dy, { steps: 5 });
+        await page.mouse.up();
+        await page.keyboard.up("Control");
+    };
+
+    const expectedPan = (dx: number, dy: number) =>
+        page.evaluate(
+            ([dx, dy]) => {
+                const e = (window as any).editor;
+                const c = e.canvas;
+                const dpr = window.devicePixelRatio || 1;
+                const draw = Math.min(c.width, c.height) * e.zoom;
+                const margin = 2 * (draw / 40); // PAN_OVERSCROLL_TILES
+                const lx = Math.max(0, (draw - c.width) / 2) + margin;
+                const ly = Math.max(0, (draw - c.height) / 2) + margin;
+                const clamp = (v: number, l: number) =>
+                    Math.max(-l, Math.min(l, v));
+                return { x: clamp(dx * dpr, lx), y: clamp(dy * dpr, ly) };
+            },
+            [dx, dy],
+        );
+
+    // Low zoom: the map fits, so it may only nudge ~2 tiles (used to snap).
     await page.evaluate(() => (window as any).editor.setZoom(0.25));
-    await page.mouse.move(cx, cy);
-    await page.keyboard.down("Control");
-    await page.mouse.down();
-    await page.mouse.move(cx + 12, cy + 12, { steps: 5 });
-    await page.mouse.up();
-    await page.keyboard.up("Control");
+    await dragBy(12, 12);
+    let expected = await expectedPan(12, 12);
+    let pan = await readPan();
+    expect(pan.x).toBeCloseTo(expected.x, 0);
+    expect(pan.y).toBeCloseTo(expected.y, 0);
+    expect(Math.abs(pan.x)).toBeLessThan(50); // old bug snapped to ~500
 
-    let pan = await page.evaluate(() => ({
-        x: (window as any).editor.panX,
-        y: (window as any).editor.panY,
-    }));
-    expect(Math.abs(pan.x)).toBeLessThan(1);
-    expect(Math.abs(pan.y)).toBeLessThan(1);
-
-    // High zoom: panning applies and stays within the per-axis limits.
+    // High zoom: panning applies and clamps within the overscrolled limits.
     await page.evaluate(() => {
         const e = (window as any).editor;
         e.resetView();
         e.setZoom(3);
     });
-    const limits = await page.evaluate(() => {
-        const e = (window as any).editor;
-        const c = e.canvas;
-        const draw = Math.min(c.width, c.height) * e.zoom;
-        return {
-            x: Math.max(0, (draw - c.width) / 2),
-            y: Math.max(0, (draw - c.height) / 2),
-        };
-    });
-    const dragX = Math.min(100, limits.x);
-    const dragY = Math.min(60, limits.y);
-
-    await page.mouse.move(cx, cy);
-    await page.keyboard.down("Control");
-    await page.mouse.down();
-    await page.mouse.move(cx + dragX, cy + dragY, { steps: 5 });
-    await page.mouse.up();
-    await page.keyboard.up("Control");
-
-    pan = await page.evaluate(() => ({
-        x: (window as any).editor.panX,
-        y: (window as any).editor.panY,
-    }));
-    expect(pan.x).toBeCloseTo(dragX, 0);
-    expect(pan.y).toBeCloseTo(dragY, 0);
+    await dragBy(100, 60);
+    expected = await expectedPan(100, 60);
+    pan = await readPan();
+    expect(pan.x).toBeCloseTo(expected.x, 0);
+    expect(pan.y).toBeCloseTo(expected.y, 0);
 });
 
 test("layer toggle switches pickers", async ({ page }: { page: Page }) => {
