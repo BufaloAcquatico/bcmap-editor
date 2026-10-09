@@ -45,7 +45,34 @@ npm test
 
 # Run E2E tests (requires Playwright browsers)
 npm run test:e2e
+
+# Run E2E tests in Docker (no local browser install needed)
+npm run test:e2e:docker
+
+# Run unit tests in Docker
+npm run test:e2e:docker:unit
 ```
+
+### Docker Testing (Recommended for Fedora/Linux)
+
+The project includes Docker configuration for running Playwright E2E tests without installing browsers locally.
+
+**Requirements:** Docker and Docker Compose installed
+
+```bash
+# Build and run E2E tests
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit test
+
+# Or use npm script
+npm run test:e2e:docker
+
+# Run unit tests in Docker
+npm run test:e2e:docker:unit
+```
+
+**Files:**
+- `Dockerfile.test` - Test image based on `mcr.microsoft.com/playwright:v1.40-focal`
+- `docker-compose.test.yml` - Compose file with volume mounts for fast iteration
 
 ## Technical Details
 

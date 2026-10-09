@@ -1,4 +1,7 @@
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from 'playwright/test';
+
+// Register ts-node for TypeScript config support
+import 'ts-node/register';
 
 export default defineConfig({
   testDir: './tests/e2e',

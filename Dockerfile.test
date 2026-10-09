@@ -1,0 +1,27 @@
+# Playwright E2E Testing Dockerfile
+# Uses Microsoft's official Playwright image with browsers pre-installed
+FROM mcr.microsoft.com/playwright:v1.64.0-jammy
+
+# Install pnpm
+RUN npm install -g pnpm@9.15.5
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for caching
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies (including dev)
+RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY . .
+
+# Build the project (TypeScript -> JS embedded in HTML)
+RUN pnpm run build
+
+# Use test-specific tsconfig for ts-node (non-strict)
+ENV TS_NODE_PROJECT=tsconfig.test.json
+
+# Default command runs E2E tests
+CMD ["pnpm", "test:e2e"]
