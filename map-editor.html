@@ -191,12 +191,11 @@
   <script>(function() {
 "use strict";
 // BCMap Editor - TypeScript Source
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.BCMapEditor = exports.GRASS_TILE_ID = exports.MAP_HEIGHT = exports.MAP_WIDTH = void 0;
-const lz_string_1 = require("lz-string");
-exports.MAP_WIDTH = 40;
-exports.MAP_HEIGHT = 40;
-exports.GRASS_TILE_ID = 210; // FloorExterior/Grass
+window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
+const lz_string_1 = LZString;
+window.MAP_WIDTH = 40;
+window.MAP_HEIGHT = 40;
+window.GRASS_TILE_ID = 210; // FloorExterior/Grass
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
@@ -207,8 +206,13 @@ class BCMapEditor {
         this.selectedObject = null;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanning = false;
         this.tileCatalog = [];
         this.objectCatalog = [];
+        this.tileImageCache = new Map();
+        this.objectImageCache = new Map();
         this.canvas = document.getElementById(canvasId);
         const ctx = this.canvas.getContext('2d');
         if (!ctx)
@@ -217,12 +221,32 @@ class BCMapEditor {
         this.mapData = this.createDefaultMap();
         this.initCatalogs();
         this.init();
+        this.preloadImages();
+    }
+    preloadImages() {
+        this.tileCatalog.forEach(tile => {
+            const key = tile.Type + '/' + tile.Style;
+            if (!this.tileImageCache.has(key)) {
+                const img = new Image();
+                img.src = 'assets/tiles/' + key + '.png';
+                this.tileImageCache.set(key, img);
+            }
+        });
+        this.objectCatalog.forEach(obj => {
+            if (obj.Style === 'Blank')
+                return;
+            const key = obj.Type + '/' + obj.Style;
+            if (!this.objectImageCache.has(key)) {
+                const img = new Image();
+                img.src = 'assets/objects/' + key + '.png';
+                this.objectImageCache.set(key, img);
+            }
+        });
     }
     createDefaultMap() {
-        // Initialize with 40x40 grass tiles (Grass ID 210 = char code 210)
-        const grassChar = String.fromCharCode(exports.GRASS_TILE_ID);
-        const tiles = grassChar.repeat(exports.MAP_WIDTH * exports.MAP_HEIGHT);
-        const objects = String.fromCharCode(100).repeat(exports.MAP_WIDTH * exports.MAP_HEIGHT); // Blank
+        const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
+        const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+        const objects = String.fromCharCode(100).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
         return {
             Type: 'Always',
             Tiles: tiles,
@@ -230,7 +254,6 @@ class BCMapEditor {
         };
     }
     initCatalogs() {
-        // Basic tiles from MAP_SYSTEM_DOCUMENTATION.md
         this.tileCatalog = [
             { ID: 100, Type: 'Floor', Style: 'OakWood' },
             { ID: 110, Type: 'Floor', Style: 'Stone' },
@@ -286,93 +309,10 @@ class BCMapEditor {
             { ID: 2060, Type: 'Water', Style: 'Shallow' },
             { ID: 2090, Type: 'Water', Style: 'Lava' }
         ];
-        // Basic objects
-        this.objectCatalog = [
-            { ID: 100, Type: 'FloorDecoration', Style: 'Blank' },
-            { ID: 110, Type: 'FloorDecoration', Style: 'EntryFlag' },
-            { ID: 115, Type: 'FloorDecoration', Style: 'ExitFlag' },
-            { ID: 160, Type: 'FloorDecoration', Style: 'KeyBronze' },
-            { ID: 162, Type: 'FloorDecoration', Style: 'KeySilver' },
-            { ID: 164, Type: 'FloorDecoration', Style: 'KeyGold' },
-            { ID: 166, Type: 'FloorDecoration', Style: 'Bed' },
-            { ID: 200, Type: 'FloorDecorationThemed', Style: 'Blank' },
-            { ID: 300, Type: 'FloorDecorationThemed', Style: 'ShibariFrame' },
-            { ID: 500, Type: 'FloorDecorationParty', Style: 'Blank' },
-            { ID: 510, Type: 'FloorDecorationParty', Style: 'BalloonFiveColor' },
-            { ID: 600, Type: 'FloorDecorationCamping', Style: 'Blank' },
-            { ID: 610, Type: 'FloorDecorationCamping', Style: 'LogFire' },
-            { ID: 700, Type: 'FloorDecorationExpanding', Style: 'Blank' },
-            { ID: 710, Type: 'FloorDecorationExpanding', Style: 'CouchPinkPreview' },
-            { ID: 800, Type: 'FloorDecorationAnimal', Style: 'Blank' },
-            { ID: 810, Type: 'FloorDecorationAnimal', Style: 'CatCaramelHappy' },
-            { ID: 820, Type: 'FloorDecorationAnimal', Style: 'DogBrownHappy' },
-            { ID: 830, Type: 'FloorDecorationAnimal', Style: 'RabbitBrownStand' },
-            { ID: 840, Type: 'FloorDecorationAnimal', Style: 'ChickenBrownIdleLeft' },
-            { ID: 1000, Type: 'FloorItem', Style: 'Blank' },
-            { ID: 1010, Type: 'FloorItem', Style: 'Kennel' },
-            { ID: 1020, Type: 'FloorItem', Style: 'X-Cross' },
-            { ID: 1030, Type: 'FloorItem', Style: 'BondageBench' },
-            { ID: 1040, Type: 'FloorItem', Style: 'Trolley' },
-            { ID: 1050, Type: 'FloorItem', Style: 'Locker' },
-            { ID: 1060, Type: 'FloorItem', Style: 'WoodenBox' },
-            { ID: 1070, Type: 'FloorItem', Style: 'Coffin' },
-            { ID: 1080, Type: 'FloorItem', Style: 'TheDisplayFrame' },
-            { ID: 1090, Type: 'FloorItem', Style: 'Pole' },
-            { ID: 1095, Type: 'FloorItem', Style: 'MedicalBed' },
-            { ID: 1096, Type: 'FloorItem', Style: 'FuturisticCrate' },
-            { ID: 1100, Type: 'FloorNumber', Style: 'Blank' },
-            { ID: 1101, Type: 'FloorNumber', Style: 'Number1' },
-            { ID: 1200, Type: 'FloorLetter', Style: 'Blank' },
-            { ID: 1201, Type: 'FloorLetter', Style: 'LetterA' },
-            { ID: 1300, Type: 'FloorIcon', Style: 'Blank' },
-            { ID: 1301, Type: 'FloorIcon', Style: 'IconCircle' },
-            { ID: 2000, Type: 'FloorObstacle', Style: 'Blank' },
-            { ID: 2093, Type: 'FloorObstacle', Style: 'VelourRopeBarrier' },
-            { ID: 2095, Type: 'FloorObstacle', Style: 'OakTree' },
-            { ID: 2097, Type: 'FloorObstacle', Style: 'LeaflessTree' },
-            { ID: 2100, Type: 'FloorObstacle', Style: 'PineTree' },
-            { ID: 2110, Type: 'FloorObstacle', Style: 'PalmTree' },
-            { ID: 2120, Type: 'FloorObstacle', Style: 'Sakura' },
-            { ID: 2130, Type: 'FloorObstacle', Style: 'Cactus' },
-            { ID: 2140, Type: 'FloorObstacle', Style: 'ChristmasTree' },
-            { ID: 2150, Type: 'FloorObstacle', Style: 'Window' },
-            { ID: 2160, Type: 'FloorObstacle', Style: 'TrashCan' },
-            { ID: 2170, Type: 'FloorObstacle', Style: 'RoadCone' },
-            { ID: 2180, Type: 'FloorObstacle', Style: 'LampPost' },
-            { ID: 2190, Type: 'FloorObstacle', Style: 'Pillar' },
-            { ID: 3000, Type: 'WallDecoration', Style: 'Blank' },
-            { ID: 3010, Type: 'WallDecoration', Style: 'Painting' },
-            { ID: 3020, Type: 'WallDecoration', Style: 'Mirror' },
-            { ID: 3030, Type: 'WallDecoration', Style: 'Candelabra0' },
-            { ID: 3040, Type: 'WallDecoration', Style: 'Whip' },
-            { ID: 3050, Type: 'WallDecoration', Style: 'Fireplace' },
-            { ID: 3060, Type: 'WallDecoration', Style: 'Stocking' },
-            { ID: 4000, Type: 'WallPath', Style: 'Blank' },
-            { ID: 4010, Type: 'WallPath', Style: 'WoodOpen' },
-            { ID: 4011, Type: 'WallPath', Style: 'WoodClosed' },
-            { ID: 4012, Type: 'WallPath', Style: 'WoodLocked' },
-            { ID: 4013, Type: 'WallPath', Style: 'WoodLockedBronze' },
-            { ID: 4014, Type: 'WallPath', Style: 'WoodLockedSilver' },
-            { ID: 4015, Type: 'WallPath', Style: 'WoodLockedGold' },
-            { ID: 4020, Type: 'WallPath', Style: 'Metal' },
-            { ID: 4021, Type: 'WallPath', Style: 'MetalUp' },
-            { ID: 4022, Type: 'WallPath', Style: 'MetalDown' },
-            { ID: 4023, Type: 'WallPath', Style: 'MetalLockedBronze' },
-            { ID: 4024, Type: 'WallPath', Style: 'MetalLockedSilver' },
-            { ID: 4025, Type: 'WallPath', Style: 'MetalLockedGold' },
-            { ID: 4030, Type: 'WallPath', Style: 'BrownDoor' },
-            { ID: 4031, Type: 'WallPath', Style: 'BrownDoorOpen' },
-            { ID: 5010, Type: 'Banners', Style: 'Blank' },
-            { ID: 5011, Type: 'Banners', Style: 'Blue' },
-            { ID: 5012, Type: 'Banners', Style: 'Green' },
-            { ID: 5013, Type: 'Banners', Style: 'Yellow' },
-            { ID: 5014, Type: 'Banners', Style: 'PaladinBanner' }
-        ];
     }
     init() {
         this.resizeCanvas();
         this.render();
-        // Add event listeners
         this.canvas.addEventListener('click', this.onCanvasClick.bind(this));
         this.canvas.addEventListener('wheel', this.onCanvasWheel.bind(this));
         this.canvas.addEventListener('mousedown', this.onCanvasMouseDown.bind(this));
@@ -389,36 +329,32 @@ class BCMapEditor {
             this.render();
         }
     }
-    onCanvasClick(e) {
-        const pos = this.getTilePosFromMouse(e);
-        if (pos.X < 0 || pos.X >= exports.MAP_WIDTH || pos.Y < 0 || pos.Y >= exports.MAP_HEIGHT)
-            return;
-        const index = pos.X + pos.Y * exports.MAP_WIDTH;
-        if (this.currentLayer === 'tile' && this.selectedTile) {
-            this.mapData.Tiles = this.mapData.Tiles.substring(0, index) +
-                String.fromCharCode(this.selectedTile.ID) +
-                this.mapData.Tiles.substring(index + 1);
-        }
-        else if (this.currentLayer === 'object' && this.selectedObject) {
-            this.mapData.Objects = this.mapData.Objects.substring(0, index) +
-                String.fromCharCode(this.selectedObject.ID) +
-                this.mapData.Objects.substring(index + 1);
-        }
-        this.render();
-    }
     getTilePosFromMouse(e) {
         const rect = this.canvas.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         const canvasWidth = this.canvas.width;
         const canvasHeight = this.canvas.height;
-        const tileWidth = canvasWidth / exports.MAP_WIDTH * this.zoom;
-        const tileHeight = canvasHeight / exports.MAP_HEIGHT * this.zoom;
-        const startX = (canvasWidth - exports.MAP_WIDTH * tileWidth) / 2;
-        const startY = (canvasHeight - exports.MAP_HEIGHT * tileHeight) / 2;
+        const tileWidth = (canvasWidth / window.MAP_WIDTH) * this.zoom;
+        const tileHeight = (canvasHeight / window.MAP_HEIGHT) * this.zoom;
+        const startX = (canvasWidth - window.MAP_WIDTH * tileWidth) / 2 + this.panX;
+        const startY = (canvasHeight - window.MAP_HEIGHT * tileHeight) / 2 + this.panY;
         const tileX = Math.floor((mouseX - startX) / tileWidth);
         const tileY = Math.floor((mouseY - startY) / tileHeight);
         return { X: tileX, Y: tileY };
+    }
+    onCanvasClick(e) {
+        const pos = this.getTilePosFromMouse(e);
+        if (pos.X < 0 || pos.X >= window.MAP_WIDTH || pos.Y < 0 || pos.Y >= window.MAP_HEIGHT)
+            return;
+        const index = pos.X + pos.Y * window.MAP_WIDTH;
+        if (this.currentLayer === 'tile' && this.selectedTile) {
+            this.mapData.Tiles = this.mapData.Tiles.substring(0, index) + String.fromCharCode(this.selectedTile.ID) + this.mapData.Tiles.substring(index + 1);
+        }
+        else if (this.currentLayer === 'object' && this.selectedObject) {
+            this.mapData.Objects = this.mapData.Objects.substring(0, index) + String.fromCharCode(this.selectedObject.ID) + this.mapData.Objects.substring(index + 1);
+        }
+        this.render();
     }
     onCanvasWheel(e) {
         e.preventDefault();
@@ -429,80 +365,35 @@ class BCMapEditor {
             this.zoom = Math.max(this.minZoom, this.zoom * 0.9);
         }
         const zoomLevelEl = document.getElementById('zoomLevel');
-        if (zoomLevelEl) {
+        if (zoomLevelEl)
             zoomLevelEl.textContent = Math.round(this.zoom * 100) + '%';
-        }
         this.render();
     }
     onCanvasMouseDown(e) {
         this.isDragging = true;
+        this.isPanning = e.button === 1 || e.button === 2 || (e.ctrlKey || e.metaKey);
         const rect = this.canvas.getBoundingClientRect();
         this.lastMousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        if (e.button === 2)
+            e.preventDefault();
     }
     onCanvasMouseMove(e) {
         if (!this.isDragging)
             return;
-        // Drag logic would go here if needed
         const rect = this.canvas.getBoundingClientRect();
         const currentPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        const dx = currentPos.x - this.lastMousePos.x;
+        const dy = currentPos.y - this.lastMousePos.y;
+        if (this.isPanning) {
+            this.panX += dx;
+            this.panY += dy;
+            this.render();
+        }
         this.lastMousePos = currentPos;
     }
     onCanvasMouseUp() {
         this.isDragging = false;
-    }
-    render() {
-        const ctx = this.ctx;
-        const canvasWidth = this.canvas.width;
-        const canvasHeight = this.canvas.height;
-        // Clear canvas
-        ctx.fillStyle = '#0f0f23';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        const tileWidth = (canvasWidth / exports.MAP_WIDTH) * this.zoom;
-        const tileHeight = (canvasHeight / exports.MAP_HEIGHT) * this.zoom;
-        const startX = (canvasWidth - exports.MAP_WIDTH * tileWidth) / 2;
-        const startY = (canvasHeight - exports.MAP_HEIGHT * tileHeight) / 2;
-        // Render tiles
-        for (let y = 0; y < exports.MAP_HEIGHT; y++) {
-            for (let x = 0; x < exports.MAP_WIDTH; x++) {
-                const index = x + y * exports.MAP_WIDTH;
-                const tileId = this.mapData.Tiles.charCodeAt(index);
-                const tile = this.tileCatalog.find(t => t.ID === tileId);
-                if (tile) {
-                    // Simple colored boxes for tiles (placeholder - will use sprites later)
-                    ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
-                    ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
-                }
-            }
-        }
-        // Render objects
-        for (let y = 0; y < exports.MAP_HEIGHT; y++) {
-            for (let x = 0; x < exports.MAP_WIDTH; x++) {
-                const index = x + y * exports.MAP_WIDTH;
-                const objId = this.mapData.Objects.charCodeAt(index);
-                if (objId === 100)
-                    continue; // Blank
-                const obj = this.objectCatalog.find(o => o.ID === objId);
-                if (obj) {
-                    ctx.fillStyle = this.getObjectColor(obj.Type);
-                    ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
-                }
-            }
-        }
-        // Draw grid
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 0.5;
-        for (let i = 0; i <= exports.MAP_WIDTH; i++) {
-            ctx.beginPath();
-            ctx.moveTo(startX + i * tileWidth, startY);
-            ctx.lineTo(startX + i * tileWidth, startY + exports.MAP_HEIGHT * tileHeight);
-            ctx.stroke();
-        }
-        for (let j = 0; j <= exports.MAP_HEIGHT; j++) {
-            ctx.beginPath();
-            ctx.moveTo(startX, startY + j * tileHeight);
-            ctx.lineTo(startX + exports.MAP_WIDTH * tileWidth, startY + j * tileHeight);
-            ctx.stroke();
-        }
+        this.isPanning = false;
     }
     getTileColor(type, style) {
         if (type === 'FloorExterior' && style === 'Grass')
@@ -532,58 +423,177 @@ class BCMapEditor {
             return '#FF6347';
         return '#FF69B4';
     }
+    render() {
+        const ctx = this.ctx;
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        ctx.fillStyle = '#0f0f23';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        const tileWidth = (canvasWidth / window.MAP_WIDTH) * this.zoom;
+        const tileHeight = (canvasHeight / window.MAP_HEIGHT) * this.zoom;
+        const startX = (canvasWidth - window.MAP_WIDTH * tileWidth) / 2 + this.panX;
+        const startY = (canvasHeight - window.MAP_HEIGHT * tileHeight) / 2 + this.panY;
+        for (let y = 0; y < window.MAP_HEIGHT; y++) {
+            for (let x = 0; x < window.MAP_WIDTH; x++) {
+                const index = x + y * window.MAP_WIDTH;
+                const tileId = this.mapData.Tiles.charCodeAt(index);
+                const tile = this.tileCatalog.find(t => t.ID === tileId);
+                if (tile) {
+                    ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+                    ctx.fillRect(startX + x * tileWidth, startY + y * tileHeight, tileWidth, tileHeight);
+                }
+            }
+        }
+        for (let y = 0; y < window.MAP_HEIGHT; y++) {
+            for (let x = 0; x < window.MAP_WIDTH; x++) {
+                const index = x + y * window.MAP_WIDTH;
+                const objId = this.mapData.Objects.charCodeAt(index);
+                if (objId === 100)
+                    continue;
+                const obj = this.objectCatalog.find(o => o.ID === objId);
+                if (obj) {
+                    ctx.fillStyle = this.getObjectColor(obj.Type);
+                    ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+                }
+            }
+        }
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= window.MAP_WIDTH; i++) {
+            ctx.beginPath();
+            ctx.moveTo(startX + i * tileWidth, startY);
+            ctx.lineTo(startX + i * tileWidth, startY + window.MAP_HEIGHT * tileHeight);
+            ctx.stroke();
+        }
+        for (let j = 0; j <= window.MAP_HEIGHT; j++) {
+            ctx.beginPath();
+            ctx.moveTo(startX, startY + j * tileHeight);
+            ctx.lineTo(startX + window.MAP_WIDTH * tileWidth, startY + j * tileHeight);
+            ctx.stroke();
+        }
+    }
     setCurrentLayer(layer) {
         this.currentLayer = layer;
     }
-    setSelectedTile(tile) {
-        this.selectedTile = tile;
-    }
-    setSelectedObject(obj) {
-        this.selectedObject = obj;
-    }
+    setSelectedTile(tile) { this.selectedTile = tile; }
+    setSelectedObject(obj) { this.selectedObject = obj; }
     exportMap(name) {
-        const data = {
-            Type: this.mapData.Type,
-            Tiles: this.mapData.Tiles,
-            Objects: this.mapData.Objects
-        };
-        const jsonStr = JSON.stringify(data);
-        return (0, lz_string_1.compressToBase64)(jsonStr);
+        const data = { Type: this.mapData.Type, Tiles: this.mapData.Tiles, Objects: this.mapData.Objects };
+        return (0, lz_string_1.compressToBase64)(JSON.stringify(data));
     }
     importMap(code) {
         try {
             const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
             if (!jsonStr)
                 throw new Error('Invalid map code');
-            const data = JSON.parse(jsonStr);
-            this.mapData = data;
+            this.mapData = JSON.parse(jsonStr);
             this.render();
         }
         catch (e) {
             throw new Error('Failed to import map: ' + e);
         }
     }
-    getMapData() {
-        return this.mapData;
+    getMapData() { return this.mapData; }
+    newMap() { this.mapData = this.createDefaultMap(); this.render(); }
+    populatePickers() {
+        const tileCategories = document.getElementById('tileCategories');
+        const objectCategories = document.getElementById('objectCategories');
+        if (!tileCategories || !objectCategories)
+            return;
+        const tileGroups = new Map();
+        this.tileCatalog.forEach(t => {
+            if (!tileGroups.has(t.Type))
+                tileGroups.set(t.Type, []);
+            tileGroups.get(t.Type).push(t);
+        });
+        tileCategories.innerHTML = '';
+        tileGroups.forEach((tiles, type) => {
+            const header = document.createElement('div');
+            header.className = 'category-header p-2 border-bottom border-secondary';
+            header.textContent = type;
+            const container = document.createElement('div');
+            container.className = 'category-content p-2 d-flex flex-wrap';
+            tiles.forEach(tile => {
+                const item = document.createElement('div');
+                item.className = 'sprite-item';
+                const key = tile.Type + '/' + tile.Style;
+                const img = new Image();
+                img.src = 'assets/tiles/' + key + '.png';
+                img.alt = tile.Style;
+                item.title = tile.Style;
+                item.appendChild(img);
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('#tileCategories .sprite-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    this.selectedTile = tile;
+                });
+                container.appendChild(item);
+            });
+            tileCategories.appendChild(header);
+            tileCategories.appendChild(container);
+        });
+        const objGroups = new Map();
+        this.objectCatalog.forEach(o => {
+            let g = o.Type;
+            if (o.Type.startsWith('FloorDecoration'))
+                g = 'Floor Decorations';
+            else if (o.Type === 'FloorItem' || o.Type === 'FloorNumber' || o.Type === 'FloorLetter' || o.Type === 'FloorIcon')
+                g = 'Floor Items';
+            else if (o.Type === 'FloorObstacle')
+                g = 'Floor Obstacles';
+            else if (o.Type === 'WallDecoration' || o.Type === 'WallPath')
+                g = 'Wall';
+            else if (o.Type === 'Banners')
+                g = 'Banners';
+            if (!objGroups.has(g))
+                objGroups.set(g, []);
+            objGroups.get(g).push(o);
+        });
+        objectCategories.innerHTML = '';
+        objGroups.forEach((objs, group) => {
+            const header = document.createElement('div');
+            header.className = 'category-header p-2 border-bottom border-secondary';
+            header.textContent = group;
+            const container = document.createElement('div');
+            container.className = 'category-content p-2 d-flex flex-wrap';
+            objs.forEach(obj => {
+                const item = document.createElement('div');
+                item.className = 'sprite-item';
+                if (obj.Style !== 'Blank') {
+                    const key = obj.Type + '/' + obj.Style;
+                    const img = new Image();
+                    img.src = 'assets/objects/' + key + '.png';
+                    img.alt = obj.Style;
+                    item.title = obj.Style;
+                    item.appendChild(img);
+                }
+                else {
+                    item.innerHTML = '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
+                    item.title = 'Blank (Erase)';
+                }
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('#objectCategories .sprite-item').forEach(el => el.classList.remove('selected'));
+                    item.classList.add('selected');
+                    this.selectedObject = obj;
+                });
+                container.appendChild(item);
+            });
+            objectCategories.appendChild(header);
+            objectCategories.appendChild(container);
+        });
     }
-    newMap() {
-        this.mapData = this.createDefaultMap();
-        this.render();
-    }
-    getTileCatalog() {
-        return this.tileCatalog;
-    }
-    getObjectCatalog() {
-        return this.objectCatalog;
-    }
+    getTileCatalog() { return this.tileCatalog; }
+    getObjectCatalog() { return this.objectCatalog; }
+    getCurrentLayer() { return this.currentLayer; }
 }
-exports.BCMapEditor = BCMapEditor;
+window.BCMapEditor = BCMapEditor;
 
 "use strict";
 document.addEventListener('DOMContentLoaded', () => {
     const editor = new window.BCMapEditor('mapCanvas');
     // Store editor globally
     window.editor = editor;
+    editor.populatePickers();
     // Layer toggle
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach(radio => {
@@ -679,6 +689,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (zoomLevelEl)
             zoomLevelEl.textContent = '100%';
         editor.render();
+    });
+    // Search
+    const searchInput = document.getElementById('searchInput');
+    searchInput?.addEventListener('input', () => {
+        const term = searchInput.value.toLowerCase();
+        document.querySelectorAll('#tileCategories .sprite-item, #objectCategories .sprite-item').forEach(el => {
+            const title = el.getAttribute('title') || '';
+            const txt = el.textContent || '';
+            if (title.toLowerCase().includes(term) || txt.toLowerCase().includes(term)) {
+                el.style.display = '';
+            }
+            else {
+                el.style.display = 'none';
+            }
+        });
     });
 });
 
