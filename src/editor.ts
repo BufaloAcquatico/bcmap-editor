@@ -76,6 +76,9 @@ export class BCMapEditor {
       const key = tile.Type + '/' + tile.Style;
       if (!this.tileImageCache.has(key)) {
         const img = new Image();
+        img.onerror = () => {
+          // Keep cached to avoid retrying; image will show as empty and render falls back
+        };
         img.src = 'assets/tiles/' + key + '.png';
         this.tileImageCache.set(key, img);
       }
@@ -85,6 +88,7 @@ export class BCMapEditor {
       const key = obj.Type + '/' + obj.Style;
       if (!this.objectImageCache.has(key)) {
         const img = new Image();
+        img.onerror = () => {};
         img.src = 'assets/objects/' + key + '.png';
         this.objectImageCache.set(key, img);
       }
