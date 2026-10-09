@@ -155,6 +155,80 @@ export class BCMapEditor {
       { ID: 2060, Type: 'Water', Style: 'Shallow' },
       { ID: 2090, Type: 'Water', Style: 'Lava' }
     ];
+
+    this.objectCatalog = [
+      // Blank (erase)
+      { ID: 100, Type: 'Blank', Style: 'Blank' },
+      // Floor Decorations - Animal
+      { ID: 101, Type: 'FloorDecorationAnimal', Style: 'CatCaramelHappy' },
+      { ID: 102, Type: 'FloorDecorationAnimal', Style: 'ChickenBrownIdleLeft' },
+      { ID: 103, Type: 'FloorDecorationAnimal', Style: 'DogBrownHappy' },
+      { ID: 104, Type: 'FloorDecorationAnimal', Style: 'RabbitBrownStand' },
+      // Floor Decorations - Camping
+      { ID: 105, Type: 'FloorDecorationCamping', Style: 'LogFire' },
+      // Floor Decorations - Expanding
+      { ID: 106, Type: 'FloorDecorationExpanding', Style: 'CouchPinkPreview' },
+      // Floor Decorations - Party
+      { ID: 107, Type: 'FloorDecorationParty', Style: 'BalloonFiveColor' },
+      // Floor Decorations - Themed
+      { ID: 108, Type: 'FloorDecorationThemed', Style: 'ShibariFrame' },
+      // Floor Items
+      { ID: 200, Type: 'FloorItem', Style: 'BondageBench' },
+      { ID: 201, Type: 'FloorItem', Style: 'Coffin' },
+      { ID: 202, Type: 'FloorItem', Style: 'FuturisticCrate' },
+      { ID: 203, Type: 'FloorItem', Style: 'Kennel' },
+      { ID: 204, Type: 'FloorItem', Style: 'MedicalBed' },
+      { ID: 205, Type: 'FloorItem', Style: 'Pole' },
+      { ID: 206, Type: 'FloorItem', Style: 'TheDisplayFrame' },
+      { ID: 207, Type: 'FloorItem', Style: 'Trolley' },
+      { ID: 208, Type: 'FloorItem', Style: 'WoodenBox' },
+      { ID: 209, Type: 'FloorItem', Style: 'X-Cross' },
+      // Floor Obstacles
+      { ID: 300, Type: 'FloorObstacle', Style: 'Cactus' },
+      { ID: 301, Type: 'FloorObstacle', Style: 'ChristmasTree' },
+      { ID: 302, Type: 'FloorObstacle', Style: 'LampPost' },
+      { ID: 303, Type: 'FloorObstacle', Style: 'LeaflessTree' },
+      { ID: 304, Type: 'FloorObstacle', Style: 'OakTree' },
+      { ID: 305, Type: 'FloorObstacle', Style: 'PalmTree' },
+      { ID: 306, Type: 'FloorObstacle', Style: 'PineTree' },
+      { ID: 307, Type: 'FloorObstacle', Style: 'RoadCone' },
+      { ID: 308, Type: 'FloorObstacle', Style: 'Sakura' },
+      { ID: 309, Type: 'FloorObstacle', Style: 'TrashCan' },
+      { ID: 310, Type: 'FloorObstacle', Style: 'VelourRopeBarrier' },
+      { ID: 311, Type: 'FloorObstacle', Style: 'Window' },
+      { ID: 312, Type: 'FloorObstacle', Style: 'Pillar' },
+      // Wall Decorations
+      { ID: 400, Type: 'WallDecoration', Style: 'Candelabra0' },
+      { ID: 401, Type: 'WallDecoration', Style: 'Painting' },
+      { ID: 402, Type: 'WallDecoration', Style: 'Stocking' },
+      { ID: 403, Type: 'WallDecoration', Style: 'Whip' },
+      // Wall Paths
+      { ID: 500, Type: 'WallPath', Style: 'BrownDoor' },
+      { ID: 501, Type: 'WallPath', Style: 'BrownDoorOpen' },
+      { ID: 502, Type: 'WallPath', Style: 'Metal' },
+      { ID: 503, Type: 'WallPath', Style: 'MetalDown' },
+      { ID: 504, Type: 'WallPath', Style: 'MetalLockedBronze' },
+      { ID: 505, Type: 'WallPath', Style: 'MetalLockedGold' },
+      { ID: 506, Type: 'WallPath', Style: 'MetalLockedSilver' },
+      { ID: 507, Type: 'WallPath', Style: 'MetalUp' },
+      { ID: 508, Type: 'WallPath', Style: 'WoodClosed' },
+      { ID: 509, Type: 'WallPath', Style: 'WoodLocked' },
+      { ID: 510, Type: 'WallPath', Style: 'WoodLockedBronze' },
+      { ID: 511, Type: 'WallPath', Style: 'WoodLockedGold' },
+      { ID: 512, Type: 'WallPath', Style: 'WoodLockedSilver' },
+      { ID: 513, Type: 'WallPath', Style: 'WoodOpen' },
+      // Banners
+      { ID: 600, Type: 'Banners', Style: 'Blue' },
+      { ID: 601, Type: 'Banners', Style: 'Green' },
+      { ID: 602, Type: 'Banners', Style: 'PaladinBanner' },
+      { ID: 603, Type: 'Banners', Style: 'Yellow' },
+      // Floor Icons
+      { ID: 700, Type: 'FloorIcon', Style: 'IconCircle' },
+      // Floor Numbers
+      { ID: 800, Type: 'FloorNumber', Style: 'Number1' },
+      // Floor Letters
+      { ID: 900, Type: 'FloorLetter', Style: 'LetterA' },
+    ];
   }
 
   private init(): void {
