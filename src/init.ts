@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Store editor globally
   (window as any).editor = editor;
+  editor.populatePickers();
   
   // Layer toggle
   const layerRadios = document.querySelectorAll('input[name="layer"]');

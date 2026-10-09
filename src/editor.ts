@@ -317,7 +317,87 @@ export class BCMapEditor {
     } catch (e) { throw new Error('Failed to import map: ' + e); }
   }
   public getMapData(): MapData { return this.mapData; }
-  public newMap(): void { this.mapData = this.createDefaultMap(); this.render(); }
+  public newMap(): void { this.mapData = this.createDefaultMap(); this.render(); }  public populatePickers(): void {
+    const tileCategories = document.getElementById('tileCategories');
+    const objectCategories = document.getElementById('objectCategories');
+    if (!tileCategories || !objectCategories) return;
+    const tileGroups = new Map<string, TileDef[]>();
+    this.tileCatalog.forEach(t => {
+      if (!tileGroups.has(t.Type)) tileGroups.set(t.Type, []);
+      tileGroups.get(t.Type)!.push(t);
+    });
+    tileCategories.innerHTML = '';
+    tileGroups.forEach((tiles, type) => {
+      const header = document.createElement('div');
+      header.className = 'category-header p-2 border-bottom border-secondary';
+      header.textContent = type;
+      const container = document.createElement('div');
+      container.className = 'category-content p-2 d-flex flex-wrap';
+      tiles.forEach(tile => {
+        const item = document.createElement('div');
+        item.className = 'sprite-item';
+        const key = tile.Type + '/' + tile.Style;
+        const img = new Image();
+        img.src = 'assets/tiles/' + key + '.png';
+        img.alt = tile.Style;
+        item.title = tile.Style;
+        item.appendChild(img);
+        item.addEventListener('click', () => {
+          document.querySelectorAll('#tileCategories .sprite-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          this.selectedTile = tile;
+        });
+        container.appendChild(item);
+      });
+      tileCategories.appendChild(header);
+      tileCategories.appendChild(container);
+    });
+    
+    const objGroups = new Map<string, ObjectDef[]>();
+    this.objectCatalog.forEach(o => {
+      let g = o.Type;
+      if (o.Type.startsWith('FloorDecoration')) g = 'Floor Decorations';
+      else if (o.Type === 'FloorItem' || o.Type === 'FloorNumber' || o.Type === 'FloorLetter' || o.Type === 'FloorIcon') g = 'Floor Items';
+      else if (o.Type === 'FloorObstacle') g = 'Floor Obstacles';
+      else if (o.Type === 'WallDecoration' || o.Type === 'WallPath') g = 'Wall';
+      else if (o.Type === 'Banners') g = 'Banners';
+      if (!objGroups.has(g)) objGroups.set(g, []);
+      objGroups.get(g)!.push(o);
+    });
+    objectCategories.innerHTML = '';
+    objGroups.forEach((objs, group) => {
+      const header = document.createElement('div');
+      header.className = 'category-header p-2 border-bottom border-secondary';
+      header.textContent = group;
+      const container = document.createElement('div');
+      container.className = 'category-content p-2 d-flex flex-wrap';
+      objs.forEach(obj => {
+        const item = document.createElement('div');
+        item.className = 'sprite-item';
+        if (obj.Style !== 'Blank') {
+          const key = obj.Type + '/' + obj.Style;
+          const img = new Image();
+          img.src = 'assets/objects/' + key + '.png';
+          img.alt = obj.Style;
+          item.title = obj.Style;
+          item.appendChild(img);
+        } else {
+          item.innerHTML = '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
+          item.title = 'Blank (Erase)';
+        }
+        item.addEventListener('click', () => {
+          document.querySelectorAll('#objectCategories .sprite-item').forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          this.selectedObject = obj;
+        });
+        container.appendChild(item);
+      });
+      objectCategories.appendChild(header);
+      objectCategories.appendChild(container);
+    });
+  }
+
   public getTileCatalog(): TileDef[] { return this.tileCatalog; }
   public getObjectCatalog(): ObjectDef[] { return this.objectCatalog; }
+  public getCurrentLayer(): string { return this.currentLayer; }
 }
