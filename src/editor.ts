@@ -407,7 +407,14 @@ export class BCMapEditor {
     try {
       const jsonStr = decompressFromBase64(code);
       if (!jsonStr) throw new Error('Invalid map code');
-      this.mapData = JSON.parse(jsonStr) as MapData;
+      const parsed = JSON.parse(jsonStr) as any;
+      if (!parsed || typeof parsed !== 'object' || !parsed.Tiles || !parsed.Objects) {
+        throw new Error('Invalid map format');
+      }
+      if (parsed.Tiles.length !== MAP_WIDTH * MAP_HEIGHT || parsed.Objects.length !== MAP_WIDTH * MAP_HEIGHT) {
+        throw new Error('Invalid map dimensions');
+      }
+      this.mapData = parsed as MapData;
       this.panX = 0; this.panY = 0; this.zoom = 1.0;
       this.render();
     } catch (e) { throw new Error('Failed to import map: ' + e); }

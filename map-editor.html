@@ -566,7 +566,14 @@ class BCMapEditor {
             const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
             if (!jsonStr)
                 throw new Error('Invalid map code');
-            this.mapData = JSON.parse(jsonStr);
+            const parsed = JSON.parse(jsonStr);
+            if (!parsed || typeof parsed !== 'object' || !parsed.Tiles || !parsed.Objects) {
+                throw new Error('Invalid map format');
+            }
+            if (parsed.Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT || parsed.Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
+                throw new Error('Invalid map dimensions');
+            }
+            this.mapData = parsed;
             this.panX = 0;
             this.panY = 0;
             this.zoom = 1.0;
