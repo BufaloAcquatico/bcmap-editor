@@ -14,9 +14,17 @@
       --bs-primary: #0d6efd;
       --bs-secondary: #6c757d;
     }
-    body { background-color: var(--bs-body-bg); color: var(--bs-body-color); }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    body { 
+      background-color: var(--bs-body-bg); 
+      color: var(--bs-body-color); 
+      display: flex; 
+      flex-direction: column; 
+      height: 100vh; 
+      overflow: hidden;
+    }
     .sidebar { background-color: #16213e; border-right: 1px solid #2a2a4a; }
-    .map-panel { background-color: #0f0f23; }
+    .map-panel { background-color: #0f0f23; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     .btn-toolbar .btn { border-radius: 0.375rem; }
     .category-header { cursor: pointer; user-select: none; }
     .category-header:hover { background-color: #2a2a4a; }
@@ -34,12 +42,15 @@
     }
     .sprite-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.5); }
     .sprite-item:hover { border-color: #6c757d; }
-    .sprite-item img { width: 100%; height: 100%; object-fit: contain; }
+
     #mapCanvas { 
       display: block; 
       cursor: crosshair; 
       image-rendering: pixelated;
       image-rendering: crisp-edges;
+      width: 100%;
+      height: 100%;
+      flex: 1;
     }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
     .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
@@ -77,7 +88,7 @@
   </div>
 
   <!-- Main Layout -->
-  <div class="d-flex flex-1" style="height: calc(100vh - 90px);">
+  <div class="flex-1 d-flex" style="flex: 1; min-height: 0; overflow: hidden;">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar d-flex flex-column" style="width: 320px; min-width: 320px; max-width: 400px; overflow: hidden;">
       <div class="p-2 border-bottom border-secondary">
@@ -96,10 +107,8 @@
     </aside>
 
     <!-- Map Panel -->
-    <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0;">
-      <div class="position-relative flex-1 d-flex flex-column" style="min-height: 0;">
-        <canvas id="mapCanvas"></canvas>
-      </div>
+    <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0; min-height: 0;">
+      <canvas id="mapCanvas"></canvas>
     </main>
   </div>
 
@@ -195,12 +204,20 @@ window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH
 const lz_string_1 = LZString;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
-window.GRASS_TILE_ID = 210; // FloorExterior/Grass
+window.GRASS_TILE_ID = 210;
+const ZOOM_IN_FACTOR = 1.1;
+const ZOOM_OUT_FACTOR = 0.9;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 3.0;
+const OBJECT_DRAW_MARGIN = 0.2;
+const OBJECT_DRAW_SIZE = 0.6;
+const GRID_OPACITY = 0.3;
+const GRID_LINE_WIDTH = 0.5; // FloorExterior/Grass
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
-        this.maxZoom = 10.0;
-        this.minZoom = 3.0 / 40.0; // min: 3x3 visible
+        this.maxZoom = MAX_ZOOM;
+        this.minZoom = MIN_ZOOM; // min zoom
         this.currentLayer = 'tile';
         this.selectedTile = null;
         this.selectedObject = null;
@@ -255,7 +272,7 @@ class BCMapEditor {
     createDefaultMap() {
         const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
         const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
-        const objects = String.fromCharCode(100).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+        const objects = String.fromCharCode(10000).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
         return {
             Type: 'Always',
             Tiles: tiles,
@@ -411,8 +428,12 @@ class BCMapEditor {
     resizeCanvas() {
         const rect = this.canvas.parentElement?.getBoundingClientRect();
         if (rect) {
-            this.canvas.width = rect.width;
-            this.canvas.height = rect.height;
+            const dpr = window.devicePixelRatio || 1;
+            this.canvas.style.width = rect.width + 'px';
+            this.canvas.style.height = rect.height + 'px';
+            this.canvas.width = rect.width * dpr;
+            this.canvas.height = rect.height * dpr;
+            this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             this.render();
         }
     }
@@ -446,10 +467,10 @@ class BCMapEditor {
     onCanvasWheel(e) {
         e.preventDefault();
         if (e.deltaY < 0) {
-            this.zoom = Math.min(this.maxZoom, this.zoom * 1.1);
+            this.zoom = Math.min(this.maxZoom, this.zoom * ZOOM_IN_FACTOR);
         }
         else {
-            this.zoom = Math.max(this.minZoom, this.zoom * 0.9);
+            this.zoom = Math.max(this.minZoom, this.zoom * ZOOM_OUT_FACTOR);
         }
         const zoomLevelEl = document.getElementById('zoomLevel');
         if (zoomLevelEl)
@@ -474,6 +495,24 @@ class BCMapEditor {
         if (this.isPanning) {
             this.panX += dx;
             this.panY += dy;
+            // Clamp pan to keep map reasonably visible
+            const canvas = this.canvas;
+            const tileWidth = (canvas.width / window.MAP_WIDTH);
+            const tileHeight = (canvas.height / window.MAP_HEIGHT);
+            const mapWidthPx = window.MAP_WIDTH * tileWidth;
+            const mapHeightPx = window.MAP_HEIGHT * tileHeight;
+            const maxPanX = canvas.width * 0.3;
+            const maxPanY = canvas.height * 0.3;
+            const minPanX = -mapWidthPx + canvas.width * 0.7;
+            const minPanY = -mapHeightPx + canvas.height * 0.7;
+            if (this.panX > maxPanX)
+                this.panX = maxPanX;
+            if (this.panY > maxPanY)
+                this.panY = maxPanY;
+            if (this.panX < minPanX)
+                this.panX = minPanX;
+            if (this.panY < minPanY)
+                this.panY = minPanY;
             this.render();
         }
         this.lastMousePos = currentPos;
@@ -557,14 +596,14 @@ class BCMapEditor {
                     else {
                         // Fallback to color if image not loaded
                         ctx.fillStyle = this.getObjectColor(obj.Type);
-                        ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+                        ctx.fillRect(startX + x * tileWidth + tileWidth * OBJECT_DRAW_MARGIN, startY + y * tileHeight + tileHeight * OBJECT_DRAW_MARGIN, tileWidth * OBJECT_DRAW_SIZE, tileHeight * OBJECT_DRAW_SIZE);
                     }
                 }
             }
         }
         // Render grid
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${GRID_OPACITY})`;
+        ctx.lineWidth = GRID_LINE_WIDTH;
         for (let i = 0; i <= window.MAP_WIDTH; i++) {
             ctx.beginPath();
             ctx.moveTo(startX + i * tileWidth, startY);
@@ -599,6 +638,22 @@ class BCMapEditor {
             }
             if (parsed.Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT || parsed.Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
                 throw new Error('Invalid map dimensions');
+            }
+            // Validate tile IDs exist in catalog
+            for (let i = 0; i < parsed.Tiles.length; i++) {
+                const char = parsed.Tiles[i];
+                const id = typeof char === 'number' ? char : char.charCodeAt(0);
+                if (this.tileMap.get(id) === undefined) {
+                    throw new Error('Invalid tile ID at index ' + i);
+                }
+            }
+            // Validate object IDs exist in catalog
+            for (let i = 0; i < parsed.Objects.length; i++) {
+                const char = parsed.Objects[i];
+                const id = typeof char === 'number' ? char : char.charCodeAt(0);
+                if (this.objectMap.get(id) === undefined) {
+                    throw new Error('Invalid object ID at index ' + i);
+                }
             }
             this.mapData = parsed;
             this.panX = 0;
@@ -778,13 +833,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const code = editor.exportMap(exportName.value || 'my-map');
             const blob = new Blob([code], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${exportName.value || 'my-map'}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            try {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${exportName.value || 'my-map'}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+            finally {
+                URL.revokeObjectURL(url);
+            }
             exportModal.hide();
         }
         catch (e) {
@@ -811,6 +870,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     btnZoomReset?.addEventListener('click', () => {
         editor.zoom = 1.0;
+        editor.panX = 0;
+        editor.panY = 0;
         const zoomLevelEl = document.getElementById('zoomLevel');
         if (zoomLevelEl)
             zoomLevelEl.textContent = '100%';

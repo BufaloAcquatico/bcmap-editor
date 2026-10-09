@@ -15,6 +15,18 @@ A browser-based map editor for the ropeybot map system. This editor allows you t
 
 ## Getting Started
 
+### Option 1: Run with Docker (Recommended)
+
+```bash
+# Build and run the editor
+docker compose up -d
+
+# Open in your browser
+# http://localhost:6969/map-editor.html
+```
+
+### Option 2: Open directly in browser
+
 1. Open `map-editor.html` in a web browser
 2. Select a tile from the left sidebar (tile layer is selected by default)
 3. Click on the map to paint

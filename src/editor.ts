@@ -34,15 +34,25 @@ export interface ObjectDef {
 
 export const MAP_WIDTH = 40;
 export const MAP_HEIGHT = 40;
-export const GRASS_TILE_ID = 210; // FloorExterior/Grass
+export const GRASS_TILE_ID = 210;
+
+const ZOOM_IN_FACTOR = 1.1;
+const ZOOM_OUT_FACTOR = 0.9;
+const MIN_ZOOM = 0.25;
+const MAX_ZOOM = 3.0;
+
+const OBJECT_DRAW_MARGIN = 0.2;
+const OBJECT_DRAW_SIZE = 0.6;
+const GRID_OPACITY = 0.3;
+const GRID_LINE_WIDTH = 0.5; // FloorExterior/Grass
 
 export class BCMapEditor {
   private mapData: MapData;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private zoom = 1.0;
-  private maxZoom = 10.0;
-  private minZoom = 3.0 / 40.0; // min: 3x3 visible
+  private maxZoom = MAX_ZOOM;
+  private minZoom = MIN_ZOOM; // min zoom
   private currentLayer: 'tile' | 'object' = 'tile';
   private selectedTile: TileDef | null = null;
   private selectedObject: ObjectDef | null = null;
@@ -98,7 +108,7 @@ export class BCMapEditor {
   private createDefaultMap(): MapData {
     const grassChar = String.fromCharCode(GRASS_TILE_ID);
     const tiles = grassChar.repeat(MAP_WIDTH * MAP_HEIGHT);
-    const objects = String.fromCharCode(100).repeat(MAP_WIDTH * MAP_HEIGHT);
+    const objects = String.fromCharCode(10000).repeat(MAP_WIDTH * MAP_HEIGHT);
     return {
       Type: 'Always',
       Tiles: tiles,
@@ -260,8 +270,12 @@ export class BCMapEditor {
   private resizeCanvas(): void {
     const rect = this.canvas.parentElement?.getBoundingClientRect();
     if (rect) {
-      this.canvas.width = rect.width;
-      this.canvas.height = rect.height;
+      const dpr = window.devicePixelRatio || 1;
+      this.canvas.style.width = rect.width + 'px';
+      this.canvas.style.height = rect.height + 'px';
+      this.canvas.width = rect.width * dpr;
+      this.canvas.height = rect.height * dpr;
+      this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       this.render();
     }
   }
@@ -296,9 +310,9 @@ export class BCMapEditor {
   private onCanvasWheel(e: WheelEvent): void {
     e.preventDefault();
     if (e.deltaY < 0) {
-      this.zoom = Math.min(this.maxZoom, this.zoom * 1.1);
+      this.zoom = Math.min(this.maxZoom, this.zoom * ZOOM_IN_FACTOR);
     } else {
-      this.zoom = Math.max(this.minZoom, this.zoom * 0.9);
+      this.zoom = Math.max(this.minZoom, this.zoom * ZOOM_OUT_FACTOR);
     }
     const zoomLevelEl = document.getElementById('zoomLevel');
     if (zoomLevelEl) zoomLevelEl.textContent = Math.round(this.zoom * 100) + '%';
@@ -322,6 +336,20 @@ export class BCMapEditor {
     if (this.isPanning) {
       this.panX += dx;
       this.panY += dy;
+      // Clamp pan to keep map reasonably visible
+      const canvas = this.canvas;
+      const tileWidth = (canvas.width / MAP_WIDTH);
+      const tileHeight = (canvas.height / MAP_HEIGHT);
+      const mapWidthPx = MAP_WIDTH * tileWidth;
+      const mapHeightPx = MAP_HEIGHT * tileHeight;
+      const maxPanX = canvas.width * 0.3;
+      const maxPanY = canvas.height * 0.3;
+      const minPanX = -mapWidthPx + canvas.width * 0.7;
+      const minPanY = -mapHeightPx + canvas.height * 0.7;
+      if (this.panX > maxPanX) this.panX = maxPanX;
+      if (this.panY > maxPanY) this.panY = maxPanY;
+      if (this.panX < minPanX) this.panX = minPanX;
+      if (this.panY < minPanY) this.panY = minPanY;
       this.render();
     }
     this.lastMousePos = currentPos;
@@ -397,15 +425,15 @@ export class BCMapEditor {
           } else {
             // Fallback to color if image not loaded
             ctx.fillStyle = this.getObjectColor(obj.Type);
-            ctx.fillRect(startX + x * tileWidth + tileWidth * 0.2, startY + y * tileHeight + tileHeight * 0.2, tileWidth * 0.6, tileHeight * 0.6);
+            ctx.fillRect(startX + x * tileWidth + tileWidth * OBJECT_DRAW_MARGIN, startY + y * tileHeight + tileHeight * OBJECT_DRAW_MARGIN, tileWidth * OBJECT_DRAW_SIZE, tileHeight * OBJECT_DRAW_SIZE);
           }
         }
       }
     }
     
     // Render grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${GRID_OPACITY})`;
+    ctx.lineWidth = GRID_LINE_WIDTH;
     for (let i = 0; i <= MAP_WIDTH; i++) {
       ctx.beginPath();
       ctx.moveTo(startX + i * tileWidth, startY);
@@ -440,6 +468,22 @@ export class BCMapEditor {
       }
       if (parsed.Tiles.length !== MAP_WIDTH * MAP_HEIGHT || parsed.Objects.length !== MAP_WIDTH * MAP_HEIGHT) {
         throw new Error('Invalid map dimensions');
+      }
+      // Validate tile IDs exist in catalog
+      for (let i = 0; i < parsed.Tiles.length; i++) {
+        const char = parsed.Tiles[i];
+        const id = typeof char === 'number' ? char : char.charCodeAt(0);
+        if (this.tileMap.get(id) === undefined) {
+          throw new Error('Invalid tile ID at index ' + i);
+        }
+      }
+      // Validate object IDs exist in catalog
+      for (let i = 0; i < parsed.Objects.length; i++) {
+        const char = parsed.Objects[i];
+        const id = typeof char === 'number' ? char : char.charCodeAt(0);
+        if (this.objectMap.get(id) === undefined) {
+          throw new Error('Invalid object ID at index ' + i);
+        }
       }
       this.mapData = parsed as MapData;
       this.panX = 0; this.panY = 0; this.zoom = 1.0;

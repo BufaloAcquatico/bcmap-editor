@@ -70,13 +70,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const code = editor.exportMap(exportName.value || 'my-map');
       const blob = new Blob([code], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${exportName.value || 'my-map'}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${exportName.value || 'my-map'}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
       exportModal.hide();
     } catch (e: any) {
       alert(e.message);
@@ -104,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
   
   btnZoomReset?.addEventListener('click', () => {
     (editor as any).zoom = 1.0;
+    (editor as any).panX = 0;
+    (editor as any).panY = 0;
     const zoomLevelEl = document.getElementById('zoomLevel');
     if (zoomLevelEl) zoomLevelEl.textContent = '100%';
     (editor as any).render();

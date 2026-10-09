@@ -9,9 +9,9 @@ describe('Map Data', () => {
   });
   
   it('should have objects as blanks initially', () => {
-    const blankChar = String.fromCharCode(100);
+    const blankChar = String.fromCharCode(10000);
     const objects = blankChar.repeat(1600);
     expect(objects.length).toBe(1600);
-    expect(objects.charCodeAt(0)).toBe(100);
+    expect(objects.charCodeAt(0)).toBe(10000);
   });
 });
