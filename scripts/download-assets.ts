@@ -131,6 +131,22 @@ interface Job {
     dest: string;
 }
 
+function wallEffectJobs(): Job[] {
+    const indices = [...Array(22).keys(), 50, 51, 52, 53];
+    return indices.map((i) => ({
+        label: `tiles/WallEffect/${i}`,
+        url: `https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom/MapTile/WallEffect/${i}.png`,
+        dest: path.join(
+            __dirname,
+            "..",
+            "assets",
+            "tiles",
+            "WallEffect",
+            `${i}.png`,
+        ),
+    }));
+}
+
 async function runPool(
     jobs: Job[],
     opts: Options,
@@ -211,8 +227,9 @@ async function main(): Promise<void> {
     const opts = parseOptions();
     const tiles = tileJobs();
     const objects = objectJobs();
+    const wallEffects = wallEffectJobs();
     console.log(
-        `Downloading ${tiles.length} tiles and ${objects.length} objects ` +
+        `Downloading ${tiles.length} tiles, ${objects.length} objects, ${wallEffects.length} wall effects ` +
             `(concurrency=${opts.concurrency}, delay=${opts.delayMs}ms, retries=${opts.retries})...`,
     );
 
@@ -226,7 +243,16 @@ async function main(): Promise<void> {
         `Objects: ${objectResult.ok} downloaded, ${objectResult.skipped} skipped, ${objectResult.failed.length} failed`,
     );
 
-    const failed = [...tileResult.failed, ...objectResult.failed];
+    const wallEffectResult = await runPool(wallEffects, opts);
+    console.log(
+        `WallEffects: ${wallEffectResult.ok} downloaded, ${wallEffectResult.skipped} skipped, ${wallEffectResult.failed.length} failed`,
+    );
+
+    const failed = [
+        ...tileResult.failed,
+        ...objectResult.failed,
+        ...wallEffectResult.failed,
+    ];
     if (failed.length > 0) {
         console.error("\nFailed downloads:");
         failed.forEach((job) =>
