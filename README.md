@@ -6,7 +6,7 @@ A browser-based map editor for the ropeybot map system. This editor allows you t
 
 - **40x40 Grid**: Classic grid-based map editing
 - **Two-Layer System**: Separate tile (background) and object (foreground) layers
-- **Full Game Catalog**: All 153 tiles and 225 objects from Bondage Club's ChatRoomMap data, kept verbatim
+- **Full Game Catalog**: 148 tiles and 121 objects in the pickers, with import/render support for the full 165 tiles and 158 objects from Bondage Club's ChatRoomMap data (R132), kept verbatim
 - **BC Asset Sprites**: Loads actual game sprites from downloaded BC assets
 - **Categorized Picker**: Tile and object pickers organized by category with search
 - **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with right-drag
@@ -33,16 +33,18 @@ docker compose up -d
 2. Select a tile from the left sidebar (tile layer is selected by default)
 3. Click on the map to paint (hold and drag to paint multiple tiles)
 4. Switch to object layer to paint objects/decoration
-5. Pan with Ctrl/Cmd + left-drag, zoom with the mouse wheel
+5. Pan with right-drag, zoom with the mouse wheel
 
 ## Controls
 
-| Action            | Input                             |
-| ----------------- | --------------------------------- |
-| Paint tile/object | Left click or left-drag           |
-| Pan               | Ctrl/Cmd + left-drag              |
-| Zoom              | Mouse wheel                       |
-| Erase object      | Select a `Blank` object and paint |
+| Action            | Input                                    |
+| ----------------- | ---------------------------------------- |
+| Paint tile/object | Left click or left-drag                  |
+| Pan               | Right-drag                               |
+| Zoom              | Mouse wheel                              |
+| Undo              | Ctrl+Z / Cmd+Z or the Undo button        |
+| Redo              | Ctrl+Y / Ctrl+Shift+Z or the Redo button |
+| Erase object      | Select a `Blank` object and paint        |
 
 ## Map Format
 
@@ -106,7 +108,7 @@ npm run test:e2e:docker:unit
 
 **Files:**
 
-- `Dockerfile.test` - Test image based on `mcr.microsoft.com/playwright:v1.40-focal`
+- `Dockerfile.test` - Test image based on `mcr.microsoft.com/playwright:v1.64.0-jammy`
 - `docker-compose.test.yml` - Compose file with volume mounts for fast iteration
 
 ## Technical Details
