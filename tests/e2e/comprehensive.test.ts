@@ -60,11 +60,13 @@ test("object picker categories load with thumbnails", async ({
         .count();
     expect(objItems).toBeGreaterThan(0);
 
-    // Every Blank object entry from the catalog is present (one per object type)
+    // Every Blank object entry from the catalog is present (one per object category group)
     const blankItem = await page
-        .locator('#objectCategories .sprite-item:has-text("BLANK"):visible')
+        .locator("#objectCategories .sprite-item:has(i.bi-erase):visible")
         .count();
-    expect(blankItem).toBe(13);
+    // 4 object category groups have Blanks: Floor Decorations, Floor Items, Floor Obstacles, Wall
+    // Banners category has no Blank objects
+    expect(blankItem).toBe(4);
 });
 
 test("search filter works for tiles", async ({ page }: { page: Page }) => {
@@ -237,7 +239,7 @@ test("ctrl+drag panning does not snap and overscrolls 2 tiles", async ({
                 const c = e.canvas;
                 const dpr = window.devicePixelRatio || 1;
                 const draw = Math.min(c.width, c.height) * e.zoom;
-                const margin = 2 * (draw / 40); // PAN_OVERSCROLL_TILES
+                const margin = 15 * (draw / 40); // PAN_OVERSCROLL_TILES
                 const lx = Math.max(0, (draw - c.width) / 2) + margin;
                 const ly = Math.max(0, (draw - c.height) / 2) + margin;
                 const clamp = (v: number, l: number) =>
@@ -385,7 +387,7 @@ test("status bar tracks pointer and selection", async ({
     await page.mouse.move(box.x - 20, box.y - 20);
     await page.waitForTimeout(50);
     await expect(page.locator("#statusPosition")).toHaveText(
-        "Position: (—, —)",
+        "Position: (-, -)",
     );
 
     // Object layer default selection is Blank (Erase)

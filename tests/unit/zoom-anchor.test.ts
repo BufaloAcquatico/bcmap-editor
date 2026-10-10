@@ -97,8 +97,8 @@ describe("Position-based zoom", () => {
     it("keeps pan within the clamp limits after an anchored zoom", () => {
         const anchor = { x: 780, y: 580 };
         editor.setZoom(3, anchor);
-        const limitX = Math.max(0, (1800 - 800) / 2) + 2 * (1800 / 40);
-        const limitY = Math.max(0, (1800 - 600) / 2) + 2 * (1800 / 40);
+        const limitX = Math.max(0, (1800 - 800) / 2) + 15 * (1800 / 40);
+        const limitY = Math.max(0, (1800 - 600) / 2) + 15 * (1800 / 40);
         expect(Math.abs((editor as any).panX)).toBeLessThanOrEqual(limitX);
         expect(Math.abs((editor as any).panY)).toBeLessThanOrEqual(limitY);
     });

@@ -4,6 +4,8 @@ import { compressToBase64, decompressFromBase64 } from "lz-string";
 
 import {
     BLANK_OBJECT_ID,
+    FULL_OBJECT_CATALOG,
+    FULL_TILE_CATALOG,
     OBJECT_CATALOG,
     TILE_CATALOG,
     type ObjectDef,
@@ -52,7 +54,7 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
-const PAN_OVERSCROLL_TILES = 2;
+const PAN_OVERSCROLL_TILES = 15;
 
 export class BCMapEditor {
     private mapData: MapData;
@@ -75,14 +77,20 @@ export class BCMapEditor {
     private objectCatalog: ObjectDef[] = [];
     private tileImageCache: Map<string, HTMLImageElement> = new Map();
     private objectImageCache: Map<string, HTMLImageElement> = new Map();
+    private wallEffectImageCache: Map<number, HTMLImageElement> = new Map();
     private tileMap = new Map<number, TileDef>();
     private objectMap = new Map<number, ObjectDef>();
+    private fullTileMap = new Map<number, TileDef>();
+    private fullObjectMap = new Map<number, ObjectDef>();
     private searchTerm = "";
     private tileCategoryEls: CategoryEntry[] = [];
     private objectCategoryEls: CategoryEntry[] = [];
     private tilePickerItemById = new Map<number, HTMLElement>();
     private objectPickerItemById = new Map<number, HTMLElement>();
     private showGrid = true;
+    private showHelp = true;
+    private renderRequested = false;
+    private objectMarginTiles = 0;
     private zoomTarget = 1.0;
     private zoomAnchor: { x: number; y: number } | null = null;
     private zoomAnimating = false;
@@ -124,6 +132,23 @@ export class BCMapEditor {
                 this.objectImageCache.set(key, img);
             }
         });
+        // Preload WallEffect sprites (indices 0-21, 50-53)
+        for (let i = 0; i <= 21; i++) {
+            if (!this.wallEffectImageCache.has(i)) {
+                const img = new Image();
+                img.onerror = () => {};
+                img.src = `assets/tiles/WallEffect/${i}.png`;
+                this.wallEffectImageCache.set(i, img);
+            }
+        }
+        for (let i = 50; i <= 53; i++) {
+            if (!this.wallEffectImageCache.has(i)) {
+                const img = new Image();
+                img.onerror = () => {};
+                img.src = `assets/tiles/WallEffect/${i}.png`;
+                this.wallEffectImageCache.set(i, img);
+            }
+        }
     }
 
     private createDefaultMap(): MapData {
@@ -140,8 +165,9 @@ export class BCMapEditor {
     }
 
     private initCatalogs(): void {
-        // The catalog lives in ./catalog.ts and mirrors the game data exactly.
-        // Entries are preserved verbatim - styles are intentionally NOT de-duplicated.
+        // The display catalogs live in ./catalog.ts and mirror the game data.
+        // They keep the picker order. Entries are preserved verbatim - styles
+        // are intentionally NOT de-duplicated.
         this.tileCatalog = [...TILE_CATALOG];
         this.objectCatalog = [...OBJECT_CATALOG];
 
@@ -150,6 +176,32 @@ export class BCMapEditor {
         this.tileCatalog.forEach((t) => this.tileMap.set(t.ID, t));
         this.objectMap.clear();
         this.objectCatalog.forEach((o) => this.objectMap.set(o.ID, o));
+
+        // The FULL catalogs mirror the official in-game catalog exactly. They
+        // are the fallback for validation and rendering so that any object or
+        // tile that exists in the real game maps into the editor even when it
+        // is not (yet) present in the display pickers.
+        this.fullTileMap.clear();
+        FULL_TILE_CATALOG.forEach((t) => this.fullTileMap.set(t.ID, t));
+        this.fullObjectMap.clear();
+        FULL_OBJECT_CATALOG.forEach((o) => this.fullObjectMap.set(o.ID, o));
+
+        let margin = 0;
+        this.objectCatalog.forEach((o) => {
+            const left = o.Left ?? 0;
+            const top = o.Top ?? 0;
+            const width = o.Width ?? 1;
+            const height = o.Height ?? 1;
+            margin = Math.max(margin, -left, -top, width - 1, height - 1);
+        });
+        FULL_OBJECT_CATALOG.forEach((o) => {
+            const left = o.Left ?? 0;
+            const top = o.Top ?? 0;
+            const width = o.Width ?? 1;
+            const height = o.Height ?? 1;
+            margin = Math.max(margin, -left, -top, width - 1, height - 1);
+        });
+        this.objectMarginTiles = Math.max(1, margin);
     }
 
     private init(): void {
@@ -216,7 +268,7 @@ export class BCMapEditor {
                 String.fromCharCode(this.selectedObject.ID) +
                 this.mapData.Objects.substring(index + 1);
         }
-        this.render();
+        this.requestRender();
     }
 
     private onCanvasClick(e: MouseEvent): void {
@@ -336,7 +388,7 @@ export class BCMapEditor {
                 this.panX += dx * (window.devicePixelRatio || 1);
                 this.panY += dy * (window.devicePixelRatio || 1);
                 this.clampPan();
-                this.render();
+                this.requestRender();
             } else if (this.isPainting) {
                 this.paintAt(pos);
             }
@@ -413,6 +465,109 @@ export class BCMapEditor {
         return { size: drawSize, startX, startY, tileSize };
     }
 
+    private computeWallEffect(x: number, y: number): number {
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return -1;
+        const index = x + y * MAP_WIDTH;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
+        if (!tile || tile.Type !== "Wall") return -1;
+
+        // BC's neighbor configuration (ChatRoomMapViewWallEffect):
+        // CW = Center-West (left): X-1, Y
+        // CE = Center-East (right): X+1, Y
+        // SW = South-West (bottom-left): X-1, Y+1
+        // SC = South-Center (bottom): X, Y+1
+        // SE = South-East (bottom-right): X+1, Y+1
+        // Out of bounds counts as wall
+        const isWall = (tx: number, ty: number) => {
+            if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT)
+                return true;
+            const ti = tx + ty * MAP_WIDTH;
+            const tid = this.mapData.Tiles.charCodeAt(ti);
+            const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
+            return t !== undefined && t.Type === "Wall";
+        };
+
+        const CW = isWall(x - 1, y);
+        const CE = isWall(x + 1, y);
+        const SW = isWall(x - 1, y + 1);
+        const SC = isWall(x, y + 1);
+        const SE = isWall(x + 1, y + 1);
+
+        // BC's FindWallEffectTile algorithm (ChatRoomMapViewFindWallEffectTile)
+        if (CW && CE && SW && SC && SE) return 0;
+        if (!CW && !CE && !SC) return 1;
+        if (!CW && CE && !SC) return 2;
+        if (CW && !CE && !SC) return 3;
+        if (CW && CE && !SC) return 4;
+
+        if (!CW && !CE && SW && SC && SE) return 5;
+        if (!CW && !CE && SW && SC && !SE) return 6;
+        if (!CW && !CE && !SW && SC && SE) return 7;
+
+        if (CW && CE && !SW && SC && !SE) return 8;
+        if (!CW && CE && !SW && SC && !SE) return 9;
+        if (CW && !CE && !SW && SC && !SE) return 10;
+
+        if (!CW && !CE && !SE && SC && !SW) return 11;
+        if (CW && !CE && !SE && SC && !SW) return 12;
+        if (!CW && CE && !SE && SC && !SW) return 13;
+
+        if (!CW && CE && SE && SC && SW) return 14;
+        if (CW && !CE && SE && SC && SW) return 15;
+
+        if (CW && !CE && SW && SC) return 16;
+        if (!CW && CE && SC && SE) return 17;
+
+        if (CW && CE && SW && SC && !SE) return 18;
+        if (CW && CE && !SW && SC && SE) return 19;
+
+        if (!CW && CE && SW && SC && !SE) return 20;
+        if (CW && !CE && !SW && SC && SE) return 21;
+
+        return -1;
+    }
+
+    private computeFloorWallEffect(x: number, y: number): number {
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return -1;
+        // No effect on the very last row
+        if (y >= MAP_HEIGHT - 1) return -1;
+
+        const index = x + y * MAP_WIDTH;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
+        if (!tile) return -1;
+
+        // Find the southern wall positions
+        const isWall = (tx: number, ty: number) => {
+            if (tx < 0 || tx >= MAP_WIDTH || ty < 0 || ty >= MAP_HEIGHT)
+                return true;
+            const ti = tx + ty * MAP_WIDTH;
+            const tid = this.mapData.Tiles.charCodeAt(ti);
+            const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
+            return t !== undefined && t.Type === "Wall";
+        };
+
+        const SW = isWall(x - 1, y + 1);
+        const SC = isWall(x, y + 1);
+        const SE = isWall(x + 1, y + 1);
+
+        // If here is HalfWall
+        if (tile.Style === "HalfWall") {
+            if (!SW && SC && !SE) return 11;
+            if (!SW && SC && SE) return 12;
+            if (SW && SC && !SE) return 13;
+            if (SW && SC && SE) return 0;
+        }
+
+        // Find the "3D" wall effect for floor tiles
+        if (!SW && SC && !SE) return 50;
+        if (!SW && SC && SE) return 51;
+        if (SW && SC && !SE) return 52;
+        if (SW && SC && SE) return 53;
+        return -1;
+    }
+
     private render(): void {
         const ctx = this.ctx;
         const canvasWidth = this.canvas.width;
@@ -425,12 +580,24 @@ export class BCMapEditor {
 
         const { startX, startY, tileSize } = this.getDrawBox();
 
+        const firstTileX = Math.max(0, Math.floor(-startX / tileSize));
+        const lastTileX = Math.min(
+            MAP_WIDTH - 1,
+            Math.ceil((canvasWidth - startX) / tileSize),
+        );
+        const firstTileY = Math.max(0, Math.floor(-startY / tileSize));
+        const lastTileY = Math.min(
+            MAP_HEIGHT - 1,
+            Math.ceil((canvasHeight - startY) / tileSize),
+        );
+
         // Render tiles using cached sprites
-        for (let y = 0; y < MAP_HEIGHT; y++) {
-            for (let x = 0; x < MAP_WIDTH; x++) {
+        for (let y = firstTileY; y <= lastTileY; y++) {
+            for (let x = firstTileX; x <= lastTileX; x++) {
                 const index = x + y * MAP_WIDTH;
                 const tileId = this.mapData.Tiles.charCodeAt(index);
-                const tile = this.tileMap.get(tileId);
+                const tile =
+                    this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
                 if (tile) {
                     const key = tile.Type + "/" + tile.Style;
                     const img = this.tileImageCache.get(key);
@@ -446,32 +613,95 @@ export class BCMapEditor {
                         );
                         ctx.fillRect(drawX, drawY, tileSize, tileSize);
                     }
+                    // Draw wall effects for wall tiles
+                    if (tile.Type === "Wall") {
+                        const effectIndex = this.computeWallEffect(x, y);
+                        if (effectIndex >= 0) {
+                            const effectImg =
+                                this.wallEffectImageCache.get(effectIndex);
+                            if (
+                                effectImg &&
+                                effectImg.complete &&
+                                effectImg.naturalWidth > 0
+                            ) {
+                                ctx.drawImage(
+                                    effectImg,
+                                    drawX,
+                                    drawY,
+                                    tileSize,
+                                    tileSize,
+                                );
+                            }
+                        }
+                    }
+                    // Draw floor wall effects for non-wall tiles
+                    else {
+                        const floorEffectIndex = this.computeFloorWallEffect(
+                            x,
+                            y,
+                        );
+                        if (floorEffectIndex >= 0) {
+                            const effectImg =
+                                this.wallEffectImageCache.get(floorEffectIndex);
+                            if (
+                                effectImg &&
+                                effectImg.complete &&
+                                effectImg.naturalWidth > 0
+                            ) {
+                                ctx.drawImage(
+                                    effectImg,
+                                    drawX,
+                                    drawY,
+                                    tileSize,
+                                    tileSize,
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }
 
+        const firstObjX = Math.max(0, firstTileX - this.objectMarginTiles);
+        const lastObjX = Math.min(
+            MAP_WIDTH - 1,
+            lastTileX + this.objectMarginTiles,
+        );
+        const firstObjY = Math.max(0, firstTileY - this.objectMarginTiles);
+        const lastObjY = Math.min(
+            MAP_HEIGHT - 1,
+            lastTileY + this.objectMarginTiles,
+        );
+
         // Render objects using cached sprites
-        for (let y = 0; y < MAP_HEIGHT; y++) {
-            for (let x = 0; x < MAP_WIDTH; x++) {
+        for (let y = firstObjY; y <= lastObjY; y++) {
+            for (let x = firstObjX; x <= lastObjX; x++) {
                 const index = x + y * MAP_WIDTH;
                 const objId = this.mapData.Objects.charCodeAt(index);
                 if (objId === BLANK_OBJECT_ID) continue;
-                const obj = this.objectMap.get(objId);
+                const obj =
+                    this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
                 if (obj && obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
                     const img = this.objectImageCache.get(key);
-                    const drawX = startX + x * tileSize;
-                    const drawY = startY + y * tileSize;
+                    const left = obj.Left ?? 0;
+                    const top = obj.Top ?? 0;
+                    const width = obj.Width ?? 1;
+                    const height = obj.Height ?? 1;
+                    const drawX = startX + (x + left) * tileSize;
+                    const drawY = startY + (y + top) * tileSize;
+                    const drawW = tileSize * width;
+                    const drawH = tileSize * height;
                     if (img && img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, drawX, drawY, tileSize, tileSize);
+                        ctx.drawImage(img, drawX, drawY, drawW, drawH);
                     } else {
                         // Fallback to color if image not loaded
                         ctx.fillStyle = this.getObjectColor(obj.Type);
                         ctx.fillRect(
-                            drawX + tileSize * OBJECT_DRAW_MARGIN,
-                            drawY + tileSize * OBJECT_DRAW_MARGIN,
-                            tileSize * OBJECT_DRAW_SIZE,
-                            tileSize * OBJECT_DRAW_SIZE,
+                            drawX + drawW * OBJECT_DRAW_MARGIN,
+                            drawY + drawH * OBJECT_DRAW_MARGIN,
+                            drawW * OBJECT_DRAW_SIZE,
+                            drawH * OBJECT_DRAW_SIZE,
                         );
                     }
                 }
@@ -521,6 +751,21 @@ export class BCMapEditor {
             );
         }
     }
+
+    private requestRender(): void {
+        if (this.renderRequested) return;
+        this.renderRequested = true;
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => {
+                this.renderRequested = false;
+                this.render();
+            });
+        } else {
+            this.renderRequested = false;
+            this.render();
+        }
+    }
+
     private updateStatusPosition(pos: Point | null): void {
         const el = document.getElementById("statusPosition");
         if (!el) return;
@@ -533,22 +778,42 @@ export class BCMapEditor {
         ) {
             el.textContent = `Position: (${pos.X}, ${pos.Y})`;
         } else {
-            el.textContent = "Position: (—, —)";
+            el.textContent = "Position: (-, -)";
         }
     }
 
     private updateStatusSelection(): void {
         const el = document.getElementById("statusSelection");
         if (!el) return;
+        let text = "";
+        let textureKey = "";
         if (this.currentLayer === "object" && this.selectedObject) {
-            el.textContent =
-                this.selectedObject.Style === "Blank"
-                    ? "Selection: Blank (Erase)"
-                    : `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
+            if (this.selectedObject.Style === "Blank") {
+                text = "Selection: Blank (Erase)";
+            } else {
+                text = `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
+                textureKey =
+                    this.selectedObject.Type + "/" + this.selectedObject.Style;
+            }
         } else if (this.currentLayer === "tile" && this.selectedTile) {
-            el.textContent = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
+            text = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
+            textureKey = this.selectedTile.Type + "/" + this.selectedTile.Style;
         } else {
-            el.textContent = "No selection";
+            text = "No selection";
+        }
+        if (textureKey) {
+            const cache =
+                this.currentLayer === "tile"
+                    ? this.tileImageCache
+                    : this.objectImageCache;
+            const img = cache.get(textureKey);
+            if (img && img.complete && img.naturalWidth > 0) {
+                el.innerHTML = `${text} <img src="${img.src}" style="height:1em;vertical-align:middle;margin-left:4px;">`;
+            } else {
+                el.textContent = text;
+            }
+        } else {
+            el.textContent = text;
         }
     }
 
@@ -612,19 +877,19 @@ export class BCMapEditor {
             ) {
                 throw new Error("Invalid map dimensions");
             }
-            // Validate tile IDs exist in catalog
+            // Validate tile IDs exist in the full game catalog
             for (let i = 0; i < parsed.Tiles.length; i++) {
                 const char = parsed.Tiles[i];
                 const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.tileMap.get(id) === undefined) {
+                if (this.fullTileMap.get(id) === undefined) {
                     throw new Error("Invalid tile ID at index " + i);
                 }
             }
-            // Validate object IDs exist in catalog
+            // Validate object IDs exist in the full game catalog
             for (let i = 0; i < parsed.Objects.length; i++) {
                 const char = parsed.Objects[i];
                 const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.objectMap.get(id) === undefined) {
+                if (this.fullObjectMap.get(id) === undefined) {
                     throw new Error("Invalid object ID at index " + i);
                 }
             }
@@ -669,6 +934,22 @@ export class BCMapEditor {
 
     public getGridVisible(): boolean {
         return this.showGrid;
+    }
+
+    public toggleHelp(): void {
+        this.setHelpVisible(!this.showHelp);
+    }
+
+    public setHelpVisible(visible: boolean): void {
+        this.showHelp = visible;
+        const helpEl = document.getElementById("controlsHelp");
+        if (helpEl) {
+            helpEl.style.display = visible ? "" : "none";
+        }
+    }
+
+    public getHelpVisible(): boolean {
+        return this.showHelp;
     }
 
     private createCategoryHeader(name: string): {
@@ -800,7 +1081,14 @@ export class BCMapEditor {
             const { header, entry } = this.createCategoryHeader(group);
             this.objectCategoryEls.push(entry);
             const container = entry.content;
+            let blankAdded = false;
             objs.forEach((obj) => {
+                if (obj.Style === "Blank") {
+                    if (blankAdded) {
+                        return;
+                    }
+                    blankAdded = true;
+                }
                 const item = document.createElement("div");
                 item.className = "sprite-item";
                 if (obj.Style !== "Blank") {
@@ -810,7 +1098,7 @@ export class BCMapEditor {
                     item.title = obj.Style;
                 } else {
                     item.innerHTML =
-                        '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
+                        '<i class="bi bi-erase" style="font-size:1.5rem;color:#adb5bd;line-height:48px;"></i>';
                     item.title = "Blank (Erase)";
                 }
                 item.addEventListener("click", () => {
@@ -851,6 +1139,18 @@ export class BCMapEditor {
     }
     public getObjectCatalog(): ObjectDef[] {
         return this.objectCatalog;
+    }
+    public getFullTileCatalog(): readonly TileDef[] {
+        return FULL_TILE_CATALOG;
+    }
+    public getFullObjectCatalog(): readonly ObjectDef[] {
+        return FULL_OBJECT_CATALOG;
+    }
+    public isKnownObjectId(id: number): boolean {
+        return this.fullObjectMap.has(id);
+    }
+    public isKnownTileId(id: number): boolean {
+        return this.fullTileMap.has(id);
     }
     public getCurrentLayer(): string {
         return this.currentLayer;

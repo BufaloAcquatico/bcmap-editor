@@ -145,4 +145,16 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.toggleGrid();
         syncGridButton();
     });
+
+    // Help toggle (?) keybind
+    window.addEventListener("keydown", (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key !== "?") return;
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
+            return;
+        e.preventDefault();
+        editor.toggleHelp();
+    });
 });

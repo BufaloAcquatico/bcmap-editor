@@ -127,13 +127,13 @@ describe("Status bar", () => {
 
         editor.onCanvasMouseMove(moveTo(0, 0));
         expect(mockElements["statusPosition"].textContent).toBe(
-            "Position: (—, —)",
+            "Position: (-, -)",
         );
 
         editor.onCanvasMouseMove(moveTo(107, 7));
         editor.onCanvasMouseLeave();
         expect(mockElements["statusPosition"].textContent).toBe(
-            "Position: (—, —)",
+            "Position: (-, -)",
         );
     });
 });
