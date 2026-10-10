@@ -96,8 +96,8 @@ describe("Foldable pickers", () => {
 
     it("builds category entries that start collapsed", () => {
         editor.populatePickers();
-        const tileEntries = (editor as any).tileCategoryEls;
-        const objectEntries = (editor as any).objectCategoryEls;
+        const tileEntries = (editor as any).picker.tileCategoryEls;
+        const objectEntries = (editor as any).picker.objectCategoryEls;
         expect(tileEntries.length).toBeGreaterThan(0);
         expect(objectEntries.length).toBeGreaterThan(0);
         expect(tileEntries.every((e: any) => e.collapsed)).toBe(true);
@@ -106,7 +106,7 @@ describe("Foldable pickers", () => {
 
     it("toggles a category when its header is clicked", () => {
         editor.populatePickers();
-        const entries = (editor as any).tileCategoryEls;
+        const entries = (editor as any).picker.tileCategoryEls;
         const headers = created.filter(
             (el) =>
                 typeof el.className === "string" &&
@@ -125,9 +125,9 @@ describe("Foldable pickers", () => {
     it("filters without throwing and stores the term", () => {
         editor.populatePickers();
         expect(() => editor.filterPickers("Grass")).not.toThrow();
-        expect((editor as any).searchTerm).toBe("Grass");
+        expect((editor as any).picker.searchTerm).toBe("Grass");
         expect(() => editor.filterPickers("")).not.toThrow();
-        expect((editor as any).searchTerm).toBe("");
+        expect((editor as any).picker.searchTerm).toBe("");
     });
 
     it("renders Blank picker items as bundled inline SVG, not a CDN glyph", () => {

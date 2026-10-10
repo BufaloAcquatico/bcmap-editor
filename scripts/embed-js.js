@@ -9,6 +9,7 @@ const files = [
     "constants.js",
     "history.js",
     "mapdata.js",
+    "picker.js",
     "editor.js",
     "init.js",
 ];
