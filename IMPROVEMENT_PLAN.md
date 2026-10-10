@@ -28,11 +28,16 @@ Scope: correctness, DX, security, architecture, performance. No new features, no
 - 4c: extract renderer (tile/wall-effect/object/neighbor-variant resolution) → `src/render.ts` with pure `BuildImageName` functions unit-testable without canvas mocks.
 - Acceptance per sub-slice: `editor.ts` shrinks toward <800 lines, tests moved not rewritten, suite green, no behavior change. Prefer deleting branches over moving them.
 
-## Slice 5 — Performance (measure first)
+## Slice 5 — Performance (measure first) — OUTCOME: no change needed
 
-- Add a drag-stroke benchmark (40-cell stroke ms budget) alongside existing `perf-regressions.test.ts`.
-- Then, only if over budget: array-backed map buffer during stroke (join once on `endStroke`) instead of per-cell string splice; dirty-rect redraw during drag; lazy-load variant sprites on first paint instead of all-upfront.
-- Acceptance: benchmark shows ≥2x stroke-time improvement or we revert; 1000-deep undo cap stays (~3MB worst case, documented).
+Measured (vitest, mocked canvas): model splice ~1-2µs/cell (40-cell
+stroke = 0.1ms); full render ~1.4ms JS-side with no-op canvas ops,
+already coalesced to ≤1/frame by rAF. A 60fps drag sits far inside the
+16ms frame budget, so the array-buffer / dirty-rect / lazy-load
+reworks were skipped per the ≥2x-or-revert rule — they would save
+~0.1ms per stroke at significant complexity cost. Banked instead:
+`tests/unit/stroke-perf.test.ts` (40-cell stroke/render/undo budgets
+as a regression tripwire). Undo cap stays 1000 (~3MB worst case).
 
 ## Verification per slice
 
