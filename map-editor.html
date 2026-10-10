@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BCMap Editor</title>
-  <!-- Bootstrap 5 Dark Mode CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Vendored third-party CSS (assets/vendor/, committed for offline use).
+       No remote CDN references: the editor works with all network blocked. -->
+  <link href="assets/vendor/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+  <link href="assets/vendor/bootstrap-icons.css" rel="stylesheet" integrity="sha384-4LISF5TTJX/fLmGSxO53rV4miRxdg84mZsxmO8Rx5jGtp/LbrixFETvWa5a6sESd" crossorigin="anonymous">
   <style>
     :root {
       --bs-body-bg: #1a1a2e;
@@ -232,9 +233,9 @@
     </div>
   </div>
 
-  <!-- Scripts -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <!-- Scripts (vendored; see head comment) -->
+  <script src="assets/vendor/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+  <script src="assets/vendor/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
   <script>(function() {
 "use strict";
 // BCMap Editor - Tile and object catalog
@@ -3693,33 +3694,41 @@ class BCMapEditor {
             if (!jsonStr)
                 throw new Error("Invalid map code");
             const parsed = JSON.parse(jsonStr);
-            if (!parsed ||
-                typeof parsed !== "object" ||
-                !parsed.Tiles ||
-                !parsed.Objects) {
+            if (!parsed || typeof parsed !== "object") {
                 throw new Error("Invalid map format");
             }
-            if (parsed.Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT ||
-                parsed.Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
+            const { Type, Tiles, Objects } = parsed;
+            if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
+                throw new Error("Invalid map type");
+            }
+            if (typeof Tiles !== "string" ||
+                typeof Objects !== "string" ||
+                Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT ||
+                Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
                 throw new Error("Invalid map dimensions");
             }
             // Validate tile IDs exist in the full game catalog
-            for (let i = 0; i < parsed.Tiles.length; i++) {
-                const char = parsed.Tiles[i];
-                const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.fullTileMap.get(id) === undefined) {
+            for (let i = 0; i < Tiles.length; i++) {
+                if (this.fullTileMap.get(Tiles.charCodeAt(i)) === undefined) {
                     throw new Error("Invalid tile ID at index " + i);
                 }
             }
             // Validate object IDs exist in the full game catalog
-            for (let i = 0; i < parsed.Objects.length; i++) {
-                const char = parsed.Objects[i];
-                const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.fullObjectMap.get(id) === undefined) {
+            for (let i = 0; i < Objects.length; i++) {
+                if (this.fullObjectMap.get(Objects.charCodeAt(i)) === undefined) {
                     throw new Error("Invalid object ID at index " + i);
                 }
             }
-            this.mapData = parsed;
+            // Build a fresh MapData so unknown or mistyped fields on the
+            // pasted object can never enter editor state. Effects/Fog carry
+            // over only when they have the expected types.
+            const raw = parsed;
+            const next = { Type, Tiles, Objects };
+            if (typeof raw.Effects === "string")
+                next.Effects = raw.Effects;
+            if (typeof raw.Fog === "boolean")
+                next.Fog = raw.Fog;
+            this.mapData = next;
             // A wholesale map replacement starts a new history lineage.
             this.redoStack.length = 0;
             this.notifyHistoryChange();
@@ -3869,7 +3878,8 @@ class BCMapEditor {
                 tileGroups.set(t.Type, []);
             tileGroups.get(t.Type).push(t);
         });
-        tileCategories.innerHTML = "";
+        // Clear without HTML parsing (containers only hold app-created nodes).
+        tileCategories.replaceChildren();
         tileGroups.forEach((tiles, type) => {
             const { header, entry } = this.createCategoryHeader(type);
             this.tileCategoryEls.push(entry);
@@ -3910,7 +3920,8 @@ class BCMapEditor {
                 objGroups.set(g, []);
             objGroups.get(g).push(o);
         });
-        objectCategories.innerHTML = "";
+        // Clear without HTML parsing (containers only hold app-created nodes).
+        objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {
             const { header, entry } = this.createCategoryHeader(group);
             this.objectCategoryEls.push(entry);
@@ -3932,6 +3943,9 @@ class BCMapEditor {
                     item.title = obj.Style;
                 }
                 else {
+                    // Static compile-time SVG constant only (no interpolation
+                    // of catalog or user data); the single sanctioned
+                    // innerHTML use in this file.
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
                 }

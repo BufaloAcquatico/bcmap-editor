@@ -14,6 +14,7 @@ A browser-based map editor for the ropeybot map system. This editor allows you t
 - **Import/Export**: LZString compressed map codes (same format as ropeybot)
 - **Dark Mode UI**: Clean dark theme with Bootstrap 5
 - **Local Assets**: All sprites stored locally for offline use
+- **No CDN Dependency**: Bootstrap, Bootstrap Icons, and LZString are vendored under `assets/vendor/` with SRI hashes — the editor works with all network blocked
 
 ## Getting Started
 

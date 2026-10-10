@@ -122,6 +122,70 @@ describe("Validation and Edge Cases", () => {
         expect(() => editor.importMap(code)).toThrow(/Invalid object ID/);
     });
 
+    it("should reject import with an unknown map type", () => {
+        const bad = {
+            Type: "Sometimes",
+            Tiles: String.fromCharCode(210).repeat(1600),
+            Objects: String.fromCharCode(100).repeat(1600),
+        };
+        const code = compressToBase64(JSON.stringify(bad));
+        expect(() => editor.importMap(code)).toThrow(/Invalid map type/);
+    });
+
+    it("should reject import with a missing map type", () => {
+        const bad = {
+            Tiles: String.fromCharCode(210).repeat(1600),
+            Objects: String.fromCharCode(100).repeat(1600),
+        };
+        const code = compressToBase64(JSON.stringify(bad));
+        expect(() => editor.importMap(code)).toThrow(/Invalid map type/);
+    });
+
+    it("should reject import with non-string tile/object layers", () => {
+        const bad = {
+            Type: "Always",
+            Tiles: Array(1600).fill(210),
+            Objects: Array(1600).fill(100),
+        };
+        const code = compressToBase64(JSON.stringify(bad));
+        expect(() => editor.importMap(code)).toThrow(/Invalid map dimensions/);
+    });
+
+    it("should not carry unknown fields from an import into editor state", () => {
+        const raw = {
+            Type: "Always",
+            Tiles: String.fromCharCode(210).repeat(1600),
+            Objects: String.fromCharCode(100).repeat(1600),
+            admin: true,
+            Effects: 42,
+            Fog: "yes",
+        };
+        const code = compressToBase64(JSON.stringify(raw));
+        editor.importMap(code);
+        const imported = editor.getMapData();
+        expect(Object.keys(imported).sort()).toEqual([
+            "Objects",
+            "Tiles",
+            "Type",
+        ]);
+        expect((imported as any).admin).toBeUndefined();
+    });
+
+    it("should preserve well-typed Effects and Fog on import", () => {
+        const raw = {
+            Type: "Always",
+            Tiles: String.fromCharCode(210).repeat(1600),
+            Objects: String.fromCharCode(100).repeat(1600),
+            Effects: "abc",
+            Fog: true,
+        };
+        const code = compressToBase64(JSON.stringify(raw));
+        editor.importMap(code);
+        const imported = editor.getMapData();
+        expect(imported.Effects).toBe("abc");
+        expect(imported.Fog).toBe(true);
+    });
+
     it("should handle import with mixed valid data", () => {
         const exported = editor.exportMap("test");
         const newEditor = new BCMapEditor("testCanvas");

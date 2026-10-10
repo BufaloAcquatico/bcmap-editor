@@ -39,12 +39,14 @@ mockElements["testCanvas"] = mockCanvas;
 mockElements["tileCategories"] = {
     style: { display: "" },
     innerHTML: "",
+    replaceChildren: vi.fn(),
     querySelectorAll: vi.fn(() => []),
     appendChild: vi.fn(),
 };
 mockElements["objectCategories"] = {
     style: { display: "" },
     innerHTML: "",
+    replaceChildren: vi.fn(),
     querySelectorAll: vi.fn(() => []),
     appendChild: vi.fn(),
 };

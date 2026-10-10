@@ -1037,38 +1037,44 @@ export class BCMapEditor {
         try {
             const jsonStr = decompressFromBase64(code);
             if (!jsonStr) throw new Error("Invalid map code");
-            const parsed = JSON.parse(jsonStr) as any;
-            if (
-                !parsed ||
-                typeof parsed !== "object" ||
-                !parsed.Tiles ||
-                !parsed.Objects
-            ) {
+            const parsed: unknown = JSON.parse(jsonStr);
+            if (!parsed || typeof parsed !== "object") {
                 throw new Error("Invalid map format");
             }
+            const { Type, Tiles, Objects } = parsed as Record<string, unknown>;
+            if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
+                throw new Error("Invalid map type");
+            }
             if (
-                parsed.Tiles.length !== MAP_WIDTH * MAP_HEIGHT ||
-                parsed.Objects.length !== MAP_WIDTH * MAP_HEIGHT
+                typeof Tiles !== "string" ||
+                typeof Objects !== "string" ||
+                Tiles.length !== MAP_WIDTH * MAP_HEIGHT ||
+                Objects.length !== MAP_WIDTH * MAP_HEIGHT
             ) {
                 throw new Error("Invalid map dimensions");
             }
             // Validate tile IDs exist in the full game catalog
-            for (let i = 0; i < parsed.Tiles.length; i++) {
-                const char = parsed.Tiles[i];
-                const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.fullTileMap.get(id) === undefined) {
+            for (let i = 0; i < Tiles.length; i++) {
+                if (this.fullTileMap.get(Tiles.charCodeAt(i)) === undefined) {
                     throw new Error("Invalid tile ID at index " + i);
                 }
             }
             // Validate object IDs exist in the full game catalog
-            for (let i = 0; i < parsed.Objects.length; i++) {
-                const char = parsed.Objects[i];
-                const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.fullObjectMap.get(id) === undefined) {
+            for (let i = 0; i < Objects.length; i++) {
+                if (
+                    this.fullObjectMap.get(Objects.charCodeAt(i)) === undefined
+                ) {
                     throw new Error("Invalid object ID at index " + i);
                 }
             }
-            this.mapData = parsed as MapData;
+            // Build a fresh MapData so unknown or mistyped fields on the
+            // pasted object can never enter editor state. Effects/Fog carry
+            // over only when they have the expected types.
+            const raw = parsed as Record<string, unknown>;
+            const next: MapData = { Type, Tiles, Objects };
+            if (typeof raw.Effects === "string") next.Effects = raw.Effects;
+            if (typeof raw.Fog === "boolean") next.Fog = raw.Fog;
+            this.mapData = next;
             // A wholesale map replacement starts a new history lineage.
             this.redoStack.length = 0;
             this.notifyHistoryChange();
@@ -1238,7 +1244,8 @@ export class BCMapEditor {
             if (!tileGroups.has(t.Type)) tileGroups.set(t.Type, []);
             tileGroups.get(t.Type)!.push(t);
         });
-        tileCategories.innerHTML = "";
+        // Clear without HTML parsing (containers only hold app-created nodes).
+        tileCategories.replaceChildren();
         tileGroups.forEach((tiles, type) => {
             const { header, entry } = this.createCategoryHeader(type);
             this.tileCategoryEls.push(entry);
@@ -1278,7 +1285,8 @@ export class BCMapEditor {
             if (!objGroups.has(g)) objGroups.set(g, []);
             objGroups.get(g)!.push(o);
         });
-        objectCategories.innerHTML = "";
+        // Clear without HTML parsing (containers only hold app-created nodes).
+        objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {
             const { header, entry } = this.createCategoryHeader(group);
             this.objectCategoryEls.push(entry);
@@ -1299,6 +1307,9 @@ export class BCMapEditor {
                         "url(assets/objects/" + key + ".png)";
                     item.title = obj.Style;
                 } else {
+                    // Static compile-time SVG constant only (no interpolation
+                    // of catalog or user data); the single sanctioned
+                    // innerHTML use in this file.
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
                 }

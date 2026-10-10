@@ -45,12 +45,14 @@ mockElements["zoomLevel"] = { textContent: "" };
 mockElements["tileCategories"] = {
     style: {},
     innerHTML: "",
+    replaceChildren: vi.fn(),
     appendChild: vi.fn(),
     querySelectorAll: vi.fn(() => []),
 };
 mockElements["objectCategories"] = {
     style: {},
     innerHTML: "",
+    replaceChildren: vi.fn(),
     appendChild: vi.fn(),
     querySelectorAll: vi.fn(() => []),
 };
