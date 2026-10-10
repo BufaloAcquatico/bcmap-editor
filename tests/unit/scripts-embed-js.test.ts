@@ -44,4 +44,21 @@ describe("embed-js transformBundle", () => {
         const out = transformBundle(SAMPLE);
         expect(out).not.toContain("__esModule");
     });
+
+    it("keeps only the first alias when modules share a require", () => {
+        const twoModules =
+            'const catalog_1 = require("./catalog");\n' +
+            'const catalog_2 = require("./catalog");\n' +
+            "console.log(catalog_1.A, catalog_2.B);\n";
+        const out = transformBundle(twoModules);
+        expect(out).toContain("const catalog_1 = window;");
+        expect(out).toContain("const catalog_2 = window;");
+        const dupes =
+            'const catalog_1 = require("./catalog");\n' +
+            'const catalog_1 = require("./catalog");\n';
+        const deduped = transformBundle(dupes);
+        const declarations =
+            deduped.match(/^const catalog_1 = window;$/gm) || [];
+        expect(declarations.length).toBe(1);
+    });
 });

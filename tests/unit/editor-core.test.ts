@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-    BCMapEditor,
-    MAP_WIDTH,
-    MAP_HEIGHT,
-    GRASS_TILE_ID,
-} from "../../src/editor";
+import { BCMapEditor } from "../../src/editor";
+import { MAP_WIDTH, MAP_HEIGHT, GRASS_TILE_ID } from "../../src/mapdata";
 
 // Mock DOM for testing
 const mockCtx = {

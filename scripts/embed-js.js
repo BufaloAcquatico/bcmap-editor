@@ -8,6 +8,7 @@ const files = [
     "catalog.js",
     "constants.js",
     "history.js",
+    "mapdata.js",
     "editor.js",
     "init.js",
 ];
@@ -15,31 +16,39 @@ const files = [
 // Pure transform: CommonJS bundle -> browser globals. Exported for unit
 // tests; main() below applies it to the real dist output.
 function transformBundle(combined) {
-    return (
-        combined
-            // Remove esModule define
-            .replace(
-                /Object\.defineProperty\(exports, "__esModule", \{ value: true \}\);\s*/g,
-                "",
-            )
-            // Replace exports.X = with window.X = (export assignments)
-            .replace(/exports\.(\w+)\s*=/g, "window.$1 =")
-            // Replace require("lz-string") with LZString global
-            .replace(
-                /const lz_string_1 = require\("lz-string"\);/g,
-                "const lz_string_1 = LZString;",
-            )
-            // Point relative requires (./catalog, ./constants, ./history, ...)
-            // at the globals defined above. Must come after the lz-string
-            // rule so the CDN global mapping keeps precedence.
-            .replace(
-                /const (\w+) = require\("\.[^"]*"\);?/g,
-                "const $1 = window;",
-            )
-            // Remove any other require() calls
-            .replace(/require\([^)]+\);?/g, "")
-            // Replace remaining exports.X usages (e.g., exports.MAP_WIDTH in class methods)
-            .replace(/exports\.(\w+)/g, "window.$1")
+    const transformed = combined
+        // Remove esModule define
+        .replace(
+            /Object\.defineProperty\(exports, "__esModule", \{ value: true \}\);\s*/g,
+            "",
+        )
+        // Replace exports.X = with window.X = (export assignments)
+        .replace(/exports\.(\w+)\s*=/g, "window.$1 =")
+        // Replace require("lz-string") with LZString global
+        .replace(
+            /const lz_string_1 = require\("lz-string"\);/g,
+            "const lz_string_1 = LZString;",
+        )
+        // Point relative requires (./catalog, ./constants, ./history, ...)
+        // at the globals defined above. Must come after the lz-string
+        // rule so the CDN global mapping keeps precedence.
+        .replace(/const (\w+) = require\("\.[^"]*"\);?/g, "const $1 = window;")
+        // Remove any other require() calls
+        .replace(/require\([^)]+\);?/g, "")
+        // Replace remaining exports.X usages (e.g., exports.MAP_WIDTH in class methods)
+        .replace(/exports\.(\w+)/g, "window.$1");
+    // Several compiled modules require the same source (e.g. both
+    // editor.js and mapdata.js require ./catalog). Their mapped aliases
+    // would redeclare the same const in the shared IIFE scope, so keep
+    // only the first declaration of each window/LZString alias.
+    const seenAliases = new Set();
+    return transformed.replace(
+        /^const (\w+) = (window|LZString);$/gm,
+        (line, name) => {
+            if (seenAliases.has(name)) return "";
+            seenAliases.add(name);
+            return line;
+        },
     );
 }
 

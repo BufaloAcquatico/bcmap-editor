@@ -2889,15 +2889,86 @@ class MapHistory {
 window.MapHistory = MapHistory;
 
 "use strict";
-// BCMap Editor - TypeScript Source
-window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
+// BCMap Editor - map data model and import/export.
+//
+// Pure functions over the 40x40 two-layer map format (LZString-compressed,
+// same as ropeybot). No DOM access: the editor owns rendering and view
+// state, and calls into these for serialization plus strict validation.
+//
+// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
+window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
+window.createDefaultMap = createDefaultMap;
+window.serializeMap = serializeMap;
+window.parseMapData = parseMapData;
 const lz_string_1 = LZString;
 const catalog_1 = window;
-const constants_1 = window;
-const history_1 = window;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.GRASS_TILE_ID = 210;
+function createDefaultMap() {
+    const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
+    const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+    const objects = String.fromCharCode(catalog_1.BLANK_OBJECT_ID).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+    return {
+        Type: "Always",
+        Tiles: tiles,
+        Objects: objects,
+    };
+}
+/** Serialize map layers to an importable/exportable code string. */
+function serializeMap(data) {
+    return (0, lz_string_1.compressToBase64)(JSON.stringify(data));
+}
+/**
+ * Parse and strictly validate an import code, returning a fresh MapData.
+ * Rejects unknown map types, non-string or wrong-length layers, and IDs
+ * outside the known game catalogs. Unknown/extra fields are dropped;
+ * Effects/Fog carry over only when well-typed.
+ */
+function parseMapData(code, isKnownTileId, isKnownObjectId) {
+    const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
+    if (!jsonStr)
+        throw new Error("Invalid map code");
+    const parsed = JSON.parse(jsonStr);
+    if (!parsed || typeof parsed !== "object") {
+        throw new Error("Invalid map format");
+    }
+    const { Type, Tiles, Objects } = parsed;
+    if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
+        throw new Error("Invalid map type");
+    }
+    if (typeof Tiles !== "string" ||
+        typeof Objects !== "string" ||
+        Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT ||
+        Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
+        throw new Error("Invalid map dimensions");
+    }
+    for (let i = 0; i < Tiles.length; i++) {
+        if (!isKnownTileId(Tiles.charCodeAt(i))) {
+            throw new Error("Invalid tile ID at index " + i);
+        }
+    }
+    for (let i = 0; i < Objects.length; i++) {
+        if (!isKnownObjectId(Objects.charCodeAt(i))) {
+            throw new Error("Invalid object ID at index " + i);
+        }
+    }
+    const raw = parsed;
+    const next = { Type, Tiles, Objects };
+    if (typeof raw.Effects === "string")
+        next.Effects = raw.Effects;
+    if (typeof raw.Fog === "boolean")
+        next.Fog = raw.Fog;
+    return next;
+}
+
+"use strict";
+// BCMap Editor - TypeScript Source
+window.BCMapEditor = void 0;
+
+const constants_1 = window;
+const history_1 = window;
+const mapdata_1 = window;
 // Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic
 // (ropeybot/src/bcdata/ChatRoomMap.ts). `prefix` is the texture name stem,
 // `single` the variant used when the object has no same-ID neighbors.
@@ -2982,7 +3053,7 @@ class BCMapEditor {
             throw new Error("Failed to get canvas context");
         this.ctx = ctx;
         this.history.onChange = () => this.notifyHistoryChange();
-        this.mapData = this.createDefaultMap();
+        this.mapData = (0, mapdata_1.createDefaultMap)();
         this.initCatalogs();
         this.applyDefaultSelection();
         this.init();
@@ -3050,16 +3121,6 @@ class BCMapEditor {
                 this.wallEffectImageCache.set(i, img);
             }
         }
-    }
-    createDefaultMap() {
-        const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
-        const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
-        const objects = String.fromCharCode(catalog_1.BLANK_OBJECT_ID).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
-        return {
-            Type: "Always",
-            Tiles: tiles,
-            Objects: objects,
-        };
     }
     initCatalogs() {
         // The display catalogs live in ./catalog.ts and mirror the game data.
@@ -3146,9 +3207,9 @@ class BCMapEditor {
         return this.history.canRedo();
     }
     paintAt(pos) {
-        if (pos.X < 0 || pos.X >= window.MAP_WIDTH || pos.Y < 0 || pos.Y >= window.MAP_HEIGHT)
+        if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
             return;
-        const index = pos.X + pos.Y * window.MAP_WIDTH;
+        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
         if (this.currentLayer === "tile" && this.selectedTile) {
             const ch = String.fromCharCode(this.selectedTile.ID);
             // No-op guard: repainting the same cell must not dirty state or
@@ -3347,16 +3408,16 @@ class BCMapEditor {
         // Snap the map to whole device pixels so tile edges land exactly on the
         // pixel grid. Fractional tile sizes cause anti-aliased seams between
         // adjacent sprites that look like a leftover grid.
-        const drawSize = Math.round((Math.min(canvasWidth, canvasHeight) * this.zoom) / window.MAP_WIDTH) * window.MAP_WIDTH;
-        const tileSize = drawSize / window.MAP_WIDTH;
+        const drawSize = Math.round((Math.min(canvasWidth, canvasHeight) * this.zoom) / mapdata_1.MAP_WIDTH) * mapdata_1.MAP_WIDTH;
+        const tileSize = drawSize / mapdata_1.MAP_WIDTH;
         const startX = Math.round((canvasWidth - drawSize) / 2 + this.panX);
         const startY = Math.round((canvasHeight - drawSize) / 2 + this.panY);
         return { size: drawSize, startX, startY, tileSize };
     }
     computeWallEffect(x, y) {
-        if (x < 0 || x >= window.MAP_WIDTH || y < 0 || y >= window.MAP_HEIGHT)
+        if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
             return -1;
-        const index = x + y * window.MAP_WIDTH;
+        const index = x + y * mapdata_1.MAP_WIDTH;
         const tileId = this.mapData.Tiles.charCodeAt(index);
         const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
         if (!tile || tile.Type !== "Wall")
@@ -3369,9 +3430,9 @@ class BCMapEditor {
         // SE = South-East (bottom-right): X+1, Y+1
         // Out of bounds counts as wall
         const isWall = (tx, ty) => {
-            if (tx < 0 || tx >= window.MAP_WIDTH || ty < 0 || ty >= window.MAP_HEIGHT)
+            if (tx < 0 || tx >= mapdata_1.MAP_WIDTH || ty < 0 || ty >= mapdata_1.MAP_HEIGHT)
                 return true;
-            const ti = tx + ty * window.MAP_WIDTH;
+            const ti = tx + ty * mapdata_1.MAP_WIDTH;
             const tid = this.mapData.Tiles.charCodeAt(ti);
             const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
             return t !== undefined && t.Type === "Wall";
@@ -3429,21 +3490,21 @@ class BCMapEditor {
         return -1;
     }
     computeFloorWallEffect(x, y) {
-        if (x < 0 || x >= window.MAP_WIDTH || y < 0 || y >= window.MAP_HEIGHT)
+        if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
             return -1;
         // No effect on the very last row
-        if (y >= window.MAP_HEIGHT - 1)
+        if (y >= mapdata_1.MAP_HEIGHT - 1)
             return -1;
-        const index = x + y * window.MAP_WIDTH;
+        const index = x + y * mapdata_1.MAP_WIDTH;
         const tileId = this.mapData.Tiles.charCodeAt(index);
         const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
         if (!tile)
             return -1;
         // Find the southern wall positions
         const isWall = (tx, ty) => {
-            if (tx < 0 || tx >= window.MAP_WIDTH || ty < 0 || ty >= window.MAP_HEIGHT)
+            if (tx < 0 || tx >= mapdata_1.MAP_WIDTH || ty < 0 || ty >= mapdata_1.MAP_HEIGHT)
                 return true;
-            const ti = tx + ty * window.MAP_WIDTH;
+            const ti = tx + ty * mapdata_1.MAP_WIDTH;
             const tid = this.mapData.Tiles.charCodeAt(ti);
             const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
             return t !== undefined && t.Type === "Wall";
@@ -3476,9 +3537,9 @@ class BCMapEditor {
     // Bounds-checked object lookup by grid cell. Returns null outside the map
     // or for empty cells (mirrors ChatRoomMapViewGetObjectAtPos semantics).
     getObjectAt(x, y) {
-        if (x < 0 || x >= window.MAP_WIDTH || y < 0 || y >= window.MAP_HEIGHT)
+        if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
             return null;
-        const objId = this.mapData.Objects.charCodeAt(x + y * window.MAP_WIDTH);
+        const objId = this.mapData.Objects.charCodeAt(x + y * mapdata_1.MAP_WIDTH);
         if (objId === catalog_1.BLANK_OBJECT_ID)
             return null;
         return this.fullObjectMap.get(objId) ?? null;
@@ -3530,13 +3591,13 @@ class BCMapEditor {
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         const { startX, startY, tileSize } = this.getDrawBox();
         const firstTileX = Math.max(0, Math.floor(-startX / tileSize));
-        const lastTileX = Math.min(window.MAP_WIDTH - 1, Math.ceil((canvasWidth - startX) / tileSize));
+        const lastTileX = Math.min(mapdata_1.MAP_WIDTH - 1, Math.ceil((canvasWidth - startX) / tileSize));
         const firstTileY = Math.max(0, Math.floor(-startY / tileSize));
-        const lastTileY = Math.min(window.MAP_HEIGHT - 1, Math.ceil((canvasHeight - startY) / tileSize));
+        const lastTileY = Math.min(mapdata_1.MAP_HEIGHT - 1, Math.ceil((canvasHeight - startY) / tileSize));
         // Render tiles using cached sprites
         for (let y = firstTileY; y <= lastTileY; y++) {
             for (let x = firstTileX; x <= lastTileX; x++) {
-                const index = x + y * window.MAP_WIDTH;
+                const index = x + y * mapdata_1.MAP_WIDTH;
                 const tileId = this.mapData.Tiles.charCodeAt(index);
                 const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
                 if (tile) {
@@ -3581,13 +3642,13 @@ class BCMapEditor {
         }
         // Culling bounds stay on whole cells (see objectMarginTiles note).
         const firstObjX = Math.max(0, firstTileX - this.objectMarginTiles);
-        const lastObjX = Math.min(window.MAP_WIDTH - 1, lastTileX + this.objectMarginTiles);
+        const lastObjX = Math.min(mapdata_1.MAP_WIDTH - 1, lastTileX + this.objectMarginTiles);
         const firstObjY = Math.max(0, firstTileY - this.objectMarginTiles);
-        const lastObjY = Math.min(window.MAP_HEIGHT - 1, lastTileY + this.objectMarginTiles);
+        const lastObjY = Math.min(mapdata_1.MAP_HEIGHT - 1, lastTileY + this.objectMarginTiles);
         // Render objects using cached sprites
         for (let y = firstObjY; y <= lastObjY; y++) {
             for (let x = firstObjX; x <= lastObjX; x++) {
-                const index = x + y * window.MAP_WIDTH;
+                const index = x + y * mapdata_1.MAP_WIDTH;
                 const objId = this.mapData.Objects.charCodeAt(index);
                 if (objId === catalog_1.BLANK_OBJECT_ID)
                     continue;
@@ -3627,16 +3688,16 @@ class BCMapEditor {
         if (this.showGrid) {
             ctx.strokeStyle = GRID_COLOR;
             ctx.lineWidth = GRID_LINE_WIDTH;
-            for (let i = 0; i <= window.MAP_WIDTH; i++) {
+            for (let i = 0; i <= mapdata_1.MAP_WIDTH; i++) {
                 ctx.beginPath();
                 ctx.moveTo(startX + i * tileSize, startY);
-                ctx.lineTo(startX + i * tileSize, startY + window.MAP_HEIGHT * tileSize);
+                ctx.lineTo(startX + i * tileSize, startY + mapdata_1.MAP_HEIGHT * tileSize);
                 ctx.stroke();
             }
-            for (let j = 0; j <= window.MAP_HEIGHT; j++) {
+            for (let j = 0; j <= mapdata_1.MAP_HEIGHT; j++) {
                 ctx.beginPath();
                 ctx.moveTo(startX, startY + j * tileSize);
-                ctx.lineTo(startX + window.MAP_WIDTH * tileSize, startY + j * tileSize);
+                ctx.lineTo(startX + mapdata_1.MAP_WIDTH * tileSize, startY + j * tileSize);
                 ctx.stroke();
             }
         }
@@ -3644,9 +3705,9 @@ class BCMapEditor {
         const hover = this.hoveredTile;
         if (hover &&
             hover.X >= 0 &&
-            hover.X < window.MAP_WIDTH &&
+            hover.X < mapdata_1.MAP_WIDTH &&
             hover.Y >= 0 &&
-            hover.Y < window.MAP_HEIGHT) {
+            hover.Y < mapdata_1.MAP_HEIGHT) {
             ctx.strokeStyle = HOVER_OUTLINE_COLOR;
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
@@ -3673,9 +3734,9 @@ class BCMapEditor {
             return;
         if (pos &&
             pos.X >= 0 &&
-            pos.X < window.MAP_WIDTH &&
+            pos.X < mapdata_1.MAP_WIDTH &&
             pos.Y >= 0 &&
-            pos.Y < window.MAP_HEIGHT) {
+            pos.Y < mapdata_1.MAP_HEIGHT) {
             el.textContent = `Position: (${pos.X}, ${pos.Y})`;
         }
         else {
@@ -3705,7 +3766,7 @@ class BCMapEditor {
     }
     applyDefaultSelection() {
         if (!this.selectedTile) {
-            this.selectedTile = this.tileMap.get(window.GRASS_TILE_ID) ?? null;
+            this.selectedTile = this.tileMap.get(mapdata_1.GRASS_TILE_ID) ?? null;
         }
         if (!this.selectedObject) {
             this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
@@ -3736,54 +3797,15 @@ class BCMapEditor {
         return this.selectedObject;
     }
     exportMap(name) {
-        const data = {
+        return (0, mapdata_1.serializeMap)({
             Type: this.mapData.Type,
             Tiles: this.mapData.Tiles,
             Objects: this.mapData.Objects,
-        };
-        return (0, lz_string_1.compressToBase64)(JSON.stringify(data));
+        });
     }
     importMap(code) {
         try {
-            const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
-            if (!jsonStr)
-                throw new Error("Invalid map code");
-            const parsed = JSON.parse(jsonStr);
-            if (!parsed || typeof parsed !== "object") {
-                throw new Error("Invalid map format");
-            }
-            const { Type, Tiles, Objects } = parsed;
-            if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
-                throw new Error("Invalid map type");
-            }
-            if (typeof Tiles !== "string" ||
-                typeof Objects !== "string" ||
-                Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT ||
-                Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
-                throw new Error("Invalid map dimensions");
-            }
-            // Validate tile IDs exist in the full game catalog
-            for (let i = 0; i < Tiles.length; i++) {
-                if (this.fullTileMap.get(Tiles.charCodeAt(i)) === undefined) {
-                    throw new Error("Invalid tile ID at index " + i);
-                }
-            }
-            // Validate object IDs exist in the full game catalog
-            for (let i = 0; i < Objects.length; i++) {
-                if (this.fullObjectMap.get(Objects.charCodeAt(i)) === undefined) {
-                    throw new Error("Invalid object ID at index " + i);
-                }
-            }
-            // Build a fresh MapData so unknown or mistyped fields on the
-            // pasted object can never enter editor state. Effects/Fog carry
-            // over only when they have the expected types.
-            const raw = parsed;
-            const next = { Type, Tiles, Objects };
-            if (typeof raw.Effects === "string")
-                next.Effects = raw.Effects;
-            if (typeof raw.Fog === "boolean")
-                next.Fog = raw.Fog;
-            this.mapData = next;
+            this.mapData = (0, mapdata_1.parseMapData)(code, (id) => this.fullTileMap.has(id), (id) => this.fullObjectMap.has(id));
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
             this.resetView();
@@ -3796,9 +3818,9 @@ class BCMapEditor {
         return this.mapData;
     }
     newMap() {
-        this.mapData = this.createDefaultMap();
+        this.mapData = (0, mapdata_1.createDefaultMap)();
         this.history.clearRedo();
-        this.selectedTile = this.tileMap.get(window.GRASS_TILE_ID) ?? null;
+        this.selectedTile = this.tileMap.get(mapdata_1.GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();

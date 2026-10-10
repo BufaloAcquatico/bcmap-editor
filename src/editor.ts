@@ -1,7 +1,5 @@
 // BCMap Editor - TypeScript Source
 
-import { compressToBase64, decompressFromBase64 } from "lz-string";
-
 import {
     BLANK_OBJECT_ID,
     FULL_OBJECT_CATALOG,
@@ -13,6 +11,15 @@ import {
 } from "./catalog";
 import { RAILROAD_DIRECTIONS, WALL_EFFECT_INDICES } from "./constants";
 import { MapHistory } from "./history";
+import {
+    createDefaultMap,
+    GRASS_TILE_ID,
+    MAP_HEIGHT,
+    MAP_WIDTH,
+    type MapData,
+    parseMapData,
+    serializeMap,
+} from "./mapdata";
 
 export type { ObjectDef, TileDef } from "./catalog";
 
@@ -31,18 +38,6 @@ export interface MapRegion {
     TopLeft: Point;
     BottomRight: Point;
 }
-
-export interface MapData {
-    Type: "Always" | "Hybrid" | "Never";
-    Tiles: string; // 1600 chars, each char = tile ID charCode
-    Objects: string; // 1600 chars, each char = object ID charCode
-    Effects?: string;
-    Fog?: boolean;
-}
-
-export const MAP_WIDTH = 40;
-export const MAP_HEIGHT = 40;
-export const GRASS_TILE_ID = 210;
 
 // Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic
 // (ropeybot/src/bcdata/ChatRoomMap.ts). `prefix` is the texture name stem,
@@ -138,7 +133,7 @@ export class BCMapEditor {
         if (!ctx) throw new Error("Failed to get canvas context");
         this.ctx = ctx;
         this.history.onChange = () => this.notifyHistoryChange();
-        this.mapData = this.createDefaultMap();
+        this.mapData = createDefaultMap();
         this.initCatalogs();
         this.applyDefaultSelection();
         this.init();
@@ -212,19 +207,6 @@ export class BCMapEditor {
                 this.wallEffectImageCache.set(i, img);
             }
         }
-    }
-
-    private createDefaultMap(): MapData {
-        const grassChar = String.fromCharCode(GRASS_TILE_ID);
-        const tiles = grassChar.repeat(MAP_WIDTH * MAP_HEIGHT);
-        const objects = String.fromCharCode(BLANK_OBJECT_ID).repeat(
-            MAP_WIDTH * MAP_HEIGHT,
-        );
-        return {
-            Type: "Always",
-            Tiles: tiles,
-            Objects: objects,
-        };
     }
 
     private initCatalogs(): void {
@@ -983,55 +965,19 @@ export class BCMapEditor {
         return this.selectedObject;
     }
     public exportMap(name: string): string {
-        const data = {
+        return serializeMap({
             Type: this.mapData.Type,
             Tiles: this.mapData.Tiles,
             Objects: this.mapData.Objects,
-        };
-        return compressToBase64(JSON.stringify(data));
+        });
     }
     public importMap(code: string): void {
         try {
-            const jsonStr = decompressFromBase64(code);
-            if (!jsonStr) throw new Error("Invalid map code");
-            const parsed: unknown = JSON.parse(jsonStr);
-            if (!parsed || typeof parsed !== "object") {
-                throw new Error("Invalid map format");
-            }
-            const { Type, Tiles, Objects } = parsed as Record<string, unknown>;
-            if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
-                throw new Error("Invalid map type");
-            }
-            if (
-                typeof Tiles !== "string" ||
-                typeof Objects !== "string" ||
-                Tiles.length !== MAP_WIDTH * MAP_HEIGHT ||
-                Objects.length !== MAP_WIDTH * MAP_HEIGHT
-            ) {
-                throw new Error("Invalid map dimensions");
-            }
-            // Validate tile IDs exist in the full game catalog
-            for (let i = 0; i < Tiles.length; i++) {
-                if (this.fullTileMap.get(Tiles.charCodeAt(i)) === undefined) {
-                    throw new Error("Invalid tile ID at index " + i);
-                }
-            }
-            // Validate object IDs exist in the full game catalog
-            for (let i = 0; i < Objects.length; i++) {
-                if (
-                    this.fullObjectMap.get(Objects.charCodeAt(i)) === undefined
-                ) {
-                    throw new Error("Invalid object ID at index " + i);
-                }
-            }
-            // Build a fresh MapData so unknown or mistyped fields on the
-            // pasted object can never enter editor state. Effects/Fog carry
-            // over only when they have the expected types.
-            const raw = parsed as Record<string, unknown>;
-            const next: MapData = { Type, Tiles, Objects };
-            if (typeof raw.Effects === "string") next.Effects = raw.Effects;
-            if (typeof raw.Fog === "boolean") next.Fog = raw.Fog;
-            this.mapData = next;
+            this.mapData = parseMapData(
+                code,
+                (id) => this.fullTileMap.has(id),
+                (id) => this.fullObjectMap.has(id),
+            );
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
             this.resetView();
@@ -1043,7 +989,7 @@ export class BCMapEditor {
         return this.mapData;
     }
     public newMap(): void {
-        this.mapData = this.createDefaultMap();
+        this.mapData = createDefaultMap();
         this.history.clearRedo();
         this.selectedTile = this.tileMap.get(GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;

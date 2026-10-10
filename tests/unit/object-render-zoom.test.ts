@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { BCMapEditor, MAP_WIDTH } from "../../src/editor";
+import { BCMapEditor } from "../../src/editor";
+import { MAP_WIDTH } from "../../src/mapdata";
 
 // Mock DOM for testing (mirrors existing unit test setup)
 const mockCtx = {
