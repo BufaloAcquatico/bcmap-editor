@@ -4,7 +4,13 @@ const path = require("path");
 const distDir = path.join(__dirname, "..", "dist");
 const htmlFile = path.join(__dirname, "..", "map-editor.html");
 
-const files = ["catalog.js", "constants.js", "editor.js", "init.js"];
+const files = [
+    "catalog.js",
+    "constants.js",
+    "history.js",
+    "editor.js",
+    "init.js",
+];
 
 // Pure transform: CommonJS bundle -> browser globals. Exported for unit
 // tests; main() below applies it to the real dist output.
@@ -23,9 +29,11 @@ function transformBundle(combined) {
                 /const lz_string_1 = require\("lz-string"\);/g,
                 "const lz_string_1 = LZString;",
             )
-            // Point the compiled catalog/constants imports at the globals defined above
+            // Point relative requires (./catalog, ./constants, ./history, ...)
+            // at the globals defined above. Must come after the lz-string
+            // rule so the CDN global mapping keeps precedence.
             .replace(
-                /const (\w+) = require\("\.\/(catalog|constants)"\);?/g,
+                /const (\w+) = require\("\.[^"]*"\);?/g,
                 "const $1 = window;",
             )
             // Remove any other require() calls

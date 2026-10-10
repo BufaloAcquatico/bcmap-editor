@@ -6,9 +6,10 @@ const SAMPLE = `"use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const catalog_1 = require("./catalog");
 const constants_1 = require("./constants");
+const history_1 = require("./history");
 const lz_string_1 = require("lz-string");
 exports.MAP_WIDTH = 40;
-console.log(exports.MAP_WIDTH, catalog_1.TILE_CATALOG, constants_1.WALL_EFFECT_INDICES, lz_string_1.compressToBase64("x"));
+console.log(exports.MAP_WIDTH, catalog_1.TILE_CATALOG, constants_1.WALL_EFFECT_INDICES, history_1.MapHistory, lz_string_1.compressToBase64("x"));
 `;
 
 describe("embed-js transformBundle", () => {
@@ -16,12 +17,15 @@ describe("embed-js transformBundle", () => {
         const out = transformBundle(SAMPLE);
         expect(out).toContain("const catalog_1 = window;");
         expect(out).toContain("const constants_1 = window;");
+        expect(out).toContain("const history_1 = window;");
         expect(out).not.toContain('require("./catalog")');
         expect(out).not.toContain('require("./constants")');
+        expect(out).not.toContain('require("./history")');
         expect(out).not.toContain("require(");
         // Member accesses keep working through the window alias.
         expect(out).toContain("catalog_1.TILE_CATALOG");
         expect(out).toContain("constants_1.WALL_EFFECT_INDICES");
+        expect(out).toContain("history_1.MapHistory");
     });
 
     it("maps the lz-string require to the CDN global", () => {

@@ -135,7 +135,7 @@ describe("Drag-to-Paint", () => {
         );
         editor.onCanvasMouseUp();
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
     });
 
     it("should paint on a plain left press", () => {
@@ -203,7 +203,7 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).panX).toBe(panXBefore + 50);
         expect((editor as any).panY).toBe(20);
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(210);
-        expect((editor as any).undoStack.length).toBe(0);
+        expect((editor as any).history.undoStack.length).toBe(0);
     });
 
     it("should suppress the browser context menu on the canvas", () => {

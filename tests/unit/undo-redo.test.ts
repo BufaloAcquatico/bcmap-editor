@@ -113,7 +113,7 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
     it("one click produces exactly one undo entry", () => {
         press(0, 0);
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
     });
 
     it("a single undo reverts a single click", () => {
@@ -137,7 +137,7 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
             [1, 0],
             [2, 0],
         ]);
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
         expect(editor.getMapData().Tiles.charCodeAt(1)).toBe(215);
         expect(editor.getMapData().Tiles.charCodeAt(2)).toBe(215);
@@ -165,9 +165,9 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
 
     it("pressing an unchanged cell pushes no undo entry", () => {
         press(0, 0);
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
         press(0, 0); // same cell, same tile: no-op stroke
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
     });
 
     it("undo mid-press on a no-op stroke keeps the redo entry", () => {
@@ -175,9 +175,9 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
         const e = editor as any;
         // Second press hits the unchanged cell: entry pushed, nothing painted.
         e.onCanvasMouseDown(cellEvent(0, 0));
-        expect(e.undoStack.length).toBe(2);
+        expect(e.history.undoStack.length).toBe(2);
         editor.undo(); // pops the no-op stroke entry mid-press
-        expect(e.undoStack.length).toBe(1);
+        expect(e.history.undoStack.length).toBe(1);
         e.onCanvasMouseUp(); // must not wipe the redo entry just created
         expect(editor.canRedo()).toBe(true);
         editor.redo();
@@ -195,7 +195,7 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
             createMouseEvent({ button: 2, clientX: 450, clientY: 320 }),
         );
         e.onCanvasMouseUp();
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
     });
 
     it("notifies history listeners on stroke/undo/redo", () => {
@@ -218,7 +218,7 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
         e.onCanvasMouseDown(cellEvent(2, 2));
         e.onCanvasMouseMove(cellEvent(3, 2));
         e.onCanvasMouseUp();
-        expect((editor as any).undoStack.length).toBe(1);
+        expect((editor as any).history.undoStack.length).toBe(1);
         expect(editor.getMapData().Objects.charCodeAt(2 + 2 * MAP_WIDTH)).toBe(
             2057,
         );

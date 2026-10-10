@@ -2793,11 +2793,108 @@ function railroadVariantStyles() {
 }
 
 "use strict";
+// BCMap Editor - stroke-coalesced undo/redo over whole-map snapshots.
+//
+// A snapshot is the [Tiles, Objects] pair. A whole press/drag stroke shares
+// one undo entry: beginStroke() pushes the pre-stroke state once, paint
+// calls markDirty(), and endStroke() rolls the entry back when the stroke
+// changed nothing, so empty presses never cost an undo step.
+//
+// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged. The
+// editor owns the MapData and applies snapshots; this class only manages
+// the stacks. onChange fires whenever stack state changes so the UI can
+// sync undo/redo button states.
+window.MapHistory = void 0;
+class MapHistory {
+    constructor(cap = 1000) {
+        this.cap = cap;
+        this.undoStack = [];
+        this.redoStack = [];
+        this.strokeOpen = false;
+        this.strokeDirty = false;
+        this.strokeEntry = null;
+        this.strokeSavedRedo = [];
+        this.onChange = null;
+    }
+    notify() {
+        this.onChange?.();
+    }
+    beginStroke(tiles, objects) {
+        this.strokeOpen = true;
+        this.strokeDirty = false;
+        this.strokeSavedRedo = this.redoStack;
+        const entry = [tiles, objects];
+        this.strokeEntry = entry;
+        this.undoStack.push(entry);
+        this.undoStack = this.undoStack.slice(-this.cap);
+        this.redoStack = [];
+        this.notify();
+    }
+    /** Record that the open stroke changed at least one cell. */
+    markDirty() {
+        this.strokeDirty = true;
+    }
+    endStroke() {
+        if (!this.strokeOpen)
+            return;
+        this.strokeOpen = false;
+        if (!this.strokeDirty && this.strokeEntry) {
+            // Roll back the entry pushed by beginStroke (by identity, so a
+            // mid-stroke undo or a cap-trim can never pop the wrong state).
+            // The saved redo stack is restored only when the entry was
+            // actually removed: if undo() already consumed it mid-stroke,
+            // the redo entry it created must survive.
+            const at = this.undoStack.lastIndexOf(this.strokeEntry);
+            if (at >= 0) {
+                this.undoStack.splice(at, 1);
+                this.redoStack = this.strokeSavedRedo;
+                this.notify();
+            }
+        }
+        this.strokeEntry = null;
+        this.strokeSavedRedo = [];
+    }
+    canUndo() {
+        return this.undoStack.length > 0;
+    }
+    canRedo() {
+        return this.redoStack.length > 0;
+    }
+    /** Pop the previous snapshot, stashing `current` on the redo stack. */
+    undo(current) {
+        if (this.undoStack.length === 0)
+            return null;
+        const prev = this.undoStack.pop();
+        this.redoStack.push(current);
+        this.redoStack = this.redoStack.slice(-this.cap);
+        this.notify();
+        return prev;
+    }
+    /** Pop the next snapshot, stashing `current` on the undo stack. */
+    redo(current) {
+        if (this.redoStack.length === 0)
+            return null;
+        const next = this.redoStack.pop();
+        this.undoStack.push(current);
+        this.undoStack = this.undoStack.slice(-this.cap);
+        this.notify();
+        return next;
+    }
+    /** Drop the redo lineage (import/new map start a new lineage). */
+    clearRedo() {
+        this.redoStack = [];
+        this.notify();
+    }
+}
+window.MapHistory = MapHistory;
+
+"use strict";
 // BCMap Editor - TypeScript Source
 window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
 const lz_string_1 = LZString;
 const catalog_1 = window;
 const constants_1 = window;
+const history_1 = window;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.GRASS_TILE_ID = 210;
@@ -2870,23 +2967,11 @@ class BCMapEditor {
         this.showGrid = true;
         this.showHelp = true;
         this.renderRequested = false;
-        this.undoStack = [];
-        this.redoStack = [];
-        this.undoCap = 1000;
-        this.redoCap = 1000;
+        this.history = new history_1.MapHistory();
         this.objectMarginTiles = 0;
         this.zoomTarget = 1.0;
         this.zoomAnchor = null;
         this.zoomAnimating = false;
-        // Push the pre-stroke state once. A whole press/drag stroke shares one
-        // undo entry, so a single Ctrl+Z reverts the whole stroke. Called when a
-        // paint stroke starts (mousedown), never per painted cell. If the stroke
-        // ends up changing nothing, endStroke() rolls the entry back so empty
-        // presses never cost an undo step.
-        this.strokeDirty = false;
-        this.strokeOpen = false;
-        this.strokeEntry = null;
-        this.strokeSavedRedo = [];
         this.onHistoryChange = null;
         const canvasElement = document.getElementById(canvasId);
         if (!canvasElement)
@@ -2896,6 +2981,7 @@ class BCMapEditor {
         if (!ctx)
             throw new Error("Failed to get canvas context");
         this.ctx = ctx;
+        this.history.onChange = () => this.notifyHistoryChange();
         this.mapData = this.createDefaultMap();
         this.initCatalogs();
         this.applyDefaultSelection();
@@ -3050,45 +3136,14 @@ class BCMapEditor {
         const tileY = Math.floor((mouseY - startY) / tileSize);
         return { X: tileX, Y: tileY };
     }
-    beginStroke() {
-        this.strokeOpen = true;
-        this.strokeDirty = false;
-        this.strokeSavedRedo = this.redoStack;
-        const entry = [this.mapData.Tiles, this.mapData.Objects];
-        this.strokeEntry = entry;
-        this.undoStack.push(entry);
-        this.undoStack = this.undoStack.slice(-this.undoCap);
-        this.redoStack = [];
-        this.notifyHistoryChange();
-    }
-    endStroke() {
-        if (!this.strokeOpen)
-            return;
-        this.strokeOpen = false;
-        if (!this.strokeDirty && this.strokeEntry) {
-            // Roll back the entry pushed by beginStroke (by identity, so a
-            // mid-stroke undo or a cap-trim can never pop the wrong state).
-            // The saved redo stack is restored only when the entry was
-            // actually removed: if undo() already consumed it mid-stroke,
-            // the redo entry it created must survive.
-            const at = this.undoStack.lastIndexOf(this.strokeEntry);
-            if (at >= 0) {
-                this.undoStack.splice(at, 1);
-                this.redoStack = this.strokeSavedRedo;
-                this.notifyHistoryChange();
-            }
-        }
-        this.strokeEntry = null;
-        this.strokeSavedRedo = [];
-    }
     notifyHistoryChange() {
         this.onHistoryChange?.();
     }
     canUndo() {
-        return this.undoStack.length > 0;
+        return this.history.canUndo();
     }
     canRedo() {
-        return this.redoStack.length > 0;
+        return this.history.canRedo();
     }
     paintAt(pos) {
         if (pos.X < 0 || pos.X >= window.MAP_WIDTH || pos.Y < 0 || pos.Y >= window.MAP_HEIGHT)
@@ -3105,7 +3160,7 @@ class BCMapEditor {
                 this.mapData.Tiles.substring(0, index) +
                     ch +
                     this.mapData.Tiles.substring(index + 1);
-            this.strokeDirty = true;
+            this.history.markDirty();
         }
         else if (this.currentLayer === "object" && this.selectedObject) {
             const ch = String.fromCharCode(this.selectedObject.ID);
@@ -3115,7 +3170,7 @@ class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                     ch +
                     this.mapData.Objects.substring(index + 1);
-            this.strokeDirty = true;
+            this.history.markDirty();
         }
         else {
             return;
@@ -3199,7 +3254,7 @@ class BCMapEditor {
             y: e.clientY - rect.top,
         };
         if (this.isPainting) {
-            this.beginStroke();
+            this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects);
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
         }
@@ -3235,7 +3290,7 @@ class BCMapEditor {
         this.lastMousePos = currentPos;
     }
     onCanvasMouseUp() {
-        this.endStroke();
+        this.history.endStroke();
         this.isDragging = false;
         this.isPanning = false;
         this.isPainting = false;
@@ -3730,8 +3785,7 @@ class BCMapEditor {
                 next.Fog = raw.Fog;
             this.mapData = next;
             // A wholesale map replacement starts a new history lineage.
-            this.redoStack.length = 0;
-            this.notifyHistoryChange();
+            this.history.clearRedo();
             this.resetView();
         }
         catch (e) {
@@ -3743,8 +3797,7 @@ class BCMapEditor {
     }
     newMap() {
         this.mapData = this.createDefaultMap();
-        this.redoStack.length = 0;
-        this.notifyHistoryChange();
+        this.history.clearRedo();
         this.selectedTile = this.tileMap.get(window.GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
         this.updateStatusSelection();
@@ -3764,25 +3817,25 @@ class BCMapEditor {
         this.render();
     }
     undo() {
-        if (this.undoStack.length === 0)
+        const prev = this.history.undo([
+            this.mapData.Tiles,
+            this.mapData.Objects,
+        ]);
+        if (!prev)
             return;
-        const prev = this.undoStack.pop();
-        this.redoStack.push([this.mapData.Tiles, this.mapData.Objects]);
-        this.redoStack = this.redoStack.slice(-this.redoCap);
         this.mapData.Tiles = prev[0];
         this.mapData.Objects = prev[1];
-        this.notifyHistoryChange();
         this.requestRender();
     }
     redo() {
-        if (this.redoStack.length === 0)
+        const next = this.history.redo([
+            this.mapData.Tiles,
+            this.mapData.Objects,
+        ]);
+        if (!next)
             return;
-        const next = this.redoStack.pop();
-        this.undoStack.push([this.mapData.Tiles, this.mapData.Objects]);
-        this.undoStack = this.undoStack.slice(-this.undoCap);
         this.mapData.Tiles = next[0];
         this.mapData.Objects = next[1];
-        this.notifyHistoryChange();
         this.requestRender();
     }
     toggleGrid() {
