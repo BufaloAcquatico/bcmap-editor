@@ -90,6 +90,10 @@ export class BCMapEditor {
     private showGrid = true;
     private showHelp = true;
     private renderRequested = false;
+    private undoStack: string[][] = [];
+    private redoStack: string[][] = [];
+    private undoCap = 1000;
+    private redoCap = 1000;
     private objectMarginTiles = 0;
     private zoomTarget = 1.0;
     private zoomAnchor: { x: number; y: number } | null = null;
@@ -256,6 +260,10 @@ export class BCMapEditor {
     private paintAt(pos: Point): void {
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
             return;
+        // Save state to undo stack before modifying map data
+        this.undoStack.push([this.mapData.Tiles, this.mapData.Objects]);
+        this.undoStack = this.undoStack.slice(-this.undoCap);
+        this.redoStack.length = 0;
         const index = pos.X + pos.Y * MAP_WIDTH;
         if (this.currentLayer === "tile" && this.selectedTile) {
             this.mapData.Tiles =
@@ -682,26 +690,71 @@ export class BCMapEditor {
                 const obj =
                     this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
                 if (obj && obj.Style !== "Blank") {
+                    // Neighbor awareness for extendable preview objects
+                    // (CouchPinkPreview, BedBluePreview, BallPitPreview,
+                    // VikingTablePreview, RailroadPreview). When two identical
+                    // extendable objects are placed adjacently, render combined variant.
+                    let hasLeftNeighbor = false;
+                    let hasRightNeighbor = false;
+                    const leftObjId = this.mapData.Objects.charCodeAt(
+                        x - 1 + y * MAP_WIDTH,
+                    );
+                    const rightObjId = this.mapData.Objects.charCodeAt(
+                        x + 1 + y * MAP_WIDTH,
+                    );
+                    if (leftObjId !== BLANK_OBJECT_ID) {
+                        const leftObj = this.fullObjectMap.get(leftObjId);
+                        if (
+                            leftObj &&
+                            leftObj.Type === obj.Type &&
+                            leftObj.Style === obj.Style
+                        ) {
+                            hasLeftNeighbor = true;
+                        }
+                    }
+                    if (rightObjId !== BLANK_OBJECT_ID) {
+                        const rightObj = this.fullObjectMap.get(rightObjId);
+                        if (
+                            rightObj &&
+                            rightObj.Type === obj.Type &&
+                            rightObj.Style === obj.Style
+                        ) {
+                            hasRightNeighbor = true;
+                        }
+                    }
                     const key = obj.Type + "/" + obj.Style;
                     const img = this.objectImageCache.get(key);
                     const left = obj.Left ?? 0;
                     const top = obj.Top ?? 0;
                     const width = obj.Width ?? 1;
                     const height = obj.Height ?? 1;
-                    const drawX = startX + (x + left) * tileSize;
-                    const drawY = startY + (y + top) * tileSize;
-                    const drawW = tileSize * width;
-                    const drawH = tileSize * height;
+                    let adjDrawX = startX + (x + left) * tileSize;
+                    let adjDrawW = tileSize * width;
+                    if (hasLeftNeighbor) {
+                        adjDrawX -= tileSize;
+                        adjDrawW += tileSize;
+                    }
+                    if (hasRightNeighbor) {
+                        adjDrawW += tileSize;
+                    }
+                    const adjDrawY = startY + (y + top) * tileSize;
+                    const adjDrawH = tileSize * height;
                     if (img && img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+                        ctx.drawImage(
+                            img,
+                            adjDrawX,
+                            adjDrawY,
+                            adjDrawW,
+                            adjDrawH,
+                        );
                     } else {
                         // Fallback to color if image not loaded
                         ctx.fillStyle = this.getObjectColor(obj.Type);
                         ctx.fillRect(
-                            drawX + drawW * OBJECT_DRAW_MARGIN,
-                            drawY + drawH * OBJECT_DRAW_MARGIN,
-                            drawW * OBJECT_DRAW_SIZE,
-                            drawH * OBJECT_DRAW_SIZE,
+                            adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN,
+                            adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN,
+                            adjDrawW * OBJECT_DRAW_SIZE,
+                            adjDrawH * OBJECT_DRAW_SIZE,
                         );
                     }
                 }
@@ -921,6 +974,26 @@ export class BCMapEditor {
         const zoomLevelEl = document.getElementById("zoomLevel");
         if (zoomLevelEl) zoomLevelEl.textContent = "100%";
         this.render();
+    }
+
+    public undo(): void {
+        if (this.undoStack.length === 0) return;
+        const prev = this.undoStack.pop()!;
+        this.redoStack.push([this.mapData.Tiles, this.mapData.Objects]);
+        this.redoStack = this.redoStack.slice(-this.redoCap);
+        this.mapData.Tiles = prev[0];
+        this.mapData.Objects = prev[1];
+        this.requestRender();
+    }
+
+    public redo(): void {
+        if (this.redoStack.length === 0) return;
+        const next = this.redoStack.pop()!;
+        this.undoStack.push([this.mapData.Tiles, this.mapData.Objects]);
+        this.undoStack = this.undoStack.slice(-this.undoCap);
+        this.mapData.Tiles = next[0];
+        this.mapData.Objects = next[1];
+        this.requestRender();
     }
 
     public toggleGrid(): void {

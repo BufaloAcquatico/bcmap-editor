@@ -157,4 +157,12 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         editor.toggleHelp();
     });
+
+    // Undo (Ctrl+Z / Cmd+Z) keybind
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            editor.undo();
+        }
+    });
 });
