@@ -132,7 +132,7 @@ interface Job {
     dest: string;
 }
 
-function wallEffectJobs(): Job[] {
+export function wallEffectJobs(): Job[] {
     return WALL_EFFECT_INDICES.map((i) => ({
         label: `tiles/WallEffect/${i}`,
         url: `https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom/MapTile/WallEffect/${i}.png`,
@@ -274,7 +274,7 @@ const OBJECT_VARIANTS: VariantSpec[] = [
     },
 ];
 
-function objectVariantJobs(): Job[] {
+export function objectVariantJobs(): Job[] {
     const jobs: Job[] = [];
     for (const spec of OBJECT_VARIANTS) {
         // Variants are served from the same MapObject folder as the base
@@ -348,7 +348,16 @@ async function main(): Promise<void> {
     console.log("\nDone!");
 }
 
-main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-});
+// Guarded so unit tests can import the pure job builders above without
+// triggering downloads. Under ts-node the script is the main module;
+// under vitest (ESM transform) `require` is undefined and this is skipped.
+const isMainModule =
+    typeof require !== "undefined" &&
+    typeof module !== "undefined" &&
+    require.main === module;
+if (isMainModule) {
+    main().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
+}
