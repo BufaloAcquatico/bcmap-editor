@@ -66,6 +66,7 @@
     .layer-tabs .nav-link { color: #adb5bd; cursor: pointer; }
     .layer-tabs .nav-link:hover { color: #fff; }
     .layer-tabs .btn-check:checked + .nav-link { color: #fff; border-color: #0d6efd; }
+.layer-tabs .nav-link.active { background-color: #fff; color: #16213e; }
     .zoom-display { min-width: 80px; text-align: center; }
     .controls-help {
       position: absolute;
@@ -140,6 +141,7 @@
       <canvas id="mapCanvas"></canvas>
       <div id="controlsHelp" class="controls-help">
         <div class="controls-help-title">Controls</div>
+        <div><kbd>?</kbd> &mdash; toggle help</div>
         <div><kbd>Left click</kbd> / <kbd>drag</kbd> &mdash; paint</div>
         <div><kbd>Ctrl</kbd> + <kbd>left drag</kbd> &mdash; pan</div>
         <div><kbd>Wheel</kbd> &mdash; zoom</div>
@@ -150,7 +152,7 @@
 
   <!-- Status Bar -->
   <div class="status-bar p-2 d-flex justify-content-between align-items-center">
-    <div id="statusPosition">Position: (—, —)</div>
+    <div id="statusPosition">Position: (-, -)</div>
     <div id="statusSelection">No selection</div>
     <div id="statusMapSize">Map: 40x40</div>
   </div>
@@ -241,7 +243,15 @@
 // ChatRoomMapViewObjectList (source: WitchLair src/dist/bcdata/ChatRoomMap.js).
 // Every entry is kept verbatim - duplicate styles must NOT be de-duplicated.
 // Do not edit by hand; regenerate from the game data if it changes.
-window.OBJECT_CATALOG = window.TILE_CATALOG = window.BLANK_OBJECT_ID = void 0;
+//
+// The FULL_* catalogs mirror the official in-game catalog exactly
+// (BondageClub/Assets/MapData.js - AssetsMapDataTiles / AssetsMapDataObjects).
+// The TILE_CATALOG / OBJECT_CATALOG arrays keep the display order used by the
+// editor's pickers; the FULL_* arrays contain every object that exists in the
+// real game so any real map can be imported into the editor. New game objects
+// are added to the FULL_* arrays, and only need to be added to the display
+// arrays when they should also appear in the editor's pickers.
+window.FULL_OBJECT_CATALOG = window.FULL_TILE_CATALOG = window.OBJECT_CATALOG = window.TILE_CATALOG = window.BLANK_OBJECT_ID = void 0;
 /** Object ID used for an empty object cell / the eraser tool. */
 window.BLANK_OBJECT_ID = 100;
 window.TILE_CATALOG = [
@@ -426,93 +436,387 @@ window.TILE_CATALOG = [
 ];
 window.OBJECT_CATALOG = [
     { ID: 100, Type: "FloorDecoration", Style: "Blank" },
-    { ID: 110, Type: "FloorDecoration", Style: "EntryFlag" },
-    { ID: 115, Type: "FloorDecoration", Style: "ExitFlag" },
-    { ID: 120, Type: "FloorDecoration", Style: "BedTeal" },
+    { ID: 110, Type: "FloorDecoration", Style: "EntryFlag", Top: -0.125 },
+    { ID: 115, Type: "FloorDecoration", Style: "ExitFlag", Top: -0.125 },
+    { ID: 120, Type: "FloorDecoration", Style: "BedTeal", Top: -0.25 },
     { ID: 130, Type: "FloorDecoration", Style: "PillowPink" },
     { ID: 140, Type: "FloorDecoration", Style: "TableBrown" },
-    { ID: 151, Type: "FloorDecoration", Style: "ChairWood" },
-    { ID: 150, Type: "FloorDecoration", Style: "ThroneRed" },
+    {
+        ID: 151,
+        Type: "FloorDecoration",
+        Style: "ChairWood",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    {
+        ID: 150,
+        Type: "FloorDecoration",
+        Style: "ThroneRed",
+        Top: -1,
+        Height: 2,
+    },
     { ID: 160, Type: "FloorDecoration", Style: "KeyBronze" },
     { ID: 162, Type: "FloorDecoration", Style: "KeySilver" },
     { ID: 164, Type: "FloorDecoration", Style: "KeyGold" },
-    { ID: 165, Type: "FloorDecoration", Style: "VikingChair" },
-    { ID: 166, Type: "FloorDecoration", Style: "Bed" },
-    { ID: 170, Type: "FloorDecoration", Style: "Stairs" },
-    { ID: 180, Type: "FloorDecoration", Style: "AirConditioner" },
+    {
+        ID: 165,
+        Type: "FloorDecoration",
+        Style: "VikingChair",
+        Top: -0.5,
+        Height: 2,
+    },
+    {
+        ID: 166,
+        Type: "FloorDecoration",
+        Style: "Bed",
+        Top: -0.82,
+        Left: 0.05,
+        Height: 1.8,
+        Width: 0.9,
+    },
+    { ID: 170, Type: "FloorDecoration", Style: "Stairs", Top: 0, Left: 0 },
+    {
+        ID: 180,
+        Type: "FloorDecoration",
+        Style: "AirConditioner",
+        Top: 0,
+        Left: 0,
+    },
     { ID: 200, Type: "FloorDecorationThemed", Style: "Blank" },
-    { ID: 210, Type: "FloorDecorationThemed", Style: "TeacherDesk" },
-    { ID: 220, Type: "FloorDecorationThemed", Style: "StudentDesk" },
-    { ID: 250, Type: "FloorDecorationThemed", Style: "SinkDishes" },
-    { ID: 260, Type: "FloorDecorationThemed", Style: "LaundryMachine" },
-    { ID: 270, Type: "FloorDecorationThemed", Style: "IroningBoard" },
-    { ID: 300, Type: "FloorDecorationThemed", Style: "ShibariFrame" },
-    { ID: 310, Type: "FloorDecorationThemed", Style: "JapaneseTable" },
-    { ID: 320, Type: "FloorDecorationThemed", Style: "BanzaiTree" },
-    { ID: 350, Type: "FloorDecorationThemed", Style: "MedicalDesk" },
-    { ID: 370, Type: "FloorDecorationThemed", Style: "Toilet" },
+    {
+        ID: 210,
+        Type: "FloorDecorationThemed",
+        Style: "TeacherDesk",
+        Top: -0.25,
+    },
+    { ID: 220, Type: "FloorDecorationThemed", Style: "StudentDesk", Top: -0.1 },
+    { ID: 250, Type: "FloorDecorationThemed", Style: "SinkDishes", Top: -0.35 },
+    {
+        ID: 260,
+        Type: "FloorDecorationThemed",
+        Style: "LaundryMachine",
+        Top: -0.55,
+        Height: 1.25,
+    },
+    {
+        ID: 270,
+        Type: "FloorDecorationThemed",
+        Style: "IroningBoard",
+        Top: -0.35,
+    },
+    {
+        ID: 300,
+        Type: "FloorDecorationThemed",
+        Style: "ShibariFrame",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 310,
+        Type: "FloorDecorationThemed",
+        Style: "JapaneseTable",
+        Top: -0.1,
+    },
+    { ID: 320, Type: "FloorDecorationThemed", Style: "BanzaiTree", Top: -0.1 },
+    {
+        ID: 350,
+        Type: "FloorDecorationThemed",
+        Style: "MedicalDesk",
+        Top: -0.15,
+    },
+    {
+        ID: 370,
+        Type: "FloorDecorationThemed",
+        Style: "Toilet",
+        Top: -0.65,
+        Left: 0.05,
+        Height: 1.5,
+        Width: 0.9,
+    },
     { ID: 380, Type: "FloorDecorationThemed", Style: "DeskBlue" },
     { ID: 381, Type: "FloorDecorationThemed", Style: "DeskPurple" },
-    { ID: 382, Type: "FloorDecorationThemed", Style: "ConsoleLeft" },
-    { ID: 383, Type: "FloorDecorationThemed", Style: "ConsoleRight" },
-    { ID: 384, Type: "FloorDecorationThemed", Style: "LongDeskLeft" },
-    { ID: 385, Type: "FloorDecorationThemed", Style: "LongDeskRight" },
-    { ID: 386, Type: "FloorDecorationThemed", Style: "Cabinet" },
-    { ID: 387, Type: "FloorDecorationThemed", Style: "Television" },
-    { ID: 388, Type: "FloorDecorationThemed", Style: "TelevisionBack" },
-    { ID: 389, Type: "FloorDecorationThemed", Style: "Wardrobe" },
+    {
+        ID: 382,
+        Type: "FloorDecorationThemed",
+        Style: "ConsoleLeft",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 383,
+        Type: "FloorDecorationThemed",
+        Style: "ConsoleRight",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 384,
+        Type: "FloorDecorationThemed",
+        Style: "LongDeskLeft",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 385,
+        Type: "FloorDecorationThemed",
+        Style: "LongDeskRight",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 386,
+        Type: "FloorDecorationThemed",
+        Style: "Cabinet",
+        Top: -0.9,
+        Left: 0,
+        Height: 2,
+        Width: 1,
+    },
+    {
+        ID: 387,
+        Type: "FloorDecorationThemed",
+        Style: "Television",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 388,
+        Type: "FloorDecorationThemed",
+        Style: "TelevisionBack",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 389,
+        Type: "FloorDecorationThemed",
+        Style: "Wardrobe",
+        Top: -0.9,
+        Left: 0,
+        Height: 2,
+        Width: 1,
+    },
     {
         ID: 390,
         Type: "FloorDecorationThemed",
         Style: "StandingBellflowerBanner",
+        Top: -1.1,
+        Left: 0.15,
+        Height: 1.7,
+        Width: 0.7,
     },
-    { ID: 391, Type: "FloorDecorationThemed", Style: "BondageClubBanner" },
-    { ID: 392, Type: "FloorDecorationThemed", Style: "VoidOrderBanner" },
-    { ID: 393, Type: "FloorDecorationThemed", Style: "KatanaOnStand" },
-    { ID: 394, Type: "FloorDecorationThemed", Style: "MagicMark" },
+    {
+        ID: 391,
+        Type: "FloorDecorationThemed",
+        Style: "BondageClubBanner",
+        Top: -1.1,
+        Left: 0.15,
+        Height: 1.7,
+        Width: 0.7,
+    },
+    {
+        ID: 392,
+        Type: "FloorDecorationThemed",
+        Style: "VoidOrderBanner",
+        Top: -0.9,
+        Left: 0.13,
+        Height: 1.5,
+        Width: 0.7,
+    },
+    {
+        ID: 393,
+        Type: "FloorDecorationThemed",
+        Style: "KatanaOnStand",
+        Top: -0.4,
+        Left: 0.1,
+        Height: 1,
+        Width: 0.8,
+    },
+    {
+        ID: 394,
+        Type: "FloorDecorationThemed",
+        Style: "MagicMark",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
     { ID: 500, Type: "FloorDecorationParty", Style: "Blank" },
-    { ID: 510, Type: "FloorDecorationParty", Style: "BalloonFiveColor" },
-    { ID: 511, Type: "FloorDecorationParty", Style: "BalloonTwoHeart" },
-    { ID: 520, Type: "FloorDecorationParty", Style: "WeddingCake" },
-    { ID: 521, Type: "FloorDecorationParty", Style: "WeddingArch" },
-    { ID: 530, Type: "FloorDecorationParty", Style: "FlowerVasePink" },
-    { ID: 560, Type: "FloorDecorationParty", Style: "BeachUmbrellaStripe" },
+    {
+        ID: 510,
+        Type: "FloorDecorationParty",
+        Style: "BalloonFiveColor",
+        Top: -0.6,
+        Height: 1.5,
+    },
+    {
+        ID: 511,
+        Type: "FloorDecorationParty",
+        Style: "BalloonTwoHeart",
+        Top: -0.15,
+    },
+    {
+        ID: 520,
+        Type: "FloorDecorationParty",
+        Style: "WeddingCake",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 521,
+        Type: "FloorDecorationParty",
+        Style: "WeddingArch",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 530,
+        Type: "FloorDecorationParty",
+        Style: "FlowerVasePink",
+        Top: -0.33,
+    },
+    {
+        ID: 560,
+        Type: "FloorDecorationParty",
+        Style: "BeachUmbrellaStripe",
+        Top: -1.1,
+        Height: 2,
+    },
     { ID: 570, Type: "FloorDecorationParty", Style: "BeachTowelStripe" },
-    { ID: 580, Type: "FloorDecorationParty", Style: "Speaker" },
-    { ID: 590, Type: "FloorDecorationParty", Style: "Presents" },
+    {
+        ID: 580,
+        Type: "FloorDecorationParty",
+        Style: "Speaker",
+        Top: -1.2,
+        Height: 1.85,
+    },
+    {
+        ID: 590,
+        Type: "FloorDecorationParty",
+        Style: "Presents",
+        Top: 0.25,
+        Height: 0.5,
+    },
     { ID: 600, Type: "FloorDecorationCamping", Style: "Blank" },
-    { ID: 610, Type: "FloorDecorationCamping", Style: "LogFire" },
-    { ID: 611, Type: "FloorDecorationCamping", Style: "LogFireAnim0" },
-    { ID: 620, Type: "FloorDecorationCamping", Style: "LogSingle" },
-    { ID: 630, Type: "FloorDecorationCamping", Style: "TentBlue" },
+    { ID: 610, Type: "FloorDecorationCamping", Style: "LogFire", Top: -0.35 },
+    {
+        ID: 611,
+        Type: "FloorDecorationCamping",
+        Style: "LogFireAnim0",
+        Top: -0.5,
+        Height: 1,
+    },
+    { ID: 620, Type: "FloorDecorationCamping", Style: "LogSingle", Top: -0.2 },
+    { ID: 630, Type: "FloorDecorationCamping", Style: "TentBlue", Top: -0.3 },
     { ID: 640, Type: "FloorDecorationCamping", Style: "SleepingBagBlue" },
-    { ID: 650, Type: "FloorDecorationCamping", Style: "ChairRed" },
+    { ID: 650, Type: "FloorDecorationCamping", Style: "ChairRed", Top: -0.35 },
     { ID: 660, Type: "FloorDecorationCamping", Style: "Hurdle1" },
     { ID: 670, Type: "FloorDecorationCamping", Style: "Hurdle2" },
     { ID: 680, Type: "FloorDecorationCamping", Style: "Hurdle3" },
     { ID: 700, Type: "FloorDecorationExpanding", Style: "Blank" },
-    { ID: 710, Type: "FloorDecorationExpanding", Style: "CouchPinkPreview" },
-    { ID: 720, Type: "FloorDecorationExpanding", Style: "BedBluePreview" },
-    { ID: 730, Type: "FloorDecorationExpanding", Style: "BallPitPreview" },
-    { ID: 740, Type: "FloorDecorationExpanding", Style: "VikingTablePreview" },
-    { ID: 750, Type: "FloorDecorationExpanding", Style: "RailroadPreview" },
+    {
+        ID: 710,
+        Type: "FloorDecorationExpanding",
+        Style: "CouchPinkPreview",
+        Top: -0.35,
+    },
+    {
+        ID: 720,
+        Type: "FloorDecorationExpanding",
+        Style: "BedBluePreview",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 730,
+        Type: "FloorDecorationExpanding",
+        Style: "BallPitPreview",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 740,
+        Type: "FloorDecorationExpanding",
+        Style: "VikingTablePreview",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 750,
+        Type: "FloorDecorationExpanding",
+        Style: "RailroadPreview",
+        Top: 0,
+    },
     { ID: 800, Type: "FloorDecorationAnimal", Style: "Blank" },
-    { ID: 810, Type: "FloorDecorationAnimal", Style: "CatCaramelHappy" },
-    { ID: 820, Type: "FloorDecorationAnimal", Style: "DogBrownHappy" },
-    { ID: 830, Type: "FloorDecorationAnimal", Style: "RabbitBrownStand" },
-    { ID: 840, Type: "FloorDecorationAnimal", Style: "ChickenBrownIdleLeft" },
+    {
+        ID: 810,
+        Type: "FloorDecorationAnimal",
+        Style: "CatCaramelHappy",
+        Top: -0.2,
+    },
+    {
+        ID: 820,
+        Type: "FloorDecorationAnimal",
+        Style: "DogBrownHappy",
+        Top: -0.4,
+    },
+    {
+        ID: 830,
+        Type: "FloorDecorationAnimal",
+        Style: "RabbitBrownStand",
+        Top: -0.3,
+    },
+    {
+        ID: 840,
+        Type: "FloorDecorationAnimal",
+        Style: "ChickenBrownIdleLeft",
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
     { ID: 1000, Type: "FloorItem", Style: "Blank" },
-    { ID: 1010, Type: "FloorItem", Style: "Kennel" },
-    { ID: 1020, Type: "FloorItem", Style: "X-Cross" },
-    { ID: 1030, Type: "FloorItem", Style: "BondageBench" },
-    { ID: 1040, Type: "FloorItem", Style: "Trolley" },
-    { ID: 1050, Type: "FloorItem", Style: "Locker" },
-    { ID: 1060, Type: "FloorItem", Style: "WoodenBox" },
-    { ID: 1070, Type: "FloorItem", Style: "Coffin" },
-    { ID: 1080, Type: "FloorItem", Style: "TheDisplayFrame" },
-    { ID: 1090, Type: "FloorItem", Style: "Pole" },
-    { ID: 1095, Type: "FloorItem", Style: "MedicalBed" },
-    { ID: 1096, Type: "FloorItem", Style: "FuturisticCrate" },
+    { ID: 1010, Type: "FloorItem", Style: "Kennel", Top: -1, Height: 2 },
+    { ID: 1020, Type: "FloorItem", Style: "X-Cross", Top: -1, Height: 2 },
+    { ID: 1030, Type: "FloorItem", Style: "BondageBench", Top: -1, Height: 2 },
+    { ID: 1040, Type: "FloorItem", Style: "Trolley", Top: -1, Height: 2 },
+    { ID: 1050, Type: "FloorItem", Style: "Locker", Top: -1, Height: 2 },
+    { ID: 1060, Type: "FloorItem", Style: "WoodenBox", Top: -1, Height: 2 },
+    { ID: 1070, Type: "FloorItem", Style: "Coffin", Top: -1.2, Height: 1.85 },
+    {
+        ID: 1080,
+        Type: "FloorItem",
+        Style: "TheDisplayFrame",
+        Top: -1,
+        Height: 2,
+    },
+    { ID: 1090, Type: "FloorItem", Style: "Pole", Top: -0.85, Height: 1.8 },
+    {
+        ID: 1095,
+        Type: "FloorItem",
+        Style: "MedicalBed",
+        Top: -0.82,
+        Left: 0.05,
+        Height: 1.8,
+        Width: 0.9,
+    },
+    {
+        ID: 1096,
+        Type: "FloorItem",
+        Style: "FuturisticCrate",
+        Top: -0.95,
+        Height: 2,
+    },
     { ID: 1100, Type: "FloorNumber", Style: "Blank" },
     { ID: 1110, Type: "FloorNumber", Style: "Number0" },
     { ID: 1111, Type: "FloorNumber", Style: "Number1" },
@@ -562,98 +866,1890 @@ window.OBJECT_CATALOG = [
     { ID: 1308, Type: "FloorIcon", Style: "IconArrowLeft" },
     { ID: 1309, Type: "FloorIcon", Style: "IconArrowRight" },
     { ID: 2000, Type: "FloorObstacle", Style: "Blank" },
-    { ID: 2004, Type: "FloorObstacle", Style: "Stalagmite" },
-    { ID: 2005, Type: "FloorObstacle", Style: "Rocks" },
-    { ID: 2006, Type: "FloorObstacle", Style: "GoldStones" },
-    { ID: 2007, Type: "FloorObstacle", Style: "StonePile" },
-    { ID: 2010, Type: "FloorObstacle", Style: "Statue" },
-    { ID: 2011, Type: "FloorObstacle", Style: "Knight" },
-    { ID: 2012, Type: "FloorObstacle", Style: "Samurai" },
-    { ID: 2013, Type: "FloorObstacle", Style: "Totem" },
-    { ID: 2014, Type: "FloorObstacle", Style: "EasterIsland" },
-    { ID: 2015, Type: "FloorObstacle", Style: "OrderOfTheVoidTotem" },
-    { ID: 2020, Type: "FloorObstacle", Style: "Barrel" },
-    { ID: 2025, Type: "FloorObstacle", Style: "Chest" },
-    { ID: 2030, Type: "FloorObstacle", Style: "IronBars" },
-    { ID: 2031, Type: "FloorObstacle", Style: "BarbFence" },
-    { ID: 2032, Type: "FloorObstacle", Style: "PicketFence" },
-    { ID: 2033, Type: "FloorObstacle", Style: "VelourRopeBarrier" },
-    { ID: 2035, Type: "FloorObstacle", Style: "Bush" },
-    { ID: 2040, Type: "FloorObstacle", Style: "OakTree" },
-    { ID: 2045, Type: "FloorObstacle", Style: "OakTree_Fall" },
-    { ID: 2048, Type: "FloorObstacle", Style: "LeaflessTree" },
-    { ID: 2050, Type: "FloorObstacle", Style: "PineTree" },
-    { ID: 2055, Type: "FloorObstacle", Style: "PalmTree" },
-    { ID: 2059, Type: "FloorObstacle", Style: "Sakura" },
-    { ID: 2057, Type: "FloorObstacle", Style: "Cactus" },
-    { ID: 2060, Type: "FloorObstacle", Style: "ChristmasTree" },
-    { ID: 2070, Type: "FloorObstacle", Style: "Window" },
-    { ID: 2080, Type: "FloorObstacle", Style: "TrashCan" },
-    { ID: 2085, Type: "FloorObstacle", Style: "RoadCone" },
-    { ID: 2090, Type: "FloorObstacle", Style: "LampPost" },
-    { ID: 2098, Type: "FloorObstacle", Style: "Pillar" },
+    {
+        ID: 2004,
+        Type: "FloorObstacle",
+        Style: "Stalagmite",
+        Top: -0.125,
+        Height: 1,
+    },
+    {
+        ID: 2005,
+        Type: "FloorObstacle",
+        Style: "Rocks",
+        Top: -0.125,
+        Height: 1.125,
+    },
+    {
+        ID: 2006,
+        Type: "FloorObstacle",
+        Style: "GoldStones",
+        Top: 0.1,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    {
+        ID: 2007,
+        Type: "FloorObstacle",
+        Style: "StonePile",
+        Top: 0.1,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    { ID: 2010, Type: "FloorObstacle", Style: "Statue", Top: -1, Height: 2 },
+    {
+        ID: 2011,
+        Type: "FloorObstacle",
+        Style: "Knight",
+        Top: -1.25,
+        Left: 0.05,
+        Height: 1.65,
+        Width: 0.75,
+    },
+    {
+        ID: 2012,
+        Type: "FloorObstacle",
+        Style: "Samurai",
+        Top: -1.25,
+        Left: 0.05,
+        Height: 1.75,
+        Width: 0.85,
+    },
+    { ID: 2013, Type: "FloorObstacle", Style: "Totem", Top: -1, Height: 2 },
+    {
+        ID: 2014,
+        Type: "FloorObstacle",
+        Style: "EasterIsland",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2015,
+        Type: "FloorObstacle",
+        Style: "OrderOfTheVoidTotem",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2020,
+        Type: "FloorObstacle",
+        Style: "Barrel",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    { ID: 2025, Type: "FloorObstacle", Style: "Chest", Top: 0, Height: 1 },
+    { ID: 2030, Type: "FloorObstacle", Style: "IronBars", Top: -1, Height: 2 },
+    { ID: 2031, Type: "FloorObstacle", Style: "BarbFence", Top: -1, Height: 2 },
+    {
+        ID: 2032,
+        Type: "FloorObstacle",
+        Style: "PicketFence",
+        Top: -0.8,
+        Height: 0.75,
+        Width: 1,
+    },
+    { ID: 2033, Type: "FloorObstacle", Style: "VelourRopeBarrier", Top: -0.35 },
+    { ID: 2035, Type: "FloorObstacle", Style: "Bush", Top: -0.25, Height: 1 },
+    {
+        ID: 2040,
+        Type: "FloorObstacle",
+        Style: "OakTree",
+        Top: -1.5,
+        Left: -0.25,
+        Height: 2.5,
+        Width: 1.5,
+    },
+    {
+        ID: 2045,
+        Type: "FloorObstacle",
+        Style: "OakTree_Fall",
+        Top: -1.5,
+        Left: -0.25,
+        Height: 2.5,
+        Width: 1.5,
+    },
+    {
+        ID: 2048,
+        Type: "FloorObstacle",
+        Style: "LeaflessTree",
+        Top: -1.25,
+        Height: 2,
+    },
+    { ID: 2050, Type: "FloorObstacle", Style: "PineTree", Top: -1, Height: 2 },
+    {
+        ID: 2055,
+        Type: "FloorObstacle",
+        Style: "PalmTree",
+        Top: -1.5,
+        Left: -0.3,
+        Height: 2.5,
+        Width: 1.65,
+    },
+    {
+        ID: 2059,
+        Type: "FloorObstacle",
+        Style: "Sakura",
+        Top: -1.5,
+        Left: -0.3,
+        Height: 2,
+        Width: 1.3,
+    },
+    {
+        ID: 2057,
+        Type: "FloorObstacle",
+        Style: "Cactus",
+        Top: -1.2,
+        Left: -0.2,
+        Height: 1.8,
+        Width: 1.3,
+    },
+    {
+        ID: 2060,
+        Type: "FloorObstacle",
+        Style: "ChristmasTree",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2070,
+        Type: "FloorObstacle",
+        Style: "Window",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    {
+        ID: 2080,
+        Type: "FloorObstacle",
+        Style: "TrashCan",
+        Top: -0.25,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    {
+        ID: 2085,
+        Type: "FloorObstacle",
+        Style: "RoadCone",
+        Top: 0,
+        Left: 0.13,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    {
+        ID: 2090,
+        Type: "FloorObstacle",
+        Style: "LampPost",
+        Top: -1.25,
+        Height: 2,
+    },
+    {
+        ID: 2098,
+        Type: "FloorObstacle",
+        Style: "Pillar",
+        Top: -1.25,
+        Left: 0.16,
+        Height: 2,
+        Width: 0.7,
+    },
     { ID: 3000, Type: "WallDecoration", Style: "Blank" },
     { ID: 3010, Type: "WallDecoration", Style: "Painting" },
     { ID: 3020, Type: "WallDecoration", Style: "Mirror" },
     { ID: 3030, Type: "WallDecoration", Style: "Candelabra0" },
     { ID: 3040, Type: "WallDecoration", Style: "Whip" },
     { ID: 3050, Type: "WallDecoration", Style: "Fireplace" },
-    { ID: 3060, Type: "WallDecoration", Style: "Stocking" },
-    { ID: 3070, Type: "WallDecoration", Style: "Moss" },
-    { ID: 3075, Type: "WallDecoration", Style: "Vines" },
-    { ID: 3076, Type: "WallDecoration", Style: "Vines2" },
+    {
+        ID: 3060,
+        Type: "WallDecoration",
+        Style: "Stocking",
+        Top: 0.35,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    { ID: 3070, Type: "WallDecoration", Style: "Moss", Top: 0.15, Height: 0.8 },
+    {
+        ID: 3075,
+        Type: "WallDecoration",
+        Style: "Vines",
+        Top: 0.15,
+        Height: 0.8,
+    },
+    {
+        ID: 3076,
+        Type: "WallDecoration",
+        Style: "Vines2",
+        Top: 0.15,
+        Height: 0.8,
+    },
     { ID: 3100, Type: "WallDecoration", Style: "SilverShield" },
     { ID: 3110, Type: "WallDecoration", Style: "CrossedSabers" },
-    { ID: 3120, Type: "WallDecoration", Style: "Window" },
-    { ID: 3121, Type: "WallDecoration", Style: "WindowNight" },
-    { ID: 3122, Type: "WallDecoration", Style: "StainedGlass" },
+    {
+        ID: 3120,
+        Type: "WallDecoration",
+        Style: "Window",
+        Top: 0.2,
+        Left: 0.1,
+        Height: 0.8,
+        Width: 0.8,
+    },
+    {
+        ID: 3121,
+        Type: "WallDecoration",
+        Style: "WindowNight",
+        Top: 0.22,
+        Left: 0.1,
+        Height: 0.8,
+        Width: 0.8,
+    },
+    {
+        ID: 3122,
+        Type: "WallDecoration",
+        Style: "StainedGlass",
+        Top: 0.25,
+        Left: 0.13,
+        Height: 0.75,
+        Width: 0.75,
+    },
     { ID: 3200, Type: "WallDecoration", Style: "SchoolBoard" },
     { ID: 3250, Type: "WallDecoration", Style: "FirstAidKit" },
     { ID: 3260, Type: "WallDecoration", Style: "EyeTest" },
-    { ID: 3261, Type: "WallDecoration", Style: "Scroll" },
-    { ID: 3262, Type: "WallDecoration", Style: "Wanted" },
+    {
+        ID: 3261,
+        Type: "WallDecoration",
+        Style: "Scroll",
+        Top: 0.3,
+        Left: 0.2,
+        Height: 0.6,
+        Width: 0.6,
+    },
+    {
+        ID: 3262,
+        Type: "WallDecoration",
+        Style: "Wanted",
+        Top: 0.25,
+        Left: 0.2,
+        Height: 0.7,
+        Width: 0.6,
+    },
     { ID: 3270, Type: "WallDecoration", Style: "Bookshelf" },
-    { ID: 3275, Type: "WallDecoration", Style: "AirConditioner" },
+    {
+        ID: 3275,
+        Type: "WallDecoration",
+        Style: "AirConditioner",
+        Top: 0.27,
+        Height: 0.8,
+    },
     { ID: 3280, Type: "WallDecoration", Style: "ShowerHead" },
     { ID: 3290, Type: "WallDecoration", Style: "EnemaHead" },
     { ID: 3301, Type: "WallDecoration", Style: "MonitorSmall" },
     { ID: 3302, Type: "WallDecoration", Style: "MonitorBigLeft" },
     { ID: 3303, Type: "WallDecoration", Style: "MonitorBigRight" },
     { ID: 4000, Type: "WallPath", Style: "Blank" },
-    { ID: 4010, Type: "WallPath", Style: "WoodOpen" },
-    { ID: 4011, Type: "WallPath", Style: "WoodClosed" },
-    { ID: 4012, Type: "WallPath", Style: "WoodLocked" },
-    { ID: 4013, Type: "WallPath", Style: "WoodLockedBronze" },
-    { ID: 4014, Type: "WallPath", Style: "WoodLockedSilver" },
-    { ID: 4015, Type: "WallPath", Style: "WoodLockedGold" },
-    { ID: 4020, Type: "WallPath", Style: "Metal" },
-    { ID: 4021, Type: "WallPath", Style: "MetalUp" },
-    { ID: 4022, Type: "WallPath", Style: "MetalDown" },
-    { ID: 4023, Type: "WallPath", Style: "MetalLockedBronze" },
-    { ID: 4024, Type: "WallPath", Style: "MetalLockedSilver" },
-    { ID: 4025, Type: "WallPath", Style: "MetalLockedGold" },
-    { ID: 4030, Type: "WallPath", Style: "BrownDoor" },
-    { ID: 4031, Type: "WallPath", Style: "BrownDoorOpen" },
-    { ID: 4032, Type: "WallPath", Style: "RoyalDoor" },
-    { ID: 4033, Type: "WallPath", Style: "RoyalDoorOpen" },
-    { ID: 4034, Type: "WallPath", Style: "SteelDoor" },
-    { ID: 4035, Type: "WallPath", Style: "SteelDoorOpen" },
-    { ID: 4036, Type: "WallPath", Style: "GrayDoor" },
-    { ID: 4037, Type: "WallPath", Style: "GrayDoorOpen" },
-    { ID: 5010, Type: "Banners", Style: "Red" },
-    { ID: 5011, Type: "Banners", Style: "Blue" },
-    { ID: 5012, Type: "Banners", Style: "Green" },
-    { ID: 5013, Type: "Banners", Style: "Yellow" },
-    { ID: 5014, Type: "Banners", Style: "Black" },
-    { ID: 5015, Type: "Banners", Style: "PaladinBanner" },
-    { ID: 5016, Type: "Banners", Style: "ServiOrdinisBanner" },
-    { ID: 5017, Type: "Banners", Style: "BellflowerBanner" },
-    { ID: 5018, Type: "Banners", Style: "BondageClub" },
-    { ID: 5019, Type: "Banners", Style: "Inquisition" },
-    { ID: 5020, Type: "Banners", Style: "MagesSacrosanctorum" },
-    { ID: 5021, Type: "Banners", Style: "MaidSorority" },
-    { ID: 5022, Type: "Banners", Style: "Priesthood" },
-    { ID: 5023, Type: "Banners", Style: "VoidOrder" },
+    { ID: 4010, Type: "WallPath", Style: "WoodOpen", Top: -1, Height: 2 },
+    { ID: 4011, Type: "WallPath", Style: "WoodClosed", Top: -1, Height: 2 },
+    { ID: 4012, Type: "WallPath", Style: "WoodLocked", Top: -1, Height: 2 },
+    {
+        ID: 4013,
+        Type: "WallPath",
+        Style: "WoodLockedBronze",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4014,
+        Type: "WallPath",
+        Style: "WoodLockedSilver",
+        Top: -1,
+        Height: 2,
+    },
+    { ID: 4015, Type: "WallPath", Style: "WoodLockedGold", Top: -1, Height: 2 },
+    { ID: 4020, Type: "WallPath", Style: "Metal", Top: -1, Height: 2 },
+    { ID: 4021, Type: "WallPath", Style: "MetalUp", Top: -1, Height: 2 },
+    { ID: 4022, Type: "WallPath", Style: "MetalDown", Top: -1, Height: 2 },
+    {
+        ID: 4023,
+        Type: "WallPath",
+        Style: "MetalLockedBronze",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4024,
+        Type: "WallPath",
+        Style: "MetalLockedSilver",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4025,
+        Type: "WallPath",
+        Style: "MetalLockedGold",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4030,
+        Type: "WallPath",
+        Style: "BrownDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4031,
+        Type: "WallPath",
+        Style: "BrownDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4032,
+        Type: "WallPath",
+        Style: "RoyalDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4033,
+        Type: "WallPath",
+        Style: "RoyalDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4034,
+        Type: "WallPath",
+        Style: "SteelDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4035,
+        Type: "WallPath",
+        Style: "SteelDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4036,
+        Type: "WallPath",
+        Style: "GrayDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4037,
+        Type: "WallPath",
+        Style: "GrayDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 5010,
+        Type: "Banners",
+        Style: "Red",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5011,
+        Type: "Banners",
+        Style: "Blue",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5012,
+        Type: "Banners",
+        Style: "Green",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5013,
+        Type: "Banners",
+        Style: "Yellow",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5014,
+        Type: "Banners",
+        Style: "Black",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5015,
+        Type: "Banners",
+        Style: "PaladinBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5016,
+        Type: "Banners",
+        Style: "ServiOrdinisBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5017,
+        Type: "Banners",
+        Style: "BellflowerBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5018,
+        Type: "Banners",
+        Style: "BondageClub",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5019,
+        Type: "Banners",
+        Style: "Inquisition",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5020,
+        Type: "Banners",
+        Style: "MagesSacrosanctorum",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5021,
+        Type: "Banners",
+        Style: "MaidSorority",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5022,
+        Type: "Banners",
+        Style: "Priesthood",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5023,
+        Type: "Banners",
+        Style: "VoidOrder",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+];
+// ---------------------------------------------------------------------------
+// FULL catalogs: exact mirror of the official in-game catalog
+// (BondageClub/Assets/MapData.js -> AssetsMapDataTiles / AssetsMapDataObjects).
+// Used so any object/tile that exists in the real game can be imported and
+// rendered. Add new game entries here even if they are not in the pickers yet.
+// ---------------------------------------------------------------------------
+window.FULL_TILE_CATALOG = [
+    { ID: 100, Type: "Floor", Style: "OakWood", Name: "Oak Planks" },
+    { ID: 101, Type: "Floor", Style: "WoodWhite", Name: "White Planks" },
+    { ID: 102, Type: "Floor", Style: "WoodPine", Name: "Pine Planks" },
+    { ID: 103, Type: "Floor", Style: "WoodMaple", Name: "Maple Planks" },
+    { ID: 104, Type: "Floor", Style: "WoodAcacia", Name: "Acacia Planks" },
+    { ID: 105, Type: "Floor", Style: "WoodMahogany", Name: "Mahogany Planks" },
+    { ID: 106, Type: "Floor", Style: "WoodMangrove", Name: "Mangrove Planks" },
+    { ID: 107, Type: "Floor", Style: "WoodCherry", Name: "Cherry Planks" },
+    { ID: 108, Type: "Floor", Style: "Tatami", Name: "Tatami Mat" },
+    { ID: 110, Type: "Floor", Style: "Stone", Name: "Stone" },
+    { ID: 115, Type: "Floor", Style: "Pavement", Name: "Pavement" },
+    { ID: 120, Type: "Floor", Style: "Ceramic", Name: "Ceramic" },
+    { ID: 121, Type: "Floor", Style: "CeramicDark", Name: "Dark Ceramic" },
+    { ID: 132, Type: "Floor", Style: "CarpetRed", Name: "Red Carpet" },
+    { ID: 170, Type: "Floor", Style: "HexBlue", Name: "Blue Hex" },
+    { ID: 171, Type: "Floor", Style: "HexPurple", Name: "Purple Hex" },
+    { ID: 172, Type: "Floor", Style: "Machine", Name: "Machine" },
+    { ID: 199, Type: "Floor", Style: "HalfWall", Name: "Half Wall" },
+    { ID: 200, Type: "FloorExterior", Style: "Dirt", Name: "Dirt" },
+    { ID: 210, Type: "FloorExterior", Style: "Grass", Name: "Grass" },
+    { ID: 215, Type: "FloorExterior", Style: "LongGrass", Name: "Long Grass" },
+    { ID: 220, Type: "FloorExterior", Style: "Sand", Name: "Sand" },
+    { ID: 230, Type: "FloorExterior", Style: "Gravel", Name: "Gravel" },
+    { ID: 235, Type: "FloorExterior", Style: "Asphalt", Name: "Asphalt" },
+    { ID: 240, Type: "FloorExterior", Style: "Snow", Name: "Snow" },
+    {
+        ID: 250,
+        Type: "FloorExterior",
+        Style: "StoneSquareGray",
+        Name: "Gray Stone Squares",
+    },
+    {
+        ID: 260,
+        Type: "FloorExterior",
+        Style: "ScatteredLeaves",
+        Name: "Scattered Leaves",
+    },
+    {
+        ID: 270,
+        Type: "FloorExterior",
+        Style: "ScatteredLeavesDirt",
+        Name: "Scattered Leaves On Dirt",
+    },
+    {
+        ID: 280,
+        Type: "FloorExterior",
+        Style: "ScatteredLeavesThick",
+        Name: "Dense Leaves",
+    },
+    { ID: 140, Type: "Floor", Style: "Padded", Name: "White Padding" },
+    { ID: 500, Type: "Floor", Style: "PaddedBlack", Name: "Black Padding" },
+    { ID: 501, Type: "Floor", Style: "PaddedGray", Name: "Gray Padding" },
+    { ID: 502, Type: "Floor", Style: "PaddedBlue", Name: "Blue Padding" },
+    { ID: 503, Type: "Floor", Style: "PaddedGreen", Name: "Green Padding" },
+    { ID: 504, Type: "Floor", Style: "PaddedRed", Name: "Red Padding" },
+    { ID: 505, Type: "Floor", Style: "PaddedOrange", Name: "Orange Padding" },
+    { ID: 506, Type: "Floor", Style: "PaddedYellow", Name: "Yellow Padding" },
+    {
+        ID: 507,
+        Type: "Floor",
+        Style: "PaddedLightBlue",
+        Name: "Light Blue Padding",
+    },
+    { ID: 508, Type: "Floor", Style: "PaddedPink", Name: "Pink Padding" },
+    { ID: 509, Type: "Floor", Style: "PaddedPurple", Name: "Purple Padding" },
+    { ID: 510, Type: "Floor", Style: "PaddedBrown", Name: "Brown Padding" },
+    { ID: 150, Type: "Floor", Style: "LatexFloor" },
+    { ID: 520, Type: "Floor", Style: "LatexFloorGray" },
+    { ID: 521, Type: "Floor", Style: "LatexFloorBlue" },
+    { ID: 522, Type: "Floor", Style: "LatexFloorGreen" },
+    { ID: 523, Type: "Floor", Style: "LatexFloorRed" },
+    { ID: 524, Type: "Floor", Style: "LatexFloorOrange" },
+    { ID: 525, Type: "Floor", Style: "LatexFloorYellow" },
+    { ID: 526, Type: "Floor", Style: "LatexFloorLightBlue" },
+    { ID: 527, Type: "Floor", Style: "LatexFloorPink" },
+    { ID: 528, Type: "Floor", Style: "LatexFloorPurple" },
+    { ID: 529, Type: "Floor", Style: "LatexFloorBrown" },
+    { ID: 530, Type: "Floor", Style: "LatexFloorWhite" },
+    { ID: 160, Type: "Floor", Style: "Tile" },
+    { ID: 540, Type: "Floor", Style: "TileGray" },
+    { ID: 541, Type: "Floor", Style: "TileBlue" },
+    { ID: 542, Type: "Floor", Style: "TileGreen" },
+    { ID: 543, Type: "Floor", Style: "TileRed" },
+    { ID: 544, Type: "Floor", Style: "TileOrange" },
+    { ID: 545, Type: "Floor", Style: "TileYellow" },
+    { ID: 546, Type: "Floor", Style: "TileLightBlue" },
+    { ID: 547, Type: "Floor", Style: "TilePink" },
+    { ID: 548, Type: "Floor", Style: "TilePurple" },
+    { ID: 549, Type: "Floor", Style: "TileBrown" },
+    { ID: 550, Type: "Floor", Style: "TileBlack" },
+    { ID: 130, Type: "Floor", Style: "CarpetPink" },
+    { ID: 131, Type: "Floor", Style: "CarpetBlue" },
+    { ID: 560, Type: "Floor", Style: "CarpetGreen" },
+    { ID: 561, Type: "Floor", Style: "CarpetRed2" },
+    { ID: 562, Type: "Floor", Style: "CarpetOrange" },
+    { ID: 563, Type: "Floor", Style: "CarpetYellow" },
+    { ID: 564, Type: "Floor", Style: "CarpetLightBlue" },
+    { ID: 565, Type: "Floor", Style: "CarpetPurple" },
+    { ID: 566, Type: "Floor", Style: "CarpetBrown" },
+    { ID: 567, Type: "Floor", Style: "CarpetBlack" },
+    { ID: 568, Type: "Floor", Style: "CarpetGray" },
+    { ID: 570, Type: "Floor", Style: "CheckerCarpetWhite" },
+    { ID: 571, Type: "Floor", Style: "CheckerCarpetGray" },
+    { ID: 572, Type: "Floor", Style: "CheckerCarpetBlue" },
+    { ID: 573, Type: "Floor", Style: "CheckerCarpetGreen" },
+    { ID: 574, Type: "Floor", Style: "CheckerCarpetRed" },
+    { ID: 575, Type: "Floor", Style: "CheckerCarpetOrange" },
+    { ID: 576, Type: "Floor", Style: "CheckerCarpetYellow" },
+    { ID: 577, Type: "Floor", Style: "CheckerCarpetLightBlue" },
+    { ID: 578, Type: "Floor", Style: "CheckerCarpetPink" },
+    { ID: 579, Type: "Floor", Style: "CheckerCarpetPurple" },
+    { ID: 580, Type: "Floor", Style: "CheckerCarpetBrown" },
+    { ID: 581, Type: "Floor", Style: "CheckerCarpetBlack" },
+    { ID: 590, Type: "Floor", Style: "SlimeGreen" },
+    { ID: 591, Type: "Floor", Style: "SlimePink" },
+    { ID: 592, Type: "Floor", Style: "SlimeRed" },
+    { ID: 593, Type: "Floor", Style: "SlimeBlue" },
+    { ID: 594, Type: "Floor", Style: "HoneyOrange" },
+    { ID: 595, Type: "Floor", Style: "HoneyRed" },
+    { ID: 596, Type: "Floor", Style: "HoneyPurple" },
+    { ID: 597, Type: "Floor", Style: "HoneyBlue" },
+    { ID: 1000, Type: "Wall", Style: "MixedWood" },
+    { ID: 1020, Type: "Wall", Style: "Japanese" },
+    { ID: 1030, Type: "Wall", Style: "Stone" },
+    { ID: 1040, Type: "Wall", Style: "Brick" },
+    { ID: 1050, Type: "Wall", Style: "Dungeon" },
+    { ID: 1060, Type: "Wall", Style: "Square" },
+    { ID: 1070, Type: "Wall", Style: "Steel" },
+    { ID: 1100, Type: "Wall", Style: "Lattice" },
+    { ID: 1200, Type: "Wall", Style: "HexBlue" },
+    { ID: 1201, Type: "Wall", Style: "HexPurple" },
+    { ID: 1202, Type: "Wall", Style: "PipeBlue" },
+    { ID: 1203, Type: "Wall", Style: "PipePurple" },
+    { ID: 1204, Type: "Wall", Style: "SteelBlack" },
+    { ID: 1205, Type: "Wall", Style: "SteelGary" },
+    { ID: 1227, Type: "Wall", Style: "SpiderWeb" },
+    { ID: 1001, Type: "Wall", Style: "CedarWood" },
+    { ID: 1500, Type: "Wall", Style: "WoodPine" },
+    { ID: 1501, Type: "Wall", Style: "WoodMaple" },
+    { ID: 1502, Type: "Wall", Style: "WoodAcacia" },
+    { ID: 1503, Type: "Wall", Style: "WoodMahogany" },
+    { ID: 1504, Type: "Wall", Style: "WoodMangrove" },
+    { ID: 1505, Type: "Wall", Style: "WoodCherry" },
+    { ID: 1506, Type: "Wall", Style: "WoodWhite" },
+    { ID: 1507, Type: "Wall", Style: "WoodOak" },
+    { ID: 1010, Type: "Wall", Style: "Log" },
+    { ID: 1510, Type: "Wall", Style: "LogPine" },
+    { ID: 1511, Type: "Wall", Style: "LogMaple" },
+    { ID: 1512, Type: "Wall", Style: "LogAcacia" },
+    { ID: 1513, Type: "Wall", Style: "LogMahogany" },
+    { ID: 1514, Type: "Wall", Style: "LogMangrove" },
+    { ID: 1515, Type: "Wall", Style: "LogCherry" },
+    { ID: 1516, Type: "Wall", Style: "LogWhite" },
+    { ID: 1517, Type: "Wall", Style: "LogOak" },
+    { ID: 1080, Type: "Wall", Style: "Padded" },
+    { ID: 1530, Type: "Wall", Style: "PaddedBlack" },
+    { ID: 1531, Type: "Wall", Style: "PaddedGray" },
+    { ID: 1532, Type: "Wall", Style: "PaddedBlue" },
+    { ID: 1533, Type: "Wall", Style: "PaddedGreen" },
+    { ID: 1534, Type: "Wall", Style: "PaddedRed" },
+    { ID: 1535, Type: "Wall", Style: "PaddedYellow" },
+    { ID: 1536, Type: "Wall", Style: "PaddedBrown" },
+    { ID: 1539, Type: "Wall", Style: "PaddedOrange" },
+    { ID: 1540, Type: "Wall", Style: "PaddedPurple" },
+    { ID: 1541, Type: "Wall", Style: "PaddedPink" },
+    { ID: 1542, Type: "Wall", Style: "PaddedLightBlue" },
+    { ID: 1090, Type: "Wall", Style: "Tile" },
+    { ID: 1550, Type: "Wall", Style: "TileGray" },
+    { ID: 1551, Type: "Wall", Style: "TileBlue" },
+    { ID: 1552, Type: "Wall", Style: "TileGreen" },
+    { ID: 1553, Type: "Wall", Style: "TileRed" },
+    { ID: 1554, Type: "Wall", Style: "TileYellow" },
+    { ID: 1555, Type: "Wall", Style: "TileBrown" },
+    { ID: 1559, Type: "Wall", Style: "TileOrange" },
+    { ID: 1560, Type: "Wall", Style: "TilePurple" },
+    { ID: 1561, Type: "Wall", Style: "TilePink" },
+    { ID: 1562, Type: "Wall", Style: "TileLightBlue" },
+    { ID: 1563, Type: "Wall", Style: "TileBlack" },
+    { ID: 1580, Type: "Wall", Style: "SlimeGreen" },
+    { ID: 1581, Type: "Wall", Style: "SlimePink" },
+    { ID: 1582, Type: "Wall", Style: "SlimeRed" },
+    { ID: 1583, Type: "Wall", Style: "SlimeBlue" },
+    { ID: 1584, Type: "Wall", Style: "HoneyOrange" },
+    { ID: 1585, Type: "Wall", Style: "HoneyRed" },
+    { ID: 1586, Type: "Wall", Style: "HoneyPurple" },
+    { ID: 1587, Type: "Wall", Style: "HoneyBlue" },
+    { ID: 2000, Type: "Water", Style: "Pool" },
+    { ID: 2010, Type: "Water", Style: "Sea" },
+    { ID: 2020, Type: "Water", Style: "Ocean" },
+    { ID: 2025, Type: "Water", Style: "OceanCyan" },
+    { ID: 2030, Type: "Water", Style: "OceanCalm" },
+    { ID: 2040, Type: "Water", Style: "Swamp" },
+    { ID: 2050, Type: "Water", Style: "Waves" },
+    { ID: 2060, Type: "Water", Style: "Shallow" },
+    { ID: 2090, Type: "Water", Style: "Lava" },
+];
+window.FULL_OBJECT_CATALOG = [
+    { ID: 100, Type: "LivingRoom", Style: "Blank" },
+    { ID: 110, Type: "Functional", Style: "EntryFlag", Top: -0.125 },
+    { ID: 115, Type: "Functional", Style: "ExitFlag", Top: -0.125 },
+    { ID: 120, Type: "Bedroom", Style: "BedTeal", Top: -0.25 },
+    { ID: 130, Type: "LivingRoom", Style: "PillowPink" },
+    { ID: 140, Type: "LivingRoom", Style: "TableBrown" },
+    { ID: 150, Type: "LivingRoom", Style: "ThroneRed", Top: -1, Height: 2 },
+    { ID: 151, Type: "LivingRoom", Style: "ChairWood", Top: -0.5, Height: 1.5 },
+    { ID: 160, Type: "Functional", Style: "KeyBronze" },
+    { ID: 162, Type: "Functional", Style: "KeySilver" },
+    { ID: 164, Type: "Functional", Style: "KeyGold" },
+    { ID: 165, Type: "LivingRoom", Style: "VikingChair", Top: -0.5, Height: 2 },
+    {
+        ID: 166,
+        Type: "Bedroom",
+        Style: "Bed",
+        Top: -0.82,
+        Left: 0.05,
+        Height: 1.8,
+        Width: 0.9,
+    },
+    { ID: 170, Type: "LivingRoom", Style: "Stairs", Top: 0, Left: 0 },
+    { ID: 180, Type: "LivingRoom", Style: "AirConditioner", Top: 0, Left: 0 },
+    { ID: 211, Type: "School", Style: "Blank" },
+    { ID: 400, Type: "Bedroom", Style: "Blank" },
+    { ID: 401, Type: "Bedroom", Style: "TeddyBear" },
+    { ID: 402, Type: "Bedroom", Style: "PinkTeddyBear" },
+    { ID: 403, Type: "Bedroom", Style: "Nightstand" },
+    { ID: 404, Type: "Bedroom", Style: "PinkNightstand" },
+    { ID: 200, Type: "FloorDecorationThemed", Style: "Blank" },
+    { ID: 210, Type: "School", Style: "TeacherDesk", Top: -0.25 },
+    { ID: 220, Type: "School", Style: "StudentDesk", Top: -0.1 },
+    { ID: 250, Type: "FloorDecorationThemed", Style: "SinkDishes", Top: -0.35 },
+    {
+        ID: 260,
+        Type: "Bathroom",
+        Style: "LaundryMachine",
+        Top: -0.55,
+        Height: 1.25,
+    },
+    { ID: 270, Type: "Bathroom", Style: "IroningBoard", Top: -0.35 },
+    {
+        ID: 300,
+        Type: "FloorDecorationThemed",
+        Style: "ShibariFrame",
+        Top: -1,
+        Height: 2,
+    },
+    { ID: 310, Type: "LivingRoom", Style: "JapaneseTable", Top: -0.1 },
+    { ID: 320, Type: "FloorDecorationThemed", Style: "BanzaiTree", Top: -0.1 },
+    {
+        ID: 350,
+        Type: "FloorDecorationThemed",
+        Style: "MedicalDesk",
+        Top: -0.15,
+    },
+    {
+        ID: 360,
+        Type: "FloorDecorationThemed",
+        Style: "anvil",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
+    {
+        ID: 361,
+        Type: "FloorDecorationThemed",
+        Style: "grindstone",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
+    {
+        ID: 362,
+        Type: "FloorDecorationThemed",
+        Style: "furnace",
+        Top: -0.5,
+        Left: 0.05,
+        Height: 1.5,
+        Width: 0.9,
+    },
+    {
+        ID: 363,
+        Type: "FloorDecorationThemed",
+        Style: "microwave",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
+    {
+        ID: 364,
+        Type: "FloorDecorationThemed",
+        Style: "stove",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
+    {
+        ID: 365,
+        Type: "FloorDecorationThemed",
+        Style: "fridge",
+        Top: -0.5,
+        Left: 0.05,
+        Height: 1.5,
+        Width: 0.9,
+    },
+    {
+        ID: 370,
+        Type: "Bathroom",
+        Style: "Toilet",
+        Top: -0.65,
+        Left: 0.05,
+        Height: 1.5,
+        Width: 0.9,
+    },
+    { ID: 380, Type: "FloorDecorationThemed", Style: "DeskBlue" },
+    { ID: 381, Type: "FloorDecorationThemed", Style: "DeskPurple" },
+    {
+        ID: 382,
+        Type: "FloorDecorationThemed",
+        Style: "ConsoleLeft",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 383,
+        Type: "FloorDecorationThemed",
+        Style: "ConsoleRight",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 384,
+        Type: "FloorDecorationThemed",
+        Style: "LongDeskLeft",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 385,
+        Type: "FloorDecorationThemed",
+        Style: "LongDeskRight",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 386,
+        Type: "FloorDecorationThemed",
+        Style: "Cabinet",
+        Top: -0.9,
+        Left: 0,
+        Height: 2,
+        Width: 1,
+    },
+    {
+        ID: 387,
+        Type: "LivingRoom",
+        Style: "Television",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 388,
+        Type: "LivingRoom",
+        Style: "TelevisionBack",
+        Top: -0.3,
+        Left: 0,
+        Height: 1.3,
+        Width: 1,
+    },
+    {
+        ID: 389,
+        Type: "Bedroom",
+        Style: "Wardrobe",
+        Top: -0.9,
+        Left: 0,
+        Height: 2,
+        Width: 1,
+    },
+    {
+        ID: 390,
+        Type: "FloorDecorationThemed",
+        Style: "StandingBellflowerBanner",
+        Top: -1.1,
+        Left: 0.15,
+        Height: 1.7,
+        Width: 0.7,
+    },
+    {
+        ID: 391,
+        Type: "FloorDecorationThemed",
+        Style: "BondageClubBanner",
+        Top: -1.1,
+        Left: 0.15,
+        Height: 1.7,
+        Width: 0.7,
+    },
+    {
+        ID: 392,
+        Type: "FloorDecorationThemed",
+        Style: "VoidOrderBanner",
+        Top: -0.9,
+        Left: 0.13,
+        Height: 1.5,
+        Width: 0.7,
+    },
+    {
+        ID: 393,
+        Type: "FloorDecorationThemed",
+        Style: "KatanaOnStand",
+        Top: -0.4,
+        Left: 0.1,
+        Height: 1,
+        Width: 0.8,
+    },
+    {
+        ID: 394,
+        Type: "FloorDecorationThemed",
+        Style: "MagicMark",
+        Top: 0.03,
+        Left: 0.05,
+        Height: 0.9,
+        Width: 0.9,
+    },
+    { ID: 500, Type: "FloorDecorationParty", Style: "Blank" },
+    {
+        ID: 510,
+        Type: "FloorDecorationParty",
+        Style: "BalloonFiveColor",
+        Top: -0.6,
+        Height: 1.5,
+    },
+    {
+        ID: 511,
+        Type: "FloorDecorationParty",
+        Style: "BalloonTwoHeart",
+        Top: -0.15,
+    },
+    {
+        ID: 520,
+        Type: "FloorDecorationParty",
+        Style: "WeddingCake",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 521,
+        Type: "FloorDecorationParty",
+        Style: "WeddingArch",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 530,
+        Type: "FloorDecorationParty",
+        Style: "FlowerVasePink",
+        Top: -0.33,
+    },
+    {
+        ID: 560,
+        Type: "FloorDecorationParty",
+        Style: "BeachUmbrellaStripe",
+        Top: -1.1,
+        Height: 2,
+    },
+    { ID: 570, Type: "FloorDecorationParty", Style: "BeachTowelStripe" },
+    {
+        ID: 580,
+        Type: "FloorDecorationParty",
+        Style: "Speaker",
+        Top: -1.2,
+        Height: 1.85,
+    },
+    {
+        ID: 590,
+        Type: "FloorDecorationParty",
+        Style: "Presents",
+        Top: 0.25,
+        Height: 0.5,
+    },
+    {
+        ID: 595,
+        Type: "FloorDecorationParty",
+        Style: "Pumpkin",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    {
+        ID: 596,
+        Type: "FloorDecorationParty",
+        Style: "JackOLantern",
+        Top: 0.25,
+        Left: 0,
+        Height: 0.5,
+        Width: 1,
+    },
+    { ID: 600, Type: "FloorDecorationCamping", Style: "Blank" },
+    { ID: 610, Type: "FloorDecorationCamping", Style: "LogFire", Top: -0.35 },
+    {
+        ID: 611,
+        Type: "FloorDecorationCamping",
+        Style: "LogFireAnim0",
+        Top: -0.5,
+        Height: 1,
+    },
+    { ID: 620, Type: "FloorDecorationCamping", Style: "LogSingle", Top: -0.2 },
+    { ID: 630, Type: "FloorDecorationCamping", Style: "TentBlue", Top: -0.3 },
+    { ID: 640, Type: "FloorDecorationCamping", Style: "SleepingBagBlue" },
+    { ID: 650, Type: "FloorDecorationCamping", Style: "ChairRed", Top: -0.35 },
+    { ID: 660, Type: "FloorDecorationCamping", Style: "Hurdle1" },
+    { ID: 670, Type: "FloorDecorationCamping", Style: "Hurdle2" },
+    { ID: 680, Type: "FloorDecorationCamping", Style: "Hurdle3" },
+    { ID: 700, Type: "FloorDecorationExpanding", Style: "Blank" },
+    {
+        ID: 710,
+        Type: "FloorDecorationExpanding",
+        Style: "CouchPinkPreview",
+        Top: -0.35,
+    },
+    {
+        ID: 720,
+        Type: "FloorDecorationExpanding",
+        Style: "BedBluePreview",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 730,
+        Type: "FloorDecorationExpanding",
+        Style: "BallPitPreview",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 740,
+        Type: "FloorDecorationExpanding",
+        Style: "VikingTablePreview",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 750,
+        Type: "FloorDecorationExpanding",
+        Style: "RailroadPreview",
+        Top: 0,
+    },
+    { ID: 800, Type: "FloorDecorationAnimal", Style: "Blank" },
+    {
+        ID: 810,
+        Type: "FloorDecorationAnimal",
+        Style: "CatCaramelHappy",
+        Top: -0.2,
+    },
+    {
+        ID: 820,
+        Type: "FloorDecorationAnimal",
+        Style: "DogBrownHappy",
+        Top: -0.4,
+    },
+    {
+        ID: 830,
+        Type: "FloorDecorationAnimal",
+        Style: "RabbitBrownStand",
+        Top: -0.3,
+    },
+    {
+        ID: 840,
+        Type: "FloorDecorationAnimal",
+        Style: "ChickenBrownIdleLeft",
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    { ID: 1000, Type: "FloorItem", Style: "Blank" },
+    { ID: 1010, Type: "FloorItem", Style: "Kennel", Top: -1, Height: 2 },
+    { ID: 1020, Type: "FloorItem", Style: "X-Cross", Top: -1, Height: 2 },
+    { ID: 1030, Type: "FloorItem", Style: "BondageBench", Top: -1, Height: 2 },
+    { ID: 1040, Type: "FloorItem", Style: "Trolley", Top: -1, Height: 2 },
+    { ID: 1050, Type: "School", Style: "Locker", Top: -1, Height: 2 },
+    { ID: 1060, Type: "FloorItem", Style: "WoodenBox", Top: -1, Height: 2 },
+    { ID: 1070, Type: "FloorItem", Style: "Coffin", Top: -1.2, Height: 1.85 },
+    {
+        ID: 1080,
+        Type: "FloorItem",
+        Style: "TheDisplayFrame",
+        Top: -1,
+        Height: 2,
+    },
+    { ID: 1090, Type: "FloorItem", Style: "Pole", Top: -0.85, Height: 1.8 },
+    {
+        ID: 1095,
+        Type: "FloorItem",
+        Style: "MedicalBed",
+        Top: -0.82,
+        Left: 0.05,
+        Height: 1.8,
+        Width: 0.9,
+    },
+    {
+        ID: 1096,
+        Type: "FloorItem",
+        Style: "FuturisticCrate",
+        Top: -0.95,
+        Height: 2,
+    },
+    { ID: 1097, Type: "ABDL", Style: "HighChair", Top: -0.95, Height: 2 },
+    { ID: 1098, Type: "ABDL", Style: "Crib", Top: -0.95, Height: 2 },
+    { ID: 1099, Type: "ABDL", Style: "PinkCrib", Top: -0.95, Height: 2 },
+    { ID: 1100, Type: "FloorNumber", Style: "Blank" },
+    { ID: 1110, Type: "FloorNumber", Style: "Number0" },
+    { ID: 1111, Type: "FloorNumber", Style: "Number1" },
+    { ID: 1112, Type: "FloorNumber", Style: "Number2" },
+    { ID: 1113, Type: "FloorNumber", Style: "Number3" },
+    { ID: 1114, Type: "FloorNumber", Style: "Number4" },
+    { ID: 1115, Type: "FloorNumber", Style: "Number5" },
+    { ID: 1116, Type: "FloorNumber", Style: "Number6" },
+    { ID: 1117, Type: "FloorNumber", Style: "Number7" },
+    { ID: 1118, Type: "FloorNumber", Style: "Number8" },
+    { ID: 1119, Type: "FloorNumber", Style: "Number9" },
+    { ID: 1200, Type: "FloorLetter", Style: "Blank" },
+    { ID: 1201, Type: "FloorLetter", Style: "LetterA" },
+    { ID: 1202, Type: "FloorLetter", Style: "LetterB" },
+    { ID: 1203, Type: "FloorLetter", Style: "LetterC" },
+    { ID: 1204, Type: "FloorLetter", Style: "LetterD" },
+    { ID: 1205, Type: "FloorLetter", Style: "LetterE" },
+    { ID: 1206, Type: "FloorLetter", Style: "LetterF" },
+    { ID: 1207, Type: "FloorLetter", Style: "LetterG" },
+    { ID: 1208, Type: "FloorLetter", Style: "LetterH" },
+    { ID: 1209, Type: "FloorLetter", Style: "LetterI" },
+    { ID: 1210, Type: "FloorLetter", Style: "LetterJ" },
+    { ID: 1211, Type: "FloorLetter", Style: "LetterK" },
+    { ID: 1212, Type: "FloorLetter", Style: "LetterL" },
+    { ID: 1213, Type: "FloorLetter", Style: "LetterM" },
+    { ID: 1214, Type: "FloorLetter", Style: "LetterN" },
+    { ID: 1215, Type: "FloorLetter", Style: "LetterO" },
+    { ID: 1216, Type: "FloorLetter", Style: "LetterP" },
+    { ID: 1217, Type: "FloorLetter", Style: "LetterQ" },
+    { ID: 1218, Type: "FloorLetter", Style: "LetterR" },
+    { ID: 1219, Type: "FloorLetter", Style: "LetterS" },
+    { ID: 1220, Type: "FloorLetter", Style: "LetterT" },
+    { ID: 1221, Type: "FloorLetter", Style: "LetterU" },
+    { ID: 1222, Type: "FloorLetter", Style: "LetterV" },
+    { ID: 1223, Type: "FloorLetter", Style: "LetterW" },
+    { ID: 1224, Type: "FloorLetter", Style: "LetterX" },
+    { ID: 1225, Type: "FloorLetter", Style: "LetterY" },
+    { ID: 1226, Type: "FloorLetter", Style: "LetterZ" },
+    { ID: 1300, Type: "FloorIcon", Style: "Blank" },
+    { ID: 1301, Type: "FloorIcon", Style: "IconCircle" },
+    { ID: 1302, Type: "FloorIcon", Style: "IconSquare" },
+    { ID: 1303, Type: "FloorIcon", Style: "IconTriangle" },
+    { ID: 1304, Type: "FloorIcon", Style: "IconCross" },
+    { ID: 1305, Type: "FloorIcon", Style: "IconDiamond" },
+    { ID: 1306, Type: "FloorIcon", Style: "IconArrowUp" },
+    { ID: 1307, Type: "FloorIcon", Style: "IconArrowDown" },
+    { ID: 1308, Type: "FloorIcon", Style: "IconArrowLeft" },
+    { ID: 1309, Type: "FloorIcon", Style: "IconArrowRight" },
+    { ID: 1399, Type: "ABDL", Style: "Blank" },
+    { ID: 1400, Type: "ABDL", Style: "PinkPotty", Top: 0, Height: 1 },
+    { ID: 1401, Type: "ABDL", Style: "BluePotty", Top: 0, Height: 1 },
+    { ID: 1402, Type: "ABDL", Style: "ChangingTable", Top: -1, Height: 2 },
+    { ID: 2000, Type: "FloorObstacle", Style: "Blank" },
+    {
+        ID: 2004,
+        Type: "FloorObstacle",
+        Style: "Stalagmite",
+        Top: -0.125,
+        Height: 1,
+    },
+    {
+        ID: 2005,
+        Type: "FloorObstacle",
+        Style: "Rocks",
+        Top: -0.125,
+        Height: 1.125,
+    },
+    {
+        ID: 2006,
+        Type: "FloorObstacle",
+        Style: "GoldStones",
+        Top: 0.1,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    {
+        ID: 2007,
+        Type: "FloorObstacle",
+        Style: "StonePile",
+        Top: 0.1,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    { ID: 2010, Type: "FloorObstacle", Style: "Statue", Top: -1, Height: 2 },
+    {
+        ID: 2011,
+        Type: "FloorObstacle",
+        Style: "Knight",
+        Top: -1.25,
+        Left: 0.05,
+        Height: 1.65,
+        Width: 0.75,
+    },
+    {
+        ID: 2012,
+        Type: "FloorObstacle",
+        Style: "Samurai",
+        Top: -1.25,
+        Left: 0.05,
+        Height: 1.75,
+        Width: 0.85,
+    },
+    { ID: 2013, Type: "FloorObstacle", Style: "Totem", Top: -1, Height: 2 },
+    {
+        ID: 2014,
+        Type: "FloorObstacle",
+        Style: "EasterIsland",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2015,
+        Type: "FloorObstacle",
+        Style: "OrderOfTheVoidTotem",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2020,
+        Type: "FloorObstacle",
+        Style: "Barrel",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    { ID: 2025, Type: "FloorObstacle", Style: "Chest", Top: 0, Height: 1 },
+    { ID: 2030, Type: "FloorObstacle", Style: "IronBars", Top: -1, Height: 2 },
+    { ID: 2031, Type: "FloorObstacle", Style: "BarbFence", Top: -1, Height: 2 },
+    {
+        ID: 2032,
+        Type: "FloorObstacle",
+        Style: "PicketFence",
+        Top: -0.8,
+        Height: 0.75,
+        Width: 1,
+    },
+    { ID: 2033, Type: "FloorObstacle", Style: "VelourRopeBarrier", Top: -0.35 },
+    { ID: 2035, Type: "FloorObstacle", Style: "Bush", Top: -0.25, Height: 1 },
+    {
+        ID: 2040,
+        Type: "FloorObstacle",
+        Style: "OakTree",
+        Top: -1.5,
+        Left: -0.25,
+        Height: 2.5,
+        Width: 1.5,
+    },
+    {
+        ID: 2045,
+        Type: "FloorObstacle",
+        Style: "OakTree_Fall",
+        Top: -1.5,
+        Left: -0.25,
+        Height: 2.5,
+        Width: 1.5,
+    },
+    {
+        ID: 2048,
+        Type: "FloorObstacle",
+        Style: "LeaflessTree",
+        Top: -1.25,
+        Height: 2,
+    },
+    { ID: 2050, Type: "FloorObstacle", Style: "PineTree", Top: -1, Height: 2 },
+    {
+        ID: 2055,
+        Type: "FloorObstacle",
+        Style: "PalmTree",
+        Top: -1.5,
+        Left: -0.3,
+        Height: 2.5,
+        Width: 1.65,
+    },
+    {
+        ID: 2059,
+        Type: "FloorObstacle",
+        Style: "Sakura",
+        Top: -1.5,
+        Left: -0.3,
+        Height: 2,
+        Width: 1.3,
+    },
+    {
+        ID: 2057,
+        Type: "FloorObstacle",
+        Style: "Cactus",
+        Top: -1.2,
+        Left: -0.2,
+        Height: 1.8,
+        Width: 1.3,
+    },
+    {
+        ID: 2060,
+        Type: "FloorObstacle",
+        Style: "ChristmasTree",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 2070,
+        Type: "FloorObstacle",
+        Style: "Window",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    {
+        ID: 2080,
+        Type: "FloorObstacle",
+        Style: "TrashCan",
+        Top: -0.25,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    {
+        ID: 2085,
+        Type: "FloorObstacle",
+        Style: "RoadCone",
+        Top: 0,
+        Left: 0.13,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    {
+        ID: 2090,
+        Type: "FloorObstacle",
+        Style: "LampPost",
+        Top: -1.25,
+        Height: 2,
+    },
+    {
+        ID: 2098,
+        Type: "FloorObstacle",
+        Style: "Pillar",
+        Top: -1.25,
+        Left: 0.16,
+        Height: 2,
+        Width: 0.7,
+    },
+    { ID: 3000, Type: "WallDecoration", Style: "Blank" },
+    { ID: 3010, Type: "WallDecoration", Style: "Painting" },
+    { ID: 3020, Type: "Bathroom", Style: "Mirror" },
+    { ID: 3021, Type: "Bathroom", Style: "BlueBathroomMat" },
+    { ID: 3022, Type: "Bathroom", Style: "GreenBathroomMat" },
+    { ID: 3023, Type: "Bathroom", Style: "PinkBathroomMat" },
+    { ID: 3024, Type: "Bathroom", Style: "Sink" },
+    { ID: 3025, Type: "Bathroom", Style: "ToiletPaper" },
+    { ID: 3026, Type: "Bathroom", Style: "Bathtub" },
+    { ID: 3030, Type: "WallDecoration", Style: "Candelabra0" },
+    { ID: 3040, Type: "WallDecoration", Style: "Whip" },
+    { ID: 3050, Type: "LivingRoom", Style: "Fireplace" },
+    {
+        ID: 3060,
+        Type: "WallDecoration",
+        Style: "Stocking",
+        Top: 0.35,
+        Left: 0.25,
+        Height: 0.5,
+        Width: 0.5,
+    },
+    { ID: 3070, Type: "WallDecoration", Style: "Moss", Top: 0.15, Height: 0.8 },
+    {
+        ID: 3075,
+        Type: "WallDecoration",
+        Style: "Vines",
+        Top: 0.15,
+        Height: 0.8,
+    },
+    {
+        ID: 3076,
+        Type: "WallDecoration",
+        Style: "Vines2",
+        Top: 0.15,
+        Height: 0.8,
+    },
+    { ID: 3100, Type: "WallDecoration", Style: "SilverShield" },
+    { ID: 3110, Type: "WallDecoration", Style: "CrossedSabers" },
+    {
+        ID: 3120,
+        Type: "WallDecoration",
+        Style: "Window",
+        Top: 0.2,
+        Left: 0.1,
+        Height: 0.8,
+        Width: 0.8,
+    },
+    {
+        ID: 3121,
+        Type: "WallDecoration",
+        Style: "WindowNight",
+        Top: 0.22,
+        Left: 0.1,
+        Height: 0.8,
+        Width: 0.8,
+    },
+    {
+        ID: 3122,
+        Type: "WallDecoration",
+        Style: "StainedGlass",
+        Top: 0.25,
+        Left: 0.13,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    { ID: 3200, Type: "School", Style: "SchoolBoard" },
+    {
+        ID: 3201,
+        Type: "School",
+        Style: "Clock",
+        Top: 0.25,
+        Left: 0.13,
+        Height: 0.75,
+        Width: 0.75,
+    },
+    { ID: 3250, Type: "WallDecoration", Style: "FirstAidKit" },
+    { ID: 3260, Type: "WallDecoration", Style: "EyeTest" },
+    {
+        ID: 3261,
+        Type: "WallDecoration",
+        Style: "Scroll",
+        Top: 0.3,
+        Left: 0.2,
+        Height: 0.6,
+        Width: 0.6,
+    },
+    {
+        ID: 3262,
+        Type: "WallDecoration",
+        Style: "Wanted",
+        Top: 0.25,
+        Left: 0.2,
+        Height: 0.7,
+        Width: 0.6,
+    },
+    { ID: 3270, Type: "LivingRoom", Style: "Bookshelf" },
+    {
+        ID: 3275,
+        Type: "WallDecoration",
+        Style: "AirConditioner",
+        Top: 0.27,
+        Height: 0.8,
+    },
+    { ID: 3280, Type: "Bathroom", Style: "ShowerHead" },
+    { ID: 3281, Type: "Bathroom", Style: "Blank" },
+    { ID: 3290, Type: "Bathroom", Style: "EnemaHead" },
+    { ID: 3301, Type: "WallDecoration", Style: "MonitorSmall" },
+    { ID: 3302, Type: "WallDecoration", Style: "MonitorBigLeft" },
+    { ID: 3303, Type: "WallDecoration", Style: "MonitorBigRight" },
+    { ID: 3499, Type: "Functional", Style: "Blank" },
+    { ID: 3500, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    { ID: 3501, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    { ID: 3502, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    { ID: 3503, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    {
+        ID: 3510,
+        Type: "Functional",
+        Style: "ConveyorBeltFast1",
+        Top: 0,
+        Left: 0,
+    },
+    {
+        ID: 3511,
+        Type: "Functional",
+        Style: "ConveyorBeltFast1",
+        Top: 0,
+        Left: 0,
+    },
+    {
+        ID: 3512,
+        Type: "Functional",
+        Style: "ConveyorBeltFast1",
+        Top: 0,
+        Left: 0,
+    },
+    {
+        ID: 3513,
+        Type: "Functional",
+        Style: "ConveyorBeltFast1",
+        Top: 0,
+        Left: 0,
+    },
+    { ID: 3520, Type: "Functional", Style: "SignWood", Top: -0.25 },
+    { ID: 3521, Type: "Functional", Style: "SignWoodWall", Top: 0.1 },
+    { ID: 3522, Type: "Functional", Style: "SignMetal", Top: -0.25 },
+    { ID: 3523, Type: "Functional", Style: "SignMetalWall", Top: 0.1 },
+    { ID: 4000, Type: "WallPath", Style: "Blank" },
+    { ID: 4010, Type: "WallPath", Style: "WoodOpen", Top: -1, Height: 2 },
+    { ID: 4011, Type: "WallPath", Style: "WoodClosed", Top: -1, Height: 2 },
+    { ID: 4012, Type: "WallPath", Style: "WoodLocked", Top: -1, Height: 2 },
+    {
+        ID: 4013,
+        Type: "WallPath",
+        Style: "WoodLockedBronze",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4014,
+        Type: "WallPath",
+        Style: "WoodLockedSilver",
+        Top: -1,
+        Height: 2,
+    },
+    { ID: 4015, Type: "WallPath", Style: "WoodLockedGold", Top: -1, Height: 2 },
+    { ID: 4020, Type: "WallPath", Style: "Metal", Top: -1, Height: 2 },
+    { ID: 4021, Type: "WallPath", Style: "MetalUp", Top: -1, Height: 2 },
+    { ID: 4022, Type: "WallPath", Style: "MetalDown", Top: -1, Height: 2 },
+    {
+        ID: 4023,
+        Type: "WallPath",
+        Style: "MetalLockedBronze",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4024,
+        Type: "WallPath",
+        Style: "MetalLockedSilver",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4025,
+        Type: "WallPath",
+        Style: "MetalLockedGold",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4030,
+        Type: "WallPath",
+        Style: "BrownDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4031,
+        Type: "WallPath",
+        Style: "BrownDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4032,
+        Type: "WallPath",
+        Style: "RoyalDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4033,
+        Type: "WallPath",
+        Style: "RoyalDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4034,
+        Type: "WallPath",
+        Style: "SteelDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4035,
+        Type: "WallPath",
+        Style: "SteelDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4036,
+        Type: "WallPath",
+        Style: "GrayDoor",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4037,
+        Type: "WallPath",
+        Style: "GrayDoorOpen",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    { ID: 4500, Type: "FloorFoamTiles", Style: "Blank" },
+    {
+        ID: 4501,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileWhite",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4502,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileGray",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4503,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileBlack",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4504,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileBlue",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4505,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileGreen",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4506,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileRed",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4507,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileYellow",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4508,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileOrange",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4509,
+        Type: "FloorFoamTiles",
+        Style: "PlayTilePurple",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4510,
+        Type: "FloorFoamTiles",
+        Style: "PlayTilePink",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4511,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileBrown",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 4512,
+        Type: "FloorFoamTiles",
+        Style: "PlayTileLightBlue",
+        Top: -0.1,
+        Left: -0.1,
+        Height: 1.1,
+        Width: 1.1,
+    },
+    {
+        ID: 5010,
+        Type: "Banners",
+        Style: "Red",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5011,
+        Type: "Banners",
+        Style: "Blue",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5012,
+        Type: "Banners",
+        Style: "Green",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5013,
+        Type: "Banners",
+        Style: "Yellow",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5014,
+        Type: "Banners",
+        Style: "Black",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5015,
+        Type: "Banners",
+        Style: "PaladinBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5016,
+        Type: "Banners",
+        Style: "ServiOrdinisBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5017,
+        Type: "Banners",
+        Style: "BellflowerBanner",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5018,
+        Type: "Banners",
+        Style: "BondageClub",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5019,
+        Type: "Banners",
+        Style: "Inquisition",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5020,
+        Type: "Banners",
+        Style: "MagesSacrosanctorum",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5021,
+        Type: "Banners",
+        Style: "MaidSorority",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5022,
+        Type: "Banners",
+        Style: "Priesthood",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
+    {
+        ID: 5023,
+        Type: "Banners",
+        Style: "VoidOrder",
+        Top: 0.25,
+        Left: 0.25,
+        Height: 0.6,
+        Width: 0.5,
+    },
 ];
 
 "use strict";
@@ -675,7 +2771,7 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
-const PAN_OVERSCROLL_TILES = 2;
+const PAN_OVERSCROLL_TILES = 15;
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
@@ -695,14 +2791,20 @@ class BCMapEditor {
         this.objectCatalog = [];
         this.tileImageCache = new Map();
         this.objectImageCache = new Map();
+        this.wallEffectImageCache = new Map();
         this.tileMap = new Map();
         this.objectMap = new Map();
+        this.fullTileMap = new Map();
+        this.fullObjectMap = new Map();
         this.searchTerm = "";
         this.tileCategoryEls = [];
         this.objectCategoryEls = [];
         this.tilePickerItemById = new Map();
         this.objectPickerItemById = new Map();
         this.showGrid = true;
+        this.showHelp = true;
+        this.renderRequested = false;
+        this.objectMarginTiles = 0;
         this.zoomTarget = 1.0;
         this.zoomAnchor = null;
         this.zoomAnimating = false;
@@ -743,6 +2845,23 @@ class BCMapEditor {
                 this.objectImageCache.set(key, img);
             }
         });
+        // Preload WallEffect sprites (indices 0-21, 50-53)
+        for (let i = 0; i <= 21; i++) {
+            if (!this.wallEffectImageCache.has(i)) {
+                const img = new Image();
+                img.onerror = () => { };
+                img.src = `assets/tiles/WallEffect/${i}.png`;
+                this.wallEffectImageCache.set(i, img);
+            }
+        }
+        for (let i = 50; i <= 53; i++) {
+            if (!this.wallEffectImageCache.has(i)) {
+                const img = new Image();
+                img.onerror = () => { };
+                img.src = `assets/tiles/WallEffect/${i}.png`;
+                this.wallEffectImageCache.set(i, img);
+            }
+        }
     }
     createDefaultMap() {
         const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
@@ -755,8 +2874,9 @@ class BCMapEditor {
         };
     }
     initCatalogs() {
-        // The catalog lives in ./catalog.ts and mirrors the game data exactly.
-        // Entries are preserved verbatim - styles are intentionally NOT de-duplicated.
+        // The display catalogs live in ./catalog.ts and mirror the game data.
+        // They keep the picker order. Entries are preserved verbatim - styles
+        // are intentionally NOT de-duplicated.
         this.tileCatalog = [...catalog_1.TILE_CATALOG];
         this.objectCatalog = [...catalog_1.OBJECT_CATALOG];
         // Build lookup maps for performance
@@ -764,6 +2884,30 @@ class BCMapEditor {
         this.tileCatalog.forEach((t) => this.tileMap.set(t.ID, t));
         this.objectMap.clear();
         this.objectCatalog.forEach((o) => this.objectMap.set(o.ID, o));
+        // The FULL catalogs mirror the official in-game catalog exactly. They
+        // are the fallback for validation and rendering so that any object or
+        // tile that exists in the real game maps into the editor even when it
+        // is not (yet) present in the display pickers.
+        this.fullTileMap.clear();
+        catalog_1.FULL_TILE_CATALOG.forEach((t) => this.fullTileMap.set(t.ID, t));
+        this.fullObjectMap.clear();
+        catalog_1.FULL_OBJECT_CATALOG.forEach((o) => this.fullObjectMap.set(o.ID, o));
+        let margin = 0;
+        this.objectCatalog.forEach((o) => {
+            const left = o.Left ?? 0;
+            const top = o.Top ?? 0;
+            const width = o.Width ?? 1;
+            const height = o.Height ?? 1;
+            margin = Math.max(margin, -left, -top, width - 1, height - 1);
+        });
+        catalog_1.FULL_OBJECT_CATALOG.forEach((o) => {
+            const left = o.Left ?? 0;
+            const top = o.Top ?? 0;
+            const width = o.Width ?? 1;
+            const height = o.Height ?? 1;
+            margin = Math.max(margin, -left, -top, width - 1, height - 1);
+        });
+        this.objectMarginTiles = Math.max(1, margin);
     }
     init() {
         this.resizeCanvas();
@@ -815,7 +2959,7 @@ class BCMapEditor {
                     String.fromCharCode(this.selectedObject.ID) +
                     this.mapData.Objects.substring(index + 1);
         }
-        this.render();
+        this.requestRender();
     }
     onCanvasClick(e) {
         // Ctrl/Cmd + click is reserved for panning; never paint in that case.
@@ -925,7 +3069,7 @@ class BCMapEditor {
                 this.panX += dx * (window.devicePixelRatio || 1);
                 this.panY += dy * (window.devicePixelRatio || 1);
                 this.clampPan();
-                this.render();
+                this.requestRender();
             }
             else if (this.isPainting) {
                 this.paintAt(pos);
@@ -999,6 +3143,126 @@ class BCMapEditor {
         const startY = Math.round((canvasHeight - drawSize) / 2 + this.panY);
         return { size: drawSize, startX, startY, tileSize };
     }
+    computeWallEffect(x, y) {
+        if (x < 0 || x >= window.MAP_WIDTH || y < 0 || y >= window.MAP_HEIGHT)
+            return -1;
+        const index = x + y * window.MAP_WIDTH;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
+        if (!tile || tile.Type !== "Wall")
+            return -1;
+        // BC's neighbor configuration (ChatRoomMapViewWallEffect):
+        // CW = Center-West (left): X-1, Y
+        // CE = Center-East (right): X+1, Y
+        // SW = South-West (bottom-left): X-1, Y+1
+        // SC = South-Center (bottom): X, Y+1
+        // SE = South-East (bottom-right): X+1, Y+1
+        // Out of bounds counts as wall
+        const isWall = (tx, ty) => {
+            if (tx < 0 || tx >= window.MAP_WIDTH || ty < 0 || ty >= window.MAP_HEIGHT)
+                return true;
+            const ti = tx + ty * window.MAP_WIDTH;
+            const tid = this.mapData.Tiles.charCodeAt(ti);
+            const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
+            return t !== undefined && t.Type === "Wall";
+        };
+        const CW = isWall(x - 1, y);
+        const CE = isWall(x + 1, y);
+        const SW = isWall(x - 1, y + 1);
+        const SC = isWall(x, y + 1);
+        const SE = isWall(x + 1, y + 1);
+        // BC's FindWallEffectTile algorithm (ChatRoomMapViewFindWallEffectTile)
+        if (CW && CE && SW && SC && SE)
+            return 0;
+        if (!CW && !CE && !SC)
+            return 1;
+        if (!CW && CE && !SC)
+            return 2;
+        if (CW && !CE && !SC)
+            return 3;
+        if (CW && CE && !SC)
+            return 4;
+        if (!CW && !CE && SW && SC && SE)
+            return 5;
+        if (!CW && !CE && SW && SC && !SE)
+            return 6;
+        if (!CW && !CE && !SW && SC && SE)
+            return 7;
+        if (CW && CE && !SW && SC && !SE)
+            return 8;
+        if (!CW && CE && !SW && SC && !SE)
+            return 9;
+        if (CW && !CE && !SW && SC && !SE)
+            return 10;
+        if (!CW && !CE && !SE && SC && !SW)
+            return 11;
+        if (CW && !CE && !SE && SC && !SW)
+            return 12;
+        if (!CW && CE && !SE && SC && !SW)
+            return 13;
+        if (!CW && CE && SE && SC && SW)
+            return 14;
+        if (CW && !CE && SE && SC && SW)
+            return 15;
+        if (CW && !CE && SW && SC)
+            return 16;
+        if (!CW && CE && SC && SE)
+            return 17;
+        if (CW && CE && SW && SC && !SE)
+            return 18;
+        if (CW && CE && !SW && SC && SE)
+            return 19;
+        if (!CW && CE && SW && SC && !SE)
+            return 20;
+        if (CW && !CE && !SW && SC && SE)
+            return 21;
+        return -1;
+    }
+    computeFloorWallEffect(x, y) {
+        if (x < 0 || x >= window.MAP_WIDTH || y < 0 || y >= window.MAP_HEIGHT)
+            return -1;
+        // No effect on the very last row
+        if (y >= window.MAP_HEIGHT - 1)
+            return -1;
+        const index = x + y * window.MAP_WIDTH;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
+        if (!tile)
+            return -1;
+        // Find the southern wall positions
+        const isWall = (tx, ty) => {
+            if (tx < 0 || tx >= window.MAP_WIDTH || ty < 0 || ty >= window.MAP_HEIGHT)
+                return true;
+            const ti = tx + ty * window.MAP_WIDTH;
+            const tid = this.mapData.Tiles.charCodeAt(ti);
+            const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
+            return t !== undefined && t.Type === "Wall";
+        };
+        const SW = isWall(x - 1, y + 1);
+        const SC = isWall(x, y + 1);
+        const SE = isWall(x + 1, y + 1);
+        // If here is HalfWall
+        if (tile.Style === "HalfWall") {
+            if (!SW && SC && !SE)
+                return 11;
+            if (!SW && SC && SE)
+                return 12;
+            if (SW && SC && !SE)
+                return 13;
+            if (SW && SC && SE)
+                return 0;
+        }
+        // Find the "3D" wall effect for floor tiles
+        if (!SW && SC && !SE)
+            return 50;
+        if (!SW && SC && SE)
+            return 51;
+        if (SW && SC && !SE)
+            return 52;
+        if (SW && SC && SE)
+            return 53;
+        return -1;
+    }
     render() {
         const ctx = this.ctx;
         const canvasWidth = this.canvas.width;
@@ -1009,12 +3273,16 @@ class BCMapEditor {
         ctx.fillStyle = "#0f0f23";
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         const { startX, startY, tileSize } = this.getDrawBox();
+        const firstTileX = Math.max(0, Math.floor(-startX / tileSize));
+        const lastTileX = Math.min(window.MAP_WIDTH - 1, Math.ceil((canvasWidth - startX) / tileSize));
+        const firstTileY = Math.max(0, Math.floor(-startY / tileSize));
+        const lastTileY = Math.min(window.MAP_HEIGHT - 1, Math.ceil((canvasHeight - startY) / tileSize));
         // Render tiles using cached sprites
-        for (let y = 0; y < window.MAP_HEIGHT; y++) {
-            for (let x = 0; x < window.MAP_WIDTH; x++) {
+        for (let y = firstTileY; y <= lastTileY; y++) {
+            for (let x = firstTileX; x <= lastTileX; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const tileId = this.mapData.Tiles.charCodeAt(index);
-                const tile = this.tileMap.get(tileId);
+                const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
                 if (tile) {
                     const key = tile.Type + "/" + tile.Style;
                     const img = this.tileImageCache.get(key);
@@ -1028,29 +3296,63 @@ class BCMapEditor {
                         ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
                         ctx.fillRect(drawX, drawY, tileSize, tileSize);
                     }
+                    // Draw wall effects for wall tiles
+                    if (tile.Type === "Wall") {
+                        const effectIndex = this.computeWallEffect(x, y);
+                        if (effectIndex >= 0) {
+                            const effectImg = this.wallEffectImageCache.get(effectIndex);
+                            if (effectImg &&
+                                effectImg.complete &&
+                                effectImg.naturalWidth > 0) {
+                                ctx.drawImage(effectImg, drawX, drawY, tileSize, tileSize);
+                            }
+                        }
+                    }
+                    // Draw floor wall effects for non-wall tiles
+                    else {
+                        const floorEffectIndex = this.computeFloorWallEffect(x, y);
+                        if (floorEffectIndex >= 0) {
+                            const effectImg = this.wallEffectImageCache.get(floorEffectIndex);
+                            if (effectImg &&
+                                effectImg.complete &&
+                                effectImg.naturalWidth > 0) {
+                                ctx.drawImage(effectImg, drawX, drawY, tileSize, tileSize);
+                            }
+                        }
+                    }
                 }
             }
         }
+        const firstObjX = Math.max(0, firstTileX - this.objectMarginTiles);
+        const lastObjX = Math.min(window.MAP_WIDTH - 1, lastTileX + this.objectMarginTiles);
+        const firstObjY = Math.max(0, firstTileY - this.objectMarginTiles);
+        const lastObjY = Math.min(window.MAP_HEIGHT - 1, lastTileY + this.objectMarginTiles);
         // Render objects using cached sprites
-        for (let y = 0; y < window.MAP_HEIGHT; y++) {
-            for (let x = 0; x < window.MAP_WIDTH; x++) {
+        for (let y = firstObjY; y <= lastObjY; y++) {
+            for (let x = firstObjX; x <= lastObjX; x++) {
                 const index = x + y * window.MAP_WIDTH;
                 const objId = this.mapData.Objects.charCodeAt(index);
                 if (objId === catalog_1.BLANK_OBJECT_ID)
                     continue;
-                const obj = this.objectMap.get(objId);
+                const obj = this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
                 if (obj && obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
                     const img = this.objectImageCache.get(key);
-                    const drawX = startX + x * tileSize;
-                    const drawY = startY + y * tileSize;
+                    const left = obj.Left ?? 0;
+                    const top = obj.Top ?? 0;
+                    const width = obj.Width ?? 1;
+                    const height = obj.Height ?? 1;
+                    const drawX = startX + (x + left) * tileSize;
+                    const drawY = startY + (y + top) * tileSize;
+                    const drawW = tileSize * width;
+                    const drawH = tileSize * height;
                     if (img && img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, drawX, drawY, tileSize, tileSize);
+                        ctx.drawImage(img, drawX, drawY, drawW, drawH);
                     }
                     else {
                         // Fallback to color if image not loaded
                         ctx.fillStyle = this.getObjectColor(obj.Type);
-                        ctx.fillRect(drawX + tileSize * OBJECT_DRAW_MARGIN, drawY + tileSize * OBJECT_DRAW_MARGIN, tileSize * OBJECT_DRAW_SIZE, tileSize * OBJECT_DRAW_SIZE);
+                        ctx.fillRect(drawX + drawW * OBJECT_DRAW_MARGIN, drawY + drawH * OBJECT_DRAW_MARGIN, drawW * OBJECT_DRAW_SIZE, drawH * OBJECT_DRAW_SIZE);
                     }
                 }
             }
@@ -1084,6 +3386,21 @@ class BCMapEditor {
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
     }
+    requestRender() {
+        if (this.renderRequested)
+            return;
+        this.renderRequested = true;
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(() => {
+                this.renderRequested = false;
+                this.render();
+            });
+        }
+        else {
+            this.renderRequested = false;
+            this.render();
+        }
+    }
     updateStatusPosition(pos) {
         const el = document.getElementById("statusPosition");
         if (!el)
@@ -1096,24 +3413,46 @@ class BCMapEditor {
             el.textContent = `Position: (${pos.X}, ${pos.Y})`;
         }
         else {
-            el.textContent = "Position: (—, —)";
+            el.textContent = "Position: (-, -)";
         }
     }
     updateStatusSelection() {
         const el = document.getElementById("statusSelection");
         if (!el)
             return;
+        let text = "";
+        let textureKey = "";
         if (this.currentLayer === "object" && this.selectedObject) {
-            el.textContent =
-                this.selectedObject.Style === "Blank"
-                    ? "Selection: Blank (Erase)"
-                    : `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
+            if (this.selectedObject.Style === "Blank") {
+                text = "Selection: Blank (Erase)";
+            }
+            else {
+                text = `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
+                textureKey =
+                    this.selectedObject.Type + "/" + this.selectedObject.Style;
+            }
         }
         else if (this.currentLayer === "tile" && this.selectedTile) {
-            el.textContent = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
+            text = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
+            textureKey = this.selectedTile.Type + "/" + this.selectedTile.Style;
         }
         else {
-            el.textContent = "No selection";
+            text = "No selection";
+        }
+        if (textureKey) {
+            const cache = this.currentLayer === "tile"
+                ? this.tileImageCache
+                : this.objectImageCache;
+            const img = cache.get(textureKey);
+            if (img && img.complete && img.naturalWidth > 0) {
+                el.innerHTML = `${text} <img src="${img.src}" style="height:1em;vertical-align:middle;margin-left:4px;">`;
+            }
+            else {
+                el.textContent = text;
+            }
+        }
+        else {
+            el.textContent = text;
         }
     }
     applyDefaultSelection() {
@@ -1172,19 +3511,19 @@ class BCMapEditor {
                 parsed.Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
                 throw new Error("Invalid map dimensions");
             }
-            // Validate tile IDs exist in catalog
+            // Validate tile IDs exist in the full game catalog
             for (let i = 0; i < parsed.Tiles.length; i++) {
                 const char = parsed.Tiles[i];
                 const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.tileMap.get(id) === undefined) {
+                if (this.fullTileMap.get(id) === undefined) {
                     throw new Error("Invalid tile ID at index " + i);
                 }
             }
-            // Validate object IDs exist in catalog
+            // Validate object IDs exist in the full game catalog
             for (let i = 0; i < parsed.Objects.length; i++) {
                 const char = parsed.Objects[i];
                 const id = typeof char === "number" ? char : char.charCodeAt(0);
-                if (this.objectMap.get(id) === undefined) {
+                if (this.fullObjectMap.get(id) === undefined) {
                     throw new Error("Invalid object ID at index " + i);
                 }
             }
@@ -1227,6 +3566,19 @@ class BCMapEditor {
     }
     getGridVisible() {
         return this.showGrid;
+    }
+    toggleHelp() {
+        this.setHelpVisible(!this.showHelp);
+    }
+    setHelpVisible(visible) {
+        this.showHelp = visible;
+        const helpEl = document.getElementById("controlsHelp");
+        if (helpEl) {
+            helpEl.style.display = visible ? "" : "none";
+        }
+    }
+    getHelpVisible() {
+        return this.showHelp;
     }
     createCategoryHeader(name) {
         const header = document.createElement("div");
@@ -1344,7 +3696,14 @@ class BCMapEditor {
             const { header, entry } = this.createCategoryHeader(group);
             this.objectCategoryEls.push(entry);
             const container = entry.content;
+            let blankAdded = false;
             objs.forEach((obj) => {
+                if (obj.Style === "Blank") {
+                    if (blankAdded) {
+                        return;
+                    }
+                    blankAdded = true;
+                }
                 const item = document.createElement("div");
                 item.className = "sprite-item";
                 if (obj.Style !== "Blank") {
@@ -1355,7 +3714,7 @@ class BCMapEditor {
                 }
                 else {
                     item.innerHTML =
-                        '<div style="font-size:8px;color:#aaa;text-align:center;line-height:40px;">BLANK</div>';
+                        '<i class="bi bi-erase" style="font-size:1.5rem;color:#adb5bd;line-height:48px;"></i>';
                     item.title = "Blank (Erase)";
                 }
                 item.addEventListener("click", () => {
@@ -1391,6 +3750,18 @@ class BCMapEditor {
     }
     getObjectCatalog() {
         return this.objectCatalog;
+    }
+    getFullTileCatalog() {
+        return catalog_1.FULL_TILE_CATALOG;
+    }
+    getFullObjectCatalog() {
+        return catalog_1.FULL_OBJECT_CATALOG;
+    }
+    isKnownObjectId(id) {
+        return this.fullObjectMap.has(id);
+    }
+    isKnownTileId(id) {
+        return this.fullTileMap.has(id);
     }
     getCurrentLayer() {
         return this.currentLayer;
@@ -1518,6 +3889,19 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         editor.toggleGrid();
         syncGridButton();
+    });
+    // Help toggle (?) keybind
+    window.addEventListener("keydown", (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey)
+            return;
+        if (e.key !== "?")
+            return;
+        const target = e.target;
+        const tag = target?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
+            return;
+        e.preventDefault();
+        editor.toggleHelp();
     });
 });
 
