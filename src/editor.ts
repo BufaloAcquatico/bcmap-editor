@@ -42,6 +42,37 @@ export const MAP_WIDTH = 40;
 export const MAP_HEIGHT = 40;
 export const GRASS_TILE_ID = 210;
 
+// Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic
+// (ropeybot/src/bcdata/ChatRoomMap.ts). `prefix` is the texture name stem,
+// `single` the variant used when the object has no same-ID neighbors.
+// NOTE: upstream spells the single-couch file "CouckPinkSmall" (typo); the
+// correctly-spelled name 404s on the R132 server, so the typo is used here.
+// Railroad (750) is connectivity-based and handled separately; Velour rope
+// barrier (2033) reuses its base style name when single.
+const EXPANDABLE_LEFT_RIGHT = new Map<
+    number,
+    { prefix: string; single: string }
+>([
+    [710, { prefix: "CouchPink", single: "CouckPinkSmall" }],
+    [720, { prefix: "BedBlue", single: "BedBlueSmall" }],
+    [730, { prefix: "BallPit", single: "BallPitSmall" }],
+    [740, { prefix: "VikingTable", single: "VikingTableSmall" }],
+    [2033, { prefix: "VelourRopeBarrier", single: "VelourRopeBarrier" }],
+]);
+const RAILROAD_PREVIEW_ID = 750;
+
+// Bundled eraser icon for Blank (delete-tool) picker items. Inline SVG on
+// purpose: the previous markup used the non-existent `bi-erase` class (only
+// `eraser`/`eraser-fill` exist), so the icon could never render, and font
+// glyphs additionally fail offline. Artwork below is the official Bootstrap
+// Icons `eraser` (v1.11.1, MIT) inlined, tinted flat #adb5bd to match the
+// picker's minimal look with zero CSS dependency.
+const BLANK_ERASER_ICON =
+    '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' +
+    '<svg class="picker-eraser-icon" width="30" height="30" viewBox="0 0 16 16" fill="#adb5bd" aria-hidden="true">' +
+    '<path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/>' +
+    "</svg></span>";
+
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
 const ZOOM_ANIMATION_EPSILON = 0.001;
@@ -136,6 +167,43 @@ export class BCMapEditor {
                 this.objectImageCache.set(key, img);
             }
         });
+        // Preload neighbor-variant textures for expanding objects. Variants
+        // live next to the base sprite (assets/objects/<Type>/<Variant>.png).
+        // Missing files simply fail to load and the renderer falls back to
+        // the base sprite, so this list can name every BC variant.
+        const variantJobs: Array<[string, string]> = [];
+        EXPANDABLE_LEFT_RIGHT.forEach(({ prefix, single }, id) => {
+            const folder =
+                this.fullObjectMap.get(id)?.Type ?? "FloorDecorationExpanding";
+            variantJobs.push(
+                [folder, single],
+                [folder, prefix + "Left"],
+                [folder, prefix + "Middle"],
+                [folder, prefix + "Right"],
+            );
+        });
+        {
+            const folder =
+                this.fullObjectMap.get(RAILROAD_PREVIEW_ID)?.Type ??
+                "FloorDecorationExpanding";
+            const directions = ["North", "South", "East", "West"];
+            for (let mask = 0; mask < 16; mask++) {
+                let suffix = "";
+                for (let b = 0; b < 4; b++) {
+                    if (mask & (1 << b)) suffix += directions[b];
+                }
+                variantJobs.push([folder, "Railroad" + suffix]);
+            }
+        }
+        for (const [folder, style] of variantJobs) {
+            const key = folder + "/" + style;
+            if (!this.objectImageCache.has(key)) {
+                const img = new Image();
+                img.onerror = () => {};
+                img.src = "assets/objects/" + key + ".png";
+                this.objectImageCache.set(key, img);
+            }
+        }
         // Preload WallEffect sprites (indices 0-21, 50-53)
         for (let i = 0; i <= 21; i++) {
             if (!this.wallEffectImageCache.has(i)) {
@@ -205,14 +273,19 @@ export class BCMapEditor {
             const height = o.Height ?? 1;
             margin = Math.max(margin, -left, -top, width - 1, height - 1);
         });
-        this.objectMarginTiles = Math.max(1, margin);
+        // The margin must stay a whole number of tiles: the object render
+        // loop below iterates grid cells, and a fractional margin would make
+        // the loop variable fractional, shifting every object sprite by half
+        // a tile whenever the map is zoomed past ~100% (firstTile > 0).
+        this.objectMarginTiles = Math.max(1, Math.ceil(margin));
     }
 
     private init(): void {
         this.resizeCanvas();
         this.render();
-        this.canvas.addEventListener("click", this.onCanvasClick.bind(this));
         this.canvas.addEventListener("wheel", this.onCanvasWheel.bind(this));
+        // Suppress the browser context menu so the right button can pan.
+        this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
         this.canvas.addEventListener(
             "mousedown",
             this.onCanvasMouseDown.bind(this),
@@ -257,33 +330,89 @@ export class BCMapEditor {
         return { X: tileX, Y: tileY };
     }
 
+    // Push the pre-stroke state once. A whole press/drag stroke shares one
+    // undo entry, so a single Ctrl+Z reverts the whole stroke. Called when a
+    // paint stroke starts (mousedown), never per painted cell. If the stroke
+    // ends up changing nothing, endStroke() rolls the entry back so empty
+    // presses never cost an undo step.
+    private strokeDirty = false;
+    private strokeOpen = false;
+    private strokeEntry: string[] | null = null;
+    private strokeSavedRedo: string[][] = [];
+
+    private beginStroke(): void {
+        this.strokeOpen = true;
+        this.strokeDirty = false;
+        this.strokeSavedRedo = this.redoStack;
+        const entry: string[] = [this.mapData.Tiles, this.mapData.Objects];
+        this.strokeEntry = entry;
+        this.undoStack.push(entry);
+        this.undoStack = this.undoStack.slice(-this.undoCap);
+        this.redoStack = [];
+        this.notifyHistoryChange();
+    }
+
+    private endStroke(): void {
+        if (!this.strokeOpen) return;
+        this.strokeOpen = false;
+        if (!this.strokeDirty && this.strokeEntry) {
+            // Roll back the entry pushed by beginStroke (by identity, so a
+            // mid-stroke undo or a cap-trim can never pop the wrong state).
+            // The saved redo stack is restored only when the entry was
+            // actually removed: if undo() already consumed it mid-stroke,
+            // the redo entry it created must survive.
+            const at = this.undoStack.lastIndexOf(this.strokeEntry);
+            if (at >= 0) {
+                this.undoStack.splice(at, 1);
+                this.redoStack = this.strokeSavedRedo;
+                this.notifyHistoryChange();
+            }
+        }
+        this.strokeEntry = null;
+        this.strokeSavedRedo = [];
+    }
+
+    private notifyHistoryChange(): void {
+        this.onHistoryChange?.();
+    }
+
+    public onHistoryChange: (() => void) | null = null;
+
+    public canUndo(): boolean {
+        return this.undoStack.length > 0;
+    }
+
+    public canRedo(): boolean {
+        return this.redoStack.length > 0;
+    }
+
     private paintAt(pos: Point): void {
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
             return;
-        // Save state to undo stack before modifying map data
-        this.undoStack.push([this.mapData.Tiles, this.mapData.Objects]);
-        this.undoStack = this.undoStack.slice(-this.undoCap);
-        this.redoStack.length = 0;
         const index = pos.X + pos.Y * MAP_WIDTH;
         if (this.currentLayer === "tile" && this.selectedTile) {
+            const ch = String.fromCharCode(this.selectedTile.ID);
+            // No-op guard: repainting the same cell must not dirty state or
+            // request renders (and, together with per-stroke pushes, keeps
+            // one physical click to exactly one undo entry).
+            if (this.mapData.Tiles[index] === ch) return;
             this.mapData.Tiles =
                 this.mapData.Tiles.substring(0, index) +
-                String.fromCharCode(this.selectedTile.ID) +
+                ch +
                 this.mapData.Tiles.substring(index + 1);
+            this.strokeDirty = true;
         } else if (this.currentLayer === "object" && this.selectedObject) {
+            const ch = String.fromCharCode(this.selectedObject.ID);
+            if (this.mapData.Objects[index] === ch) return;
             this.mapData.Objects =
                 this.mapData.Objects.substring(0, index) +
-                String.fromCharCode(this.selectedObject.ID) +
+                ch +
                 this.mapData.Objects.substring(index + 1);
+            this.strokeDirty = true;
+        } else {
+            return;
         }
         this.requestRender();
-    }
-
-    private onCanvasClick(e: MouseEvent): void {
-        // Ctrl/Cmd + click is reserved for panning; never paint in that case.
-        if (e.ctrlKey || e.metaKey) return;
-        const pos = this.getTilePosFromMouse(e);
-        this.paintAt(pos);
     }
 
     private onCanvasWheel(e: WheelEvent): void {
@@ -359,17 +488,18 @@ export class BCMapEditor {
 
     private onCanvasMouseDown(e: MouseEvent): void {
         const isLeftButton = e.button === 0;
-        // Panning is done by holding Ctrl (or Cmd) and dragging with the left button.
-        this.isPanning = isLeftButton && (e.ctrlKey || e.metaKey);
-        this.isPainting = isLeftButton && !this.isPanning;
+        // Panning is done with the right button. Ctrl/Cmd + left does
+        // nothing (neither paints nor pans); plain left paints.
+        this.isPanning = e.button === 2;
+        this.isPainting = isLeftButton && !e.ctrlKey && !e.metaKey;
         this.isDragging = this.isPainting || this.isPanning;
         const rect = this.canvas.getBoundingClientRect();
         this.lastMousePos = {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top,
         };
-        if (e.button === 2) e.preventDefault();
         if (this.isPainting) {
+            this.beginStroke();
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
         }
@@ -407,6 +537,7 @@ export class BCMapEditor {
     }
 
     private onCanvasMouseUp(): void {
+        this.endStroke();
         this.isDragging = false;
         this.isPanning = false;
         this.isPainting = false;
@@ -576,6 +707,50 @@ export class BCMapEditor {
         return -1;
     }
 
+    // Bounds-checked object lookup by grid cell. Returns null outside the map
+    // or for empty cells (mirrors ChatRoomMapViewGetObjectAtPos semantics).
+    private getObjectAt(x: number, y: number): ObjectDef | null {
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return null;
+        const objId = this.mapData.Objects.charCodeAt(x + y * MAP_WIDTH);
+        if (objId === BLANK_OBJECT_ID) return null;
+        return this.fullObjectMap.get(objId) ?? null;
+    }
+
+    private hasSameIdNeighbor(x: number, y: number, id: number): boolean {
+        const neighbor = this.getObjectAt(x, y);
+        return neighbor !== null && neighbor.ID === id;
+    }
+
+    // BC-faithful neighbor variant selection (BuildImageName equivalent).
+    // Each cell resolves independently, so runs of 3+ identical objects
+    // naturally become Left/Middle.../Middle/Right with no group pre-pass
+    // and no overlapping stretched draws.
+    private resolveVariantImageName(
+        x: number,
+        y: number,
+        obj: ObjectDef,
+    ): string {
+        const expandable = EXPANDABLE_LEFT_RIGHT.get(obj.ID);
+        if (expandable) {
+            const hasLeft = this.hasSameIdNeighbor(x - 1, y, obj.ID);
+            const hasRight = this.hasSameIdNeighbor(x + 1, y, obj.ID);
+            if (hasLeft && hasRight) return expandable.prefix + "Middle";
+            if (hasLeft) return expandable.prefix + "Right";
+            if (hasRight) return expandable.prefix + "Left";
+            return expandable.single;
+        }
+        if (obj.ID === RAILROAD_PREVIEW_ID) {
+            // Suffix built in strict North/South/East/West order (BC source).
+            let suffix = "";
+            if (this.hasSameIdNeighbor(x, y - 1, obj.ID)) suffix += "North";
+            if (this.hasSameIdNeighbor(x, y + 1, obj.ID)) suffix += "South";
+            if (this.hasSameIdNeighbor(x + 1, y, obj.ID)) suffix += "East";
+            if (this.hasSameIdNeighbor(x - 1, y, obj.ID)) suffix += "West";
+            return "Railroad" + suffix;
+        }
+        return obj.Style;
+    }
+
     private render(): void {
         const ctx = this.ctx;
         const canvasWidth = this.canvas.width;
@@ -670,6 +845,7 @@ export class BCMapEditor {
             }
         }
 
+        // Culling bounds stay on whole cells (see objectMarginTiles note).
         const firstObjX = Math.max(0, firstTileX - this.objectMarginTiles);
         const lastObjX = Math.min(
             MAP_WIDTH - 1,
@@ -690,53 +866,24 @@ export class BCMapEditor {
                 const obj =
                     this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
                 if (obj && obj.Style !== "Blank") {
-                    // Neighbor awareness for extendable preview objects
-                    // (CouchPinkPreview, BedBluePreview, BallPitPreview,
-                    // VikingTablePreview, RailroadPreview). When two identical
-                    // extendable objects are placed adjacently, render combined variant.
-                    let hasLeftNeighbor = false;
-                    let hasRightNeighbor = false;
-                    const leftObjId = this.mapData.Objects.charCodeAt(
-                        x - 1 + y * MAP_WIDTH,
-                    );
-                    const rightObjId = this.mapData.Objects.charCodeAt(
-                        x + 1 + y * MAP_WIDTH,
-                    );
-                    if (leftObjId !== BLANK_OBJECT_ID) {
-                        const leftObj = this.fullObjectMap.get(leftObjId);
-                        if (
-                            leftObj &&
-                            leftObj.Type === obj.Type &&
-                            leftObj.Style === obj.Style
-                        ) {
-                            hasLeftNeighbor = true;
-                        }
-                    }
-                    if (rightObjId !== BLANK_OBJECT_ID) {
-                        const rightObj = this.fullObjectMap.get(rightObjId);
-                        if (
-                            rightObj &&
-                            rightObj.Type === obj.Type &&
-                            rightObj.Style === obj.Style
-                        ) {
-                            hasRightNeighbor = true;
-                        }
-                    }
-                    const key = obj.Type + "/" + obj.Style;
-                    const img = this.objectImageCache.get(key);
+                    // Neighbor-aware sprite selection for expanding objects
+                    // (CouchPink/BedBlue/BallPit/VikingTable previews,
+                    // RailroadPreview, VelourRopeBarrier). BC ships a separate
+                    // pre-rendered texture per neighbor configuration, so we
+                    // switch textures instead of stretching one sprite. Each
+                    // cell draws exactly its own variant rect.
+                    const variant = this.resolveVariantImageName(x, y, obj);
+                    const baseKey = obj.Type + "/" + obj.Style;
+                    const key = obj.Type + "/" + variant;
+                    const img =
+                        this.objectImageCache.get(key) ??
+                        this.objectImageCache.get(baseKey);
                     const left = obj.Left ?? 0;
                     const top = obj.Top ?? 0;
                     const width = obj.Width ?? 1;
                     const height = obj.Height ?? 1;
-                    let adjDrawX = startX + (x + left) * tileSize;
-                    let adjDrawW = tileSize * width;
-                    if (hasLeftNeighbor) {
-                        adjDrawX -= tileSize;
-                        adjDrawW += tileSize;
-                    }
-                    if (hasRightNeighbor) {
-                        adjDrawW += tileSize;
-                    }
+                    const adjDrawX = startX + (x + left) * tileSize;
+                    const adjDrawW = tileSize * width;
                     const adjDrawY = startY + (y + top) * tileSize;
                     const adjDrawH = tileSize * height;
                     if (img && img.complete && img.naturalWidth > 0) {
@@ -838,36 +985,19 @@ export class BCMapEditor {
     private updateStatusSelection(): void {
         const el = document.getElementById("statusSelection");
         if (!el) return;
-        let text = "";
-        let textureKey = "";
+        let text: string;
         if (this.currentLayer === "object" && this.selectedObject) {
             if (this.selectedObject.Style === "Blank") {
                 text = "Selection: Blank (Erase)";
             } else {
                 text = `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
-                textureKey =
-                    this.selectedObject.Type + "/" + this.selectedObject.Style;
             }
         } else if (this.currentLayer === "tile" && this.selectedTile) {
             text = `Selection: ${this.selectedTile.Type}/${this.selectedTile.Style}`;
-            textureKey = this.selectedTile.Type + "/" + this.selectedTile.Style;
         } else {
             text = "No selection";
         }
-        if (textureKey) {
-            const cache =
-                this.currentLayer === "tile"
-                    ? this.tileImageCache
-                    : this.objectImageCache;
-            const img = cache.get(textureKey);
-            if (img && img.complete && img.naturalWidth > 0) {
-                el.innerHTML = `${text} <img src="${img.src}" style="height:1em;vertical-align:middle;margin-left:4px;">`;
-            } else {
-                el.textContent = text;
-            }
-        } else {
-            el.textContent = text;
-        }
+        el.textContent = text;
     }
 
     private applyDefaultSelection(): void {
@@ -947,6 +1077,9 @@ export class BCMapEditor {
                 }
             }
             this.mapData = parsed as MapData;
+            // A wholesale map replacement starts a new history lineage.
+            this.redoStack.length = 0;
+            this.notifyHistoryChange();
             this.resetView();
         } catch (e) {
             throw new Error("Failed to import map: " + e);
@@ -957,6 +1090,8 @@ export class BCMapEditor {
     }
     public newMap(): void {
         this.mapData = this.createDefaultMap();
+        this.redoStack.length = 0;
+        this.notifyHistoryChange();
         this.selectedTile = this.tileMap.get(GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;
         this.updateStatusSelection();
@@ -983,6 +1118,7 @@ export class BCMapEditor {
         this.redoStack = this.redoStack.slice(-this.redoCap);
         this.mapData.Tiles = prev[0];
         this.mapData.Objects = prev[1];
+        this.notifyHistoryChange();
         this.requestRender();
     }
 
@@ -993,6 +1129,7 @@ export class BCMapEditor {
         this.undoStack = this.undoStack.slice(-this.undoCap);
         this.mapData.Tiles = next[0];
         this.mapData.Objects = next[1];
+        this.notifyHistoryChange();
         this.requestRender();
     }
 
@@ -1170,8 +1307,7 @@ export class BCMapEditor {
                         "url(assets/objects/" + key + ".png)";
                     item.title = obj.Style;
                 } else {
-                    item.innerHTML =
-                        '<i class="bi bi-erase" style="font-size:1.5rem;color:#adb5bd;line-height:48px;"></i>';
+                    item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
                 }
                 item.addEventListener("click", () => {

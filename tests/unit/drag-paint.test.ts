@@ -97,10 +97,11 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).isPainting).toBe(true);
     });
 
-    it("should not set isPainting on right click", () => {
+    it("should pan (not paint) on right press", () => {
         editor.onCanvasMouseDown(createMouseEvent({ button: 2 }));
         expect((editor as any).isPainting).toBe(false);
-        expect((editor as any).isPanning).toBe(false);
+        expect((editor as any).isPanning).toBe(true);
+        editor.onCanvasMouseUp();
     });
 
     it("should not set isPainting on middle click", () => {
@@ -109,12 +110,13 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).isPanning).toBe(false);
     });
 
-    it("should not set isPainting with Ctrl+left click (pan)", () => {
+    it("should do nothing on Ctrl+left press (pan moved to right-drag)", () => {
         editor.onCanvasMouseDown(
             createMouseEvent({ button: 0, ctrlKey: true }),
         );
         expect((editor as any).isPainting).toBe(false);
-        expect((editor as any).isPanning).toBe(true);
+        expect((editor as any).isPanning).toBe(false);
+        editor.onCanvasMouseUp();
     });
 
     it("should clear isPainting on mouse up", () => {
@@ -127,19 +129,28 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).isPanning).toBe(false);
     });
 
-    it("should paint on click (onCanvasClick)", () => {
-        expect(() => editor.onCanvasClick(createMouseEvent())).not.toThrow();
+    it("should paint on mouse down (stroke start) with one undo entry", () => {
+        editor.onCanvasMouseDown(
+            createMouseEvent({ clientX: 107, clientY: 7 }),
+        );
+        editor.onCanvasMouseUp();
+        expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
+        expect((editor as any).undoStack.length).toBe(1);
     });
 
-    it("should paint on a plain left click", () => {
-        editor.onCanvasClick(createMouseEvent({ clientX: 107, clientY: 7 }));
+    it("should paint on a plain left press", () => {
+        editor.onCanvasMouseDown(
+            createMouseEvent({ clientX: 107, clientY: 7 }),
+        );
+        editor.onCanvasMouseUp();
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(215);
     });
 
-    it("should not paint on Ctrl+left click (reserved for panning)", () => {
-        editor.onCanvasClick(
+    it("should not paint on Ctrl+left press (dead gesture)", () => {
+        editor.onCanvasMouseDown(
             createMouseEvent({ clientX: 107, clientY: 7, ctrlKey: true }),
         );
+        editor.onCanvasMouseUp();
         expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(210);
     });
 
@@ -156,26 +167,52 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).isPanning).toBe(false);
         editor.onCanvasMouseUp();
 
-        // Right click -> no action
+        // Right press -> panning
         editor.onCanvasMouseDown(createMouseEvent({ button: 2 }));
         expect((editor as any).isPainting).toBe(false);
-        expect((editor as any).isPanning).toBe(false);
+        expect((editor as any).isPanning).toBe(true);
         editor.onCanvasMouseUp();
 
-        // Ctrl+Left -> panning
+        // Ctrl+Left -> nothing (pan moved to right-drag)
         editor.onCanvasMouseDown(
             createMouseEvent({ button: 0, ctrlKey: true }),
         );
         expect((editor as any).isPainting).toBe(false);
-        expect((editor as any).isPanning).toBe(true);
+        expect((editor as any).isPanning).toBe(false);
         editor.onCanvasMouseUp();
 
-        // Meta+Left -> panning
+        // Meta+Left -> nothing (pan moved to right-drag)
         editor.onCanvasMouseDown(
             createMouseEvent({ button: 0, metaKey: true }),
         );
         expect((editor as any).isPainting).toBe(false);
-        expect((editor as any).isPanning).toBe(true);
+        expect((editor as any).isPanning).toBe(false);
         editor.onCanvasMouseUp();
+    });
+
+    it("should pan the map on right-drag without painting or undo entries", () => {
+        const panXBefore = (editor as any).panX;
+        editor.onCanvasMouseDown(
+            createMouseEvent({ button: 2, clientX: 400, clientY: 300 }),
+        );
+        editor.onCanvasMouseMove(
+            createMouseEvent({ button: 2, clientX: 450, clientY: 320 }),
+        );
+        editor.onCanvasMouseUp();
+        // dpr=1 in this mock, so pan follows the CSS-pixel delta exactly
+        expect((editor as any).panX).toBe(panXBefore + 50);
+        expect((editor as any).panY).toBe(20);
+        expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(210);
+        expect((editor as any).undoStack.length).toBe(0);
+    });
+
+    it("should suppress the browser context menu on the canvas", () => {
+        const listeners = (
+            mockCanvas.addEventListener as any
+        ).mock.calls.filter(([type]: string[]) => type === "contextmenu");
+        expect(listeners.length).toBe(1);
+        const preventDefault = vi.fn();
+        listeners[0][1]({ preventDefault });
+        expect(preventDefault).toHaveBeenCalled();
     });
 });

@@ -5,6 +5,13 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.test
+        # Run as the invoking host user so bind-mounted outputs
+        # (playwright-report/, test-results/) are not left root-owned.
+        user: "${UID:-1000}:${GID:-1000}"
+        environment:
+            # Numeric UIDs have no passwd entry; keep $HOME-based cache
+            # writes on a writable path.
+            HOME: /tmp
         volumes:
             - .:/app
             - /app/node_modules
@@ -20,6 +27,9 @@ services:
         build:
             context: .
             dockerfile: Dockerfile.test
+        user: "${UID:-1000}:${GID:-1000}"
+        environment:
+            HOME: /tmp
         volumes:
             - .:/app
             - /app/node_modules

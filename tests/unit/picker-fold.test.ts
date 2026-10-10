@@ -127,4 +127,18 @@ describe("Foldable pickers", () => {
         expect(() => editor.filterPickers("")).not.toThrow();
         expect((editor as any).searchTerm).toBe("");
     });
+
+    it("renders Blank picker items as bundled inline SVG, not a CDN glyph", () => {
+        editor.populatePickers();
+        const blanks = created.filter(
+            (el) =>
+                el.className === "sprite-item" && el.title === "Blank (Erase)",
+        );
+        expect(blanks.length).toBeGreaterThan(0);
+        for (const item of blanks) {
+            expect(item.innerHTML).toContain("picker-eraser-icon");
+            expect(item.innerHTML).toContain("<svg");
+            expect(item.innerHTML).not.toContain("bi-erase");
+        }
+    });
 });

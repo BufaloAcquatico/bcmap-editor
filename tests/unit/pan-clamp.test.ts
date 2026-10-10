@@ -62,7 +62,8 @@ global.Image = vi.fn(() => ({ onerror: null, onload: null, src: "" })) as any;
 
 function createMouseEvent(overrides: Partial<MouseEvent> = {}): MouseEvent {
     return {
-        button: 0,
+        button: overrides.button ?? 0,
+        preventDefault: vi.fn(),
         ctrlKey: overrides.ctrlKey ?? false,
         clientX: overrides.clientX ?? 0,
         clientY: overrides.clientY ?? 0,
@@ -72,15 +73,14 @@ function createMouseEvent(overrides: Partial<MouseEvent> = {}): MouseEvent {
     } as MouseEvent;
 }
 
-function ctrlDrag(
+function rightDrag(
     editor: BCMapEditor,
     from: { x: number; y: number },
     to: { x: number; y: number },
 ) {
     editor.onCanvasMouseDown(
         createMouseEvent({
-            button: 0,
-            ctrlKey: true,
+            button: 2,
             clientX: from.x,
             clientY: from.y,
         }),
@@ -103,7 +103,7 @@ describe("Pan clamping", () => {
 
     it("stays within the overscroll margin when the map fits (regression)", () => {
         (editor as any).zoom = 0.5; // drawSize snaps to 320 (40-px steps)
-        ctrlDrag(editor, { x: 0, y: 0 }, { x: 20, y: 10 });
+        rightDrag(editor, { x: 0, y: 0 }, { x: 20, y: 10 });
         // PAN_OVERSCROLL_TILES = 15, tileSize = 8, margin = 120
         // Drag by (20,10) is within clamp, so panX=20, panY=10
         expect((editor as any).panX).toBe(20); // clamped to 15 tiles
@@ -116,14 +116,14 @@ describe("Pan clamping", () => {
         // Clamp limit X: (1800-800)/2 + 675 = 500 + 675 = 1175
         // Clamp limit Y: (1800-600)/2 + 675 = 600 + 675 = 1275
         // Drag by (10000, 10000) beyond clamp, so panX=1175, panY=1275
-        ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 10000 });
+        rightDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 10000 });
         expect((editor as any).panX).toBe(1175);
         expect((editor as any).panY).toBe(1275);
     });
 
     it("clamps to the negative border without a shift", () => {
         (editor as any).zoom = 3;
-        ctrlDrag(editor, { x: 0, y: 0 }, { x: -10000, y: -10000 });
+        rightDrag(editor, { x: 0, y: 0 }, { x: -10000, y: -10000 });
         // PAN_OVERSCROLL_TILES = 15
         expect((editor as any).panX).toBe(-1175);
         expect((editor as any).panY).toBe(-1275);
@@ -133,14 +133,14 @@ describe("Pan clamping", () => {
         // zoom 1 -> drawSize 600, tileSize 15, margin = 15*15 = 225
         // limitX = max(0, (600-800)/2) + 225 = 0 + 225 = 225
         (editor as any).zoom = 1;
-        ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
+        rightDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
         expect((editor as any).panX).toBe(225);
 
         // zoom 2 -> drawSize 1200, tileSize 30, margin = 15*30 = 450
         // limitX = max(0, (1200-800)/2) + 450 = 200 + 450 = 650
         (editor as any).panX = 0;
         (editor as any).zoom = 2;
-        ctrlDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
+        rightDrag(editor, { x: 0, y: 0 }, { x: 10000, y: 0 });
         expect((editor as any).panX).toBe(650);
     });
 

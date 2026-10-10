@@ -3,6 +3,9 @@
     "version": "1.0.0",
     "description": "Browser-based map editor for ropeybot map system",
     "main": "map-editor.html",
+    "engines": {
+        "node": ">=20"
+    },
     "scripts": {
         "build": "tsc && node scripts/embed-js.js",
         "dev": "tsc --watch",

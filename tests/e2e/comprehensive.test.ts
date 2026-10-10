@@ -62,7 +62,9 @@ test("object picker categories load with thumbnails", async ({
 
     // Every Blank object entry from the catalog is present (one per object category group)
     const blankItem = await page
-        .locator("#objectCategories .sprite-item:has(i.bi-erase):visible")
+        .locator(
+            "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible",
+        )
         .count();
     // 4 object category groups have Blanks: Floor Decorations, Floor Items, Floor Obstacles, Wall
     // Banners category has no Blank objects
@@ -204,7 +206,7 @@ test("zoom and pan controls work", async ({ page }: { page: Page }) => {
     expect(zoomText).toMatch(/100%/);
 });
 
-test("ctrl+drag panning does not snap and overscrolls 2 tiles", async ({
+test("right-drag panning does not snap and overscrolls 2 tiles", async ({
     page,
 }: {
     page: Page;
@@ -225,11 +227,9 @@ test("ctrl+drag panning does not snap and overscrolls 2 tiles", async ({
 
     const dragBy = async (dx: number, dy: number) => {
         await page.mouse.move(cx, cy);
-        await page.keyboard.down("Control");
-        await page.mouse.down();
+        await page.mouse.down({ button: "right" });
         await page.mouse.move(cx + dx, cy + dy, { steps: 5 });
-        await page.mouse.up();
-        await page.keyboard.up("Control");
+        await page.mouse.up({ button: "right" });
     };
 
     const expectedPan = (dx: number, dy: number) =>
@@ -269,6 +269,41 @@ test("ctrl+drag panning does not snap and overscrolls 2 tiles", async ({
     pan = await readPan();
     expect(pan.x).toBeCloseTo(expected.x, 0);
     expect(pan.y).toBeCloseTo(expected.y, 0);
+});
+
+test("ctrl+left-drag no longer pans (pan moved to right-drag)", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await page.goto("http://localhost:8080/map-editor.html");
+    await page.waitForSelector("#mapCanvas");
+
+    const canvas = page.locator("#mapCanvas");
+    const box = (await canvas.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    await page.evaluate(() => (window as any).editor.setZoom(3));
+    const before = await page.evaluate(() => ({
+        x: (window as any).editor.panX,
+        y: (window as any).editor.panY,
+        tiles: (window as any).editor.getMapData().Tiles,
+    }));
+    await page.mouse.move(cx, cy);
+    await page.keyboard.down("Control");
+    await page.mouse.down();
+    await page.mouse.move(cx + 100, cy + 60, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Control");
+    const after = await page.evaluate(() => ({
+        x: (window as any).editor.panX,
+        y: (window as any).editor.panY,
+        tiles: (window as any).editor.getMapData().Tiles,
+    }));
+    expect(after.x).toBe(before.x);
+    expect(after.y).toBe(before.y);
+    expect(after.tiles).toBe(before.tiles);
 });
 
 test("layer toggle switches pickers", async ({ page }: { page: Page }) => {

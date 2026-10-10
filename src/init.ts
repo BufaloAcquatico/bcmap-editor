@@ -158,11 +158,52 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.toggleHelp();
     });
 
-    // Undo (Ctrl+Z / Cmd+Z) keybind
+    // Undo/Redo (buttons + keybinds)
+    const btnUndo = document.getElementById(
+        "btnUndo",
+    ) as HTMLButtonElement | null;
+    const btnRedo = document.getElementById(
+        "btnRedo",
+    ) as HTMLButtonElement | null;
+    const syncHistoryButtons = () => {
+        if (btnUndo) btnUndo.disabled = !editor.canUndo();
+        if (btnRedo) btnRedo.disabled = !editor.canRedo();
+    };
+    btnUndo?.addEventListener("click", () => {
+        editor.undo();
+    });
+    btnRedo?.addEventListener("click", () => {
+        editor.redo();
+    });
+    editor.onHistoryChange = syncHistoryButtons;
+    syncHistoryButtons();
+
+    const isEditableTarget = (e: KeyboardEvent): boolean => {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName;
+        return (
+            tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable
+        );
+    };
+
+    // Undo (Ctrl+Z / Cmd+Z, without Shift) keybind
     window.addEventListener("keydown", (e) => {
-        if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            editor.undo();
-        }
+        if (e.key.toLowerCase() !== "z") return;
+        if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
+        if (isEditableTarget(e)) return;
+        e.preventDefault();
+        editor.undo();
+    });
+
+    // Redo (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z) keybind
+    window.addEventListener("keydown", (e) => {
+        const key = e.key.toLowerCase();
+        const isRedoKey =
+            (key === "y" && (e.ctrlKey || e.metaKey)) ||
+            (key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey);
+        if (!isRedoKey) return;
+        if (isEditableTarget(e)) return;
+        e.preventDefault();
+        editor.redo();
     });
 });

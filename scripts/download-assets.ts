@@ -223,13 +223,105 @@ function objectJobs(): Job[] {
     });
 }
 
+// Neighbor-variant textures for expanding objects (BC BuildImageName).
+// Each entry names the catalog Type (save folder) and the variant style.
+// Variants are served from the same MapObject/<assetType>/ folder as the
+// base sprite.
+interface VariantSpec {
+    type: string;
+    /** Catalog ID of the base sprite; its server folder is reused. */
+    baseId: number;
+    variants: string[];
+}
+
+const OBJECT_VARIANTS: VariantSpec[] = [
+    {
+        type: "FloorDecorationExpanding",
+        baseId: 710,
+        variants: [
+            // NOTE: upstream BC spells this file "CouckPinkSmall" (typo in
+            // ChatRoomMap.ts BuildImageName); the correctly-spelled
+            // "CouchPinkSmall.png" does not exist on the R132 server (404).
+            "CouckPinkSmall",
+            "CouchPinkLeft",
+            "CouchPinkMiddle",
+            "CouchPinkRight",
+            "BedBlueSmall",
+            "BedBlueLeft",
+            "BedBlueMiddle",
+            "BedBlueRight",
+            "BallPitSmall",
+            "BallPitLeft",
+            "BallPitMiddle",
+            "BallPitRight",
+            "VikingTableSmall",
+            "VikingTableLeft",
+            "VikingTableMiddle",
+            "VikingTableRight",
+            "Railroad",
+            "RailroadNorth",
+            "RailroadSouth",
+            "RailroadEast",
+            "RailroadWest",
+            "RailroadNorthSouth",
+            "RailroadNorthEast",
+            "RailroadNorthWest",
+            "RailroadSouthEast",
+            "RailroadSouthWest",
+            "RailroadEastWest",
+            "RailroadNorthSouthEast",
+            "RailroadNorthSouthWest",
+            "RailroadNorthEastWest",
+            "RailroadSouthEastWest",
+            "RailroadNorthSouthEastWest",
+        ],
+    },
+    {
+        type: "FloorObstacle",
+        baseId: 2033,
+        variants: [
+            "VelourRopeBarrierLeft",
+            "VelourRopeBarrierMiddle",
+            "VelourRopeBarrierRight",
+        ],
+    },
+];
+
+function objectVariantJobs(): Job[] {
+    const jobs: Job[] = [];
+    for (const spec of OBJECT_VARIANTS) {
+        // Variants are served from the same MapObject folder as the base
+        // sprite of the group (exact per-group folder, incl. MOVED_OBJECTS).
+        const base = OBJECT_CATALOG.find((o) => o.ID === spec.baseId);
+        const assetType = base
+            ? (MOVED_OBJECTS[`${base.Type}/${base.Style}`] ?? base.Type)
+            : spec.type;
+        for (const style of spec.variants) {
+            jobs.push({
+                label: `objects/${spec.type}/${style}`,
+                url: `${BASE_URL}/MapObject/${assetType}/${style}.png`,
+                dest: path.join(
+                    __dirname,
+                    "..",
+                    "assets",
+                    "objects",
+                    spec.type,
+                    `${style}.png`,
+                ),
+            });
+        }
+    }
+    return jobs;
+}
+
 async function main(): Promise<void> {
     const opts = parseOptions();
     const tiles = tileJobs();
     const objects = objectJobs();
+    const variants = objectVariantJobs();
     const wallEffects = wallEffectJobs();
     console.log(
-        `Downloading ${tiles.length} tiles, ${objects.length} objects, ${wallEffects.length} wall effects ` +
+        `Downloading ${tiles.length} tiles, ${objects.length} objects, ${variants.length} object variants, ${wallEffects.length} wall effects ` +
             `(concurrency=${opts.concurrency}, delay=${opts.delayMs}ms, retries=${opts.retries})...`,
     );
 
@@ -243,6 +335,11 @@ async function main(): Promise<void> {
         `Objects: ${objectResult.ok} downloaded, ${objectResult.skipped} skipped, ${objectResult.failed.length} failed`,
     );
 
+    const variantResult = await runPool(variants, opts);
+    console.log(
+        `Variants: ${variantResult.ok} downloaded, ${variantResult.skipped} skipped, ${variantResult.failed.length} failed`,
+    );
+
     const wallEffectResult = await runPool(wallEffects, opts);
     console.log(
         `WallEffects: ${wallEffectResult.ok} downloaded, ${wallEffectResult.skipped} skipped, ${wallEffectResult.failed.length} failed`,
@@ -251,6 +348,7 @@ async function main(): Promise<void> {
     const failed = [
         ...tileResult.failed,
         ...objectResult.failed,
+        ...variantResult.failed,
         ...wallEffectResult.failed,
     ];
     if (failed.length > 0) {

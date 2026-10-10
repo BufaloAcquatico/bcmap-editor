@@ -161,6 +161,13 @@ describe("Viewport culling", () => {
 
 describe("Render coalescing", () => {
     it("collapses a burst of paintAt calls into one scheduled render", () => {
+        // Paint a non-default tile so the burst contains real changes
+        // (repainting the default grass is a no-op and schedules nothing).
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
         for (let i = 0; i < 100; i++) {
             (editor as any).paintAt({ X: i % 40, Y: Math.floor(i / 40) });
         }
@@ -172,12 +179,25 @@ describe("Render coalescing", () => {
     });
 
     it("schedules a new render after the previous one flushed", () => {
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
         (editor as any).paintAt({ X: 1, Y: 1 });
         expect(rafQueue).toHaveLength(1);
         rafQueue.shift()!(performance.now());
         (editor as any).paintAt({ X: 2, Y: 2 });
         expect(rafQueue).toHaveLength(1);
         rafQueue.shift()!(performance.now());
+        expect(rafQueue).toHaveLength(0);
+    });
+
+    it("a burst of no-op repaints schedules no render", () => {
+        // Default selection is grass on an all-grass map: nothing changes.
+        for (let i = 0; i < 100; i++) {
+            (editor as any).paintAt({ X: i % 40, Y: Math.floor(i / 40) });
+        }
         expect(rafQueue).toHaveLength(0);
     });
 });

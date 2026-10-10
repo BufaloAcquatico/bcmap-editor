@@ -9,7 +9,7 @@ A browser-based map editor for the ropeybot map system. This editor allows you t
 - **Full Game Catalog**: All 153 tiles and 225 objects from Bondage Club's ChatRoomMap data, kept verbatim
 - **BC Asset Sprites**: Loads actual game sprites from downloaded BC assets
 - **Categorized Picker**: Tile and object pickers organized by category with search
-- **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with Ctrl/Cmd + left-drag
+- **Zoom & Pan**: Mouse wheel zoom (3x3 min to 40x40 max), pan with right-drag
 - **On-canvas Controls**: Quick reference shown in the bottom-right corner of the map
 - **Import/Export**: LZString compressed map codes (same format as ropeybot)
 - **Dark Mode UI**: Clean dark theme with Bootstrap 5
