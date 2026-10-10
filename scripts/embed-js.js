@@ -10,6 +10,7 @@ const files = [
     "history.js",
     "mapdata.js",
     "picker.js",
+    "render.js",
     "editor.js",
     "init.js",
 ];

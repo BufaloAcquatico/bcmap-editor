@@ -3170,28 +3170,155 @@ class MapPicker {
 window.MapPicker = MapPicker;
 
 "use strict";
-// BCMap Editor - TypeScript Source
-window.BCMapEditor = void 0;
-
+// BCMap Editor - pure render-resolution helpers.
+//
+// BC-faithful sprite selection (wall edge effects, neighbor-aware object
+// variants) with no DOM or canvas access, so every rule is unit-testable
+// without mocks. The editor owns map/chart lookups and the paint loop;
+// these functions resolve *which* sprite a cell needs.
+//
+// Rule sources: BondageClub ChatRoomMapView (FindWallEffectTile,
+// FloorWallEffect, BuildImageName), mirrored from
+// ropeybot/src/bcdata/ChatRoomMap.ts.
+//
+// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
+window.RAILROAD_PREVIEW_ID = window.EXPANDABLE_LEFT_RIGHT = void 0;
+window.findWallEffectTile = findWallEffectTile;
+window.findFloorWallEffect = findFloorWallEffect;
+window.resolveExpandableVariant = resolveExpandableVariant;
+window.railroadStyleName = railroadStyleName;
 const constants_1 = window;
-const history_1 = window;
-const mapdata_1 = window;
-const picker_1 = window;
-// Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic
-// (ropeybot/src/bcdata/ChatRoomMap.ts). `prefix` is the texture name stem,
-// `single` the variant used when the object has no same-ID neighbors.
+// Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic.
+// `prefix` is the texture name stem, `single` the variant used when the
+// object has no same-ID neighbors.
 // NOTE: upstream spells the single-couch file "CouckPinkSmall" (typo); the
 // correctly-spelled name 404s on the R132 server, so the typo is used here.
 // Railroad (750) is connectivity-based and handled separately; Velour rope
 // barrier (2033) reuses its base style name when single.
-const EXPANDABLE_LEFT_RIGHT = new Map([
+window.EXPANDABLE_LEFT_RIGHT = new Map([
     [710, { prefix: "CouchPink", single: "CouckPinkSmall" }],
     [720, { prefix: "BedBlue", single: "BedBlueSmall" }],
     [730, { prefix: "BallPit", single: "BallPitSmall" }],
     [740, { prefix: "VikingTable", single: "VikingTableSmall" }],
     [2033, { prefix: "VelourRopeBarrier", single: "VelourRopeBarrier" }],
 ]);
-const RAILROAD_PREVIEW_ID = 750;
+window.RAILROAD_PREVIEW_ID = 750;
+/**
+ * BC's FindWallEffectTile algorithm (ChatRoomMapViewFindWallEffectTile).
+ * CW = left, CE = right, SW/S C/SE = bottom-left/bottom/bottom-right.
+ * Returns the effect index (0-21) or -1 for no effect.
+ */
+function findWallEffectTile(cw, ce, sw, sc, se) {
+    if (cw && ce && sw && sc && se)
+        return 0;
+    if (!cw && !ce && !sc)
+        return 1;
+    if (!cw && ce && !sc)
+        return 2;
+    if (cw && !ce && !sc)
+        return 3;
+    if (cw && ce && !sc)
+        return 4;
+    if (!cw && !ce && sw && sc && se)
+        return 5;
+    if (!cw && !ce && sw && sc && !se)
+        return 6;
+    if (!cw && !ce && !sw && sc && se)
+        return 7;
+    if (cw && ce && !sw && sc && !se)
+        return 8;
+    if (!cw && ce && !sw && sc && !se)
+        return 9;
+    if (cw && !ce && !sw && sc && !se)
+        return 10;
+    if (!cw && !ce && !se && sc && !sw)
+        return 11;
+    if (cw && !ce && !se && sc && !sw)
+        return 12;
+    if (!cw && ce && !se && sc && !sw)
+        return 13;
+    if (!cw && ce && se && sc && sw)
+        return 14;
+    if (cw && !ce && se && sc && sw)
+        return 15;
+    if (cw && !ce && sw && sc)
+        return 16;
+    if (!cw && ce && sc && se)
+        return 17;
+    if (cw && ce && sw && sc && !se)
+        return 18;
+    if (cw && ce && !sw && sc && se)
+        return 19;
+    if (!cw && ce && sw && sc && !se)
+        return 20;
+    if (cw && !ce && !sw && sc && se)
+        return 21;
+    return -1;
+}
+/**
+ * Bottom-edge effect for non-wall tiles above walls. HalfWall tiles use
+ * the 0/11-13 set; everything else uses the 50-53 set (no match: -1).
+ * A HalfWall with no half-wall match falls through to the floor set,
+ * exactly like the game.
+ */
+function findFloorWallEffect(sw, sc, se, isHalfWall) {
+    if (isHalfWall) {
+        if (!sw && sc && !se)
+            return 11;
+        if (!sw && sc && se)
+            return 12;
+        if (sw && sc && !se)
+            return 13;
+        if (sw && sc && se)
+            return 0;
+    }
+    if (!sw && sc && !se)
+        return 50;
+    if (!sw && sc && se)
+        return 51;
+    if (sw && sc && !se)
+        return 52;
+    if (sw && sc && se)
+        return 53;
+    return -1;
+}
+/**
+ * Left/Middle/Right/Single selection for expanding objects. Each cell
+ * resolves independently, so runs of 3+ identical objects naturally become
+ * Left/Middle.../Middle/Right with no group pre-pass.
+ */
+function resolveExpandableVariant(prefix, single, hasLeft, hasRight) {
+    if (hasLeft && hasRight)
+        return prefix + "Middle";
+    if (hasLeft)
+        return prefix + "Right";
+    if (hasRight)
+        return prefix + "Left";
+    return single;
+}
+/**
+ * Railroad connectivity style name. `neighbors` is [north, south, east,
+ * west]; the suffix keeps BC's strict N/S/E/W order ("Railroad",
+ * "RailroadNorth", "RailroadNorthSouth", ...).
+ */
+function railroadStyleName(neighbors) {
+    let suffix = "";
+    neighbors.forEach((has, b) => {
+        if (has)
+            suffix += constants_1.RAILROAD_DIRECTIONS[b];
+    });
+    return "Railroad" + suffix;
+}
+
+"use strict";
+// BCMap Editor - TypeScript Source
+window.BCMapEditor = void 0;
+
+
+const history_1 = window;
+const mapdata_1 = window;
+const picker_1 = window;
+const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
 const ZOOM_ANIMATION_EPSILON = 0.001;
@@ -3284,12 +3411,12 @@ class BCMapEditor {
         // Missing files simply fail to load and the renderer falls back to
         // the base sprite, so this list can name every BC variant.
         const variantJobs = [];
-        EXPANDABLE_LEFT_RIGHT.forEach(({ prefix, single }, id) => {
+        render_1.EXPANDABLE_LEFT_RIGHT.forEach(({ prefix, single }, id) => {
             const folder = this.fullObjectMap.get(id)?.Type ?? "FloorDecorationExpanding";
             variantJobs.push([folder, single], [folder, prefix + "Left"], [folder, prefix + "Middle"], [folder, prefix + "Right"]);
         });
         {
-            const folder = this.fullObjectMap.get(RAILROAD_PREVIEW_ID)?.Type ??
+            const folder = this.fullObjectMap.get(render_1.RAILROAD_PREVIEW_ID)?.Type ??
                 "FloorDecorationExpanding";
             for (let mask = 0; mask < 16; mask++) {
                 let suffix = "";
@@ -3634,57 +3761,7 @@ class BCMapEditor {
             const t = this.tileMap.get(tid) ?? this.fullTileMap.get(tid);
             return t !== undefined && t.Type === "Wall";
         };
-        const CW = isWall(x - 1, y);
-        const CE = isWall(x + 1, y);
-        const SW = isWall(x - 1, y + 1);
-        const SC = isWall(x, y + 1);
-        const SE = isWall(x + 1, y + 1);
-        // BC's FindWallEffectTile algorithm (ChatRoomMapViewFindWallEffectTile)
-        if (CW && CE && SW && SC && SE)
-            return 0;
-        if (!CW && !CE && !SC)
-            return 1;
-        if (!CW && CE && !SC)
-            return 2;
-        if (CW && !CE && !SC)
-            return 3;
-        if (CW && CE && !SC)
-            return 4;
-        if (!CW && !CE && SW && SC && SE)
-            return 5;
-        if (!CW && !CE && SW && SC && !SE)
-            return 6;
-        if (!CW && !CE && !SW && SC && SE)
-            return 7;
-        if (CW && CE && !SW && SC && !SE)
-            return 8;
-        if (!CW && CE && !SW && SC && !SE)
-            return 9;
-        if (CW && !CE && !SW && SC && !SE)
-            return 10;
-        if (!CW && !CE && !SE && SC && !SW)
-            return 11;
-        if (CW && !CE && !SE && SC && !SW)
-            return 12;
-        if (!CW && CE && !SE && SC && !SW)
-            return 13;
-        if (!CW && CE && SE && SC && SW)
-            return 14;
-        if (CW && !CE && SE && SC && SW)
-            return 15;
-        if (CW && !CE && SW && SC)
-            return 16;
-        if (!CW && CE && SC && SE)
-            return 17;
-        if (CW && CE && SW && SC && !SE)
-            return 18;
-        if (CW && CE && !SW && SC && SE)
-            return 19;
-        if (!CW && CE && SW && SC && !SE)
-            return 20;
-        if (CW && !CE && !SW && SC && SE)
-            return 21;
-        return -1;
+        return (0, render_1.findWallEffectTile)(isWall(x - 1, y), isWall(x + 1, y), isWall(x - 1, y + 1), isWall(x, y + 1), isWall(x + 1, y + 1));
     }
     computeFloorWallEffect(x, y) {
         if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
@@ -3709,27 +3786,7 @@ class BCMapEditor {
         const SW = isWall(x - 1, y + 1);
         const SC = isWall(x, y + 1);
         const SE = isWall(x + 1, y + 1);
-        // If here is HalfWall
-        if (tile.Style === "HalfWall") {
-            if (!SW && SC && !SE)
-                return 11;
-            if (!SW && SC && SE)
-                return 12;
-            if (SW && SC && !SE)
-                return 13;
-            if (SW && SC && SE)
-                return 0;
-        }
-        // Find the "3D" wall effect for floor tiles
-        if (!SW && SC && !SE)
-            return 50;
-        if (!SW && SC && SE)
-            return 51;
-        if (SW && SC && !SE)
-            return 52;
-        if (SW && SC && SE)
-            return 53;
-        return -1;
+        return (0, render_1.findFloorWallEffect)(SW, SC, SE, tile.Style === "HalfWall");
     }
     // Bounds-checked object lookup by grid cell. Returns null outside the map
     // or for empty cells (mirrors ChatRoomMapViewGetObjectAtPos semantics).
@@ -3750,30 +3807,17 @@ class BCMapEditor {
     // naturally become Left/Middle.../Middle/Right with no group pre-pass
     // and no overlapping stretched draws.
     resolveVariantImageName(x, y, obj) {
-        const expandable = EXPANDABLE_LEFT_RIGHT.get(obj.ID);
+        const expandable = render_1.EXPANDABLE_LEFT_RIGHT.get(obj.ID);
         if (expandable) {
-            const hasLeft = this.hasSameIdNeighbor(x - 1, y, obj.ID);
-            const hasRight = this.hasSameIdNeighbor(x + 1, y, obj.ID);
-            if (hasLeft && hasRight)
-                return expandable.prefix + "Middle";
-            if (hasLeft)
-                return expandable.prefix + "Right";
-            if (hasRight)
-                return expandable.prefix + "Left";
-            return expandable.single;
+            return (0, render_1.resolveExpandableVariant)(expandable.prefix, expandable.single, this.hasSameIdNeighbor(x - 1, y, obj.ID), this.hasSameIdNeighbor(x + 1, y, obj.ID));
         }
-        if (obj.ID === RAILROAD_PREVIEW_ID) {
-            // Suffix built in strict North/South/East/West order (BC source).
-            let suffix = "";
-            if (this.hasSameIdNeighbor(x, y - 1, obj.ID))
-                suffix += "North";
-            if (this.hasSameIdNeighbor(x, y + 1, obj.ID))
-                suffix += "South";
-            if (this.hasSameIdNeighbor(x + 1, y, obj.ID))
-                suffix += "East";
-            if (this.hasSameIdNeighbor(x - 1, y, obj.ID))
-                suffix += "West";
-            return "Railroad" + suffix;
+        if (obj.ID === render_1.RAILROAD_PREVIEW_ID) {
+            return (0, render_1.railroadStyleName)([
+                this.hasSameIdNeighbor(x, y - 1, obj.ID),
+                this.hasSameIdNeighbor(x, y + 1, obj.ID),
+                this.hasSameIdNeighbor(x + 1, y, obj.ID),
+                this.hasSameIdNeighbor(x - 1, y, obj.ID),
+            ]);
         }
         return obj.Style;
     }
