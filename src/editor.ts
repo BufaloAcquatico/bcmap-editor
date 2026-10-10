@@ -11,6 +11,7 @@ import {
     type ObjectDef,
     type TileDef,
 } from "./catalog";
+import { RAILROAD_DIRECTIONS, WALL_EFFECT_INDICES } from "./constants";
 
 export type { ObjectDef, TileDef } from "./catalog";
 
@@ -186,12 +187,11 @@ export class BCMapEditor {
             const folder =
                 this.fullObjectMap.get(RAILROAD_PREVIEW_ID)?.Type ??
                 "FloorDecorationExpanding";
-            const directions = ["North", "South", "East", "West"];
             for (let mask = 0; mask < 16; mask++) {
                 let suffix = "";
-                for (let b = 0; b < 4; b++) {
-                    if (mask & (1 << b)) suffix += directions[b];
-                }
+                RAILROAD_DIRECTIONS.forEach((dir, b) => {
+                    if (mask & (1 << b)) suffix += dir;
+                });
                 variantJobs.push([folder, "Railroad" + suffix]);
             }
         }
@@ -205,15 +205,7 @@ export class BCMapEditor {
             }
         }
         // Preload WallEffect sprites (indices 0-21, 50-53)
-        for (let i = 0; i <= 21; i++) {
-            if (!this.wallEffectImageCache.has(i)) {
-                const img = new Image();
-                img.onerror = () => {};
-                img.src = `assets/tiles/WallEffect/${i}.png`;
-                this.wallEffectImageCache.set(i, img);
-            }
-        }
-        for (let i = 50; i <= 53; i++) {
+        for (const i of WALL_EFFECT_INDICES) {
             if (!this.wallEffectImageCache.has(i)) {
                 const img = new Image();
                 img.onerror = () => {};

@@ -2753,10 +2753,55 @@ window.FULL_OBJECT_CATALOG = [
 ];
 
 "use strict";
+// BCMap Editor - shared game-data constants (Bondage Club R132).
+//
+// Used by both the editor runtime (src/editor.ts, bundled into
+// map-editor.html by scripts/embed-js.js) and scripts/download-assets.ts.
+// Kept here rather than in catalog.ts because catalog.ts is generated
+// verbatim game data ("do not edit by hand") while these are hand-written
+// derivations of BC's BuildImageName / WallEffect rules. A single source
+// keeps the runtime preloader and the asset downloader from drifting apart.
+window.RAILROAD_DIRECTIONS = window.WALL_EFFECT_INDICES = void 0;
+window.railroadVariantStyles = railroadVariantStyles;
+/** WallEffect sprite indices served by the game server (0-21, 50-53). */
+window.WALL_EFFECT_INDICES = [
+    ...Array.from({ length: 22 }, (_, i) => i),
+    50,
+    51,
+    52,
+    53,
+];
+/**
+ * Compass directions used to build Railroad connectivity suffixes
+ * ("Railroad", "RailroadNorth", "RailroadNorthSouth", ...).
+ * Order is significant: bit position in the 4-bit neighbor mask.
+ */
+window.RAILROAD_DIRECTIONS = [
+    "North",
+    "South",
+    "East",
+    "West",
+];
+/** All 16 Railroad variant style names ("Railroad" + N/S/E/W suffixes). */
+function railroadVariantStyles() {
+    const styles = [];
+    for (let mask = 0; mask < 16; mask++) {
+        let suffix = "";
+        window.RAILROAD_DIRECTIONS.forEach((dir, b) => {
+            if (mask & (1 << b))
+                suffix += dir;
+        });
+        styles.push("Railroad" + suffix);
+    }
+    return styles;
+}
+
+"use strict";
 // BCMap Editor - TypeScript Source
 window.BCMapEditor = window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
 const lz_string_1 = LZString;
 const catalog_1 = window;
+const constants_1 = window;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.GRASS_TILE_ID = 210;
@@ -2896,13 +2941,12 @@ class BCMapEditor {
         {
             const folder = this.fullObjectMap.get(RAILROAD_PREVIEW_ID)?.Type ??
                 "FloorDecorationExpanding";
-            const directions = ["North", "South", "East", "West"];
             for (let mask = 0; mask < 16; mask++) {
                 let suffix = "";
-                for (let b = 0; b < 4; b++) {
+                constants_1.RAILROAD_DIRECTIONS.forEach((dir, b) => {
                     if (mask & (1 << b))
-                        suffix += directions[b];
-                }
+                        suffix += dir;
+                });
                 variantJobs.push([folder, "Railroad" + suffix]);
             }
         }
@@ -2916,15 +2960,7 @@ class BCMapEditor {
             }
         }
         // Preload WallEffect sprites (indices 0-21, 50-53)
-        for (let i = 0; i <= 21; i++) {
-            if (!this.wallEffectImageCache.has(i)) {
-                const img = new Image();
-                img.onerror = () => { };
-                img.src = `assets/tiles/WallEffect/${i}.png`;
-                this.wallEffectImageCache.set(i, img);
-            }
-        }
-        for (let i = 50; i <= 53; i++) {
+        for (const i of constants_1.WALL_EFFECT_INDICES) {
             if (!this.wallEffectImageCache.has(i)) {
                 const img = new Image();
                 img.onerror = () => { };

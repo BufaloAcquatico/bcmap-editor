@@ -2,6 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import https from "https";
 import { OBJECT_CATALOG, TILE_CATALOG } from "../src/catalog";
+import { railroadVariantStyles, WALL_EFFECT_INDICES } from "../src/constants";
 
 const BASE_URL =
     "https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom";
@@ -132,8 +133,7 @@ interface Job {
 }
 
 function wallEffectJobs(): Job[] {
-    const indices = [...Array(22).keys(), 50, 51, 52, 53];
-    return indices.map((i) => ({
+    return WALL_EFFECT_INDICES.map((i) => ({
         label: `tiles/WallEffect/${i}`,
         url: `https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom/MapTile/WallEffect/${i}.png`,
         dest: path.join(
@@ -258,22 +258,9 @@ const OBJECT_VARIANTS: VariantSpec[] = [
             "VikingTableLeft",
             "VikingTableMiddle",
             "VikingTableRight",
-            "Railroad",
-            "RailroadNorth",
-            "RailroadSouth",
-            "RailroadEast",
-            "RailroadWest",
-            "RailroadNorthSouth",
-            "RailroadNorthEast",
-            "RailroadNorthWest",
-            "RailroadSouthEast",
-            "RailroadSouthWest",
-            "RailroadEastWest",
-            "RailroadNorthSouthEast",
-            "RailroadNorthSouthWest",
-            "RailroadNorthEastWest",
-            "RailroadSouthEastWest",
-            "RailroadNorthSouthEastWest",
+            // Railroad connectivity variants shared with the editor runtime
+            // (src/constants.ts) so both sides download/preload the same set.
+            ...railroadVariantStyles(),
         ],
     },
     {
