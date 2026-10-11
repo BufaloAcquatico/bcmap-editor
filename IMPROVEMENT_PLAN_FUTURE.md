@@ -8,7 +8,10 @@ APPROVED: all 4 items below. Each ships on its own branch off `main`
 - F1 → `feature/fill-tools`: all tools (fill-rect, flood fill, line,
   drag-select + copy/paste).
 - F2 → `feature/help-button`: `?` toolbar button after `btnToggleGrid`.
-- F3+F4 → `feature/vim-keyboard` (combined branch): accessible picker
+- F3+F4 → `feature/vim-keyboard` (combined branch): **SHIPPED** (7 commits:
+  keybind dispatcher, motions module, cursor/status, verbs+edit session,
+  visual mode/yank/paste, `:` commands, picker a11y + registry docs;
+  see SPEC-vim-keyboard.md for decisions D1–D13): accessible picker
   + keyboard cursor/paint with full vim emulation — hjkl AND arrows
   everywhere, count prefixes (`3j`), `0`/`$` row bounds, `w`/`b`
   content jumps, `gg` top-left, `x` erase, `p` paint selection,
