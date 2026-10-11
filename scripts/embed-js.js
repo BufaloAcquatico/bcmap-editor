@@ -12,6 +12,7 @@ const files = [
     "picker.js",
     "render.js",
     "editor.js",
+    "vim/motions.js",
     "vim/keybinds.js",
     "init.js",
 ];
