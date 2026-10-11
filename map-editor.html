@@ -3414,6 +3414,7 @@ class VimController {
         this.intents = intents;
         this.mode = "normal";
         this.cursor = null;
+        this.anchor = null;
         this.count = "";
         this.pendingG = false;
         this.onStateChange = null;
@@ -3445,16 +3446,42 @@ class VimController {
             return "g";
         if (this.count !== "")
             return this.count;
-        return this.mode === "visual" ? "-- VISUAL --" : "-- NORMAL --";
+        if (this.mode === "visual") {
+            const region = this.getRegion();
+            const size = region
+                ? ` ${region.to.X - region.from.X + 1}x${region.to.Y - region.from.Y + 1}`
+                : "";
+            return `-- VISUAL --${size}`;
+        }
+        return "-- NORMAL --";
     }
     getMode() {
         return this.mode;
+    }
+    /** The visual selection, normalized, or null outside visual mode. */
+    getRegion() {
+        if (this.mode !== "visual" || !this.cursor || !this.anchor)
+            return null;
+        return (0, motions_1.normalizeRegion)(this.anchor, this.cursor);
+    }
+    exitVisual() {
+        this.mode = "normal";
+        this.anchor = null;
+    }
+    enterVisual() {
+        const at = this.cursor ?? this.intents.bootCursor();
+        if (!this.cursor)
+            this.moveTo(at);
+        this.mode = "visual";
+        this.anchor = { ...at };
     }
     getCursor() {
         return this.cursor;
     }
     clearCursor() {
         this.cursor = null;
+        this.anchor = null;
+        this.mode = "normal";
         this.resetPending();
         this.notify();
     }
@@ -3509,6 +3536,54 @@ class VimController {
             const at = this.ensureCursorForVerb();
             this.intents.eraseAt(at);
             this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "v") {
+            if (this.mode === "visual") {
+                this.exitVisual();
+            }
+            else {
+                this.ensureCursorForVerb();
+                this.enterVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "y" || key === "Y") {
+            const region = this.getRegion();
+            if (region) {
+                this.intents.flushEdits();
+                this.intents.yankRegion(region);
+                this.exitVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "d" && this.mode === "visual") {
+            const region = this.getRegion();
+            if (region) {
+                this.intents.deleteRegion(region);
+                this.exitVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "p") {
+            const at = this.ensureCursorForVerb();
+            this.intents.pasteYank(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "Escape") {
+            // Esc cancels the innermost state: pending input first, then
+            // the visual selection.
+            this.resetPending();
+            this.exitVisual();
             this.notify();
             return true;
         }
@@ -3610,6 +3685,44 @@ class EditSession {
     }
 }
 window.EditSession = EditSession;
+
+"use strict";
+// BCMap Editor - yank buffer for copy/paste over both map layers.
+//
+// A yank always stores both layers of a rectangular region (D3/D11):
+// copy/y stores the visible content, paste/p restores exactly those
+// layers regardless of which layer is active at paste time.
+window.captureRegion = captureRegion;
+window.normalizeYankSize = normalizeYankSize;
+/** Extract the region's cells from both layer strings, row-major. */
+function captureRegion(tiles, objects, region, width, height) {
+    const w = region.to.X - region.from.X + 1;
+    const h = region.to.Y - region.from.Y + 1;
+    let capturedTiles = "";
+    let capturedObjects = "";
+    for (let y = region.from.Y; y <= region.to.Y; y++) {
+        for (let x = region.from.X; x <= region.to.X; x++) {
+            const index = x + y * width;
+            if (index >= 0 && index < tiles.length) {
+                capturedTiles += tiles[index];
+                capturedObjects += objects[index] ?? "";
+            }
+        }
+    }
+    void height;
+    return {
+        width: w,
+        height: h,
+        tiles: capturedTiles,
+        objects: capturedObjects,
+    };
+}
+/** "3x2" size label for the status bar, or null when the buffer is empty. */
+function normalizeYankSize(buffer) {
+    if (!buffer)
+        return null;
+    return `${buffer.width}x${buffer.height}`;
+}
 
 "use strict";
 // BCMap Editor - single keybind dispatcher + registry.
@@ -3763,6 +3876,57 @@ function installEditorKeybinds(actions) {
                 actions.handleVimKey(e);
             },
         },
+        {
+            keys: "v",
+            description: "Visual mode (select region)",
+            scope: "map",
+            applies: (e) => isCharKey(e, "v") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "y / Y",
+            description: "Yank region (both layers)",
+            scope: "map",
+            applies: (e) => !isEditableTarget(e) &&
+                (isCharKey(e, "y") || isCharKey(e, "Y")),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "d",
+            description: "Delete visual region",
+            scope: "map",
+            applies: (e) => isCharKey(e, "d") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "p",
+            description: "Paste yank at cursor",
+            scope: "map",
+            applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "Esc",
+            description: "Cancel selection / pending state",
+            scope: "map",
+            applies: (e) => e.key === "Escape" && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
     ];
 }
 
@@ -3776,6 +3940,8 @@ const mapdata_1 = window;
 const picker_1 = window;
 const vimController_1 = window;
 const editSession_1 = window;
+const yank_1 = window;
+
 const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
@@ -3791,6 +3957,9 @@ const HOVER_OUTLINE_WIDTH = 2;
 const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
+const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
+const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
+const REGION_BORDER_WIDTH = 2;
 const PAN_OVERSCROLL_TILES = 15;
 class BCMapEditor {
     constructor(canvasId) {
@@ -3827,6 +3996,8 @@ class BCMapEditor {
             end: () => this.history.endStroke(),
         });
         this.sessionVerb = null;
+        /** Copy buffer from `y`, holding both layers; `p` pastes it. */
+        this.yankBuffer = null;
         this.picker = new picker_1.MapPicker({
             onSelectTile: (tile) => this.setSelectedTile(tile),
             onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -3837,6 +4008,9 @@ class BCMapEditor {
             bootCursor: () => this.vimBootPosition(),
             paintAt: (at) => this.vimPaintAt(at),
             eraseAt: (at) => this.vimEraseAt(at),
+            yankRegion: (region) => this.captureYankRegion(region),
+            deleteRegion: (region) => this.deleteRegion(region),
+            pasteYank: (at) => this.pasteYank(at),
             flushEdits: () => this.session.flush(),
             undo: () => this.undo(),
         });
@@ -4067,10 +4241,73 @@ class BCMapEditor {
         this.applySessionEdit("paint", () => this.writeCell(at));
     }
     vimEraseAt(at) {
-        const eraseChar = this.currentLayer === "object"
+        this.applySessionEdit("erase", () => this.writeCell(at, this.eraseCharForLayer()));
+    }
+    /** Erase character for the active layer: grass tile / blank object. */
+    eraseCharForLayer() {
+        return this.currentLayer === "object"
             ? String.fromCharCode(catalog_1.BLANK_OBJECT_ID)
             : String.fromCharCode(mapdata_1.GRASS_TILE_ID);
-        this.applySessionEdit("erase", () => this.writeCell(at, eraseChar));
+    }
+    /** `y`: capture the region's content of both layers. */
+    captureYankRegion(region) {
+        this.yankBuffer = (0, yank_1.captureRegion)(this.mapData.Tiles, this.mapData.Objects, region, mapdata_1.MAP_WIDTH, mapdata_1.MAP_HEIGHT);
+    }
+    /** `d`: erase every cell of the region as one undo entry. */
+    deleteRegion(region) {
+        const cells = (0, motions_1.regionCells)(region);
+        const eraseChar = this.eraseCharForLayer();
+        this.applySessionEdit("erase", () => {
+            let changed = false;
+            for (const cell of cells) {
+                if (this.writeCell(cell, eraseChar))
+                    changed = true;
+            }
+            return changed;
+        });
+    }
+    /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
+    pasteYank(at) {
+        const buffer = this.yankBuffer;
+        if (!buffer)
+            return;
+        this.applySessionEdit("paint", () => {
+            let changed = false;
+            for (let row = 0; row < buffer.height; row++) {
+                for (let col = 0; col < buffer.width; col++) {
+                    const charIndex = row * buffer.width + col;
+                    if (this.writeBothLayers(at.X + col, at.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
+                        changed = true;
+                    }
+                }
+            }
+            return changed;
+        });
+    }
+    /** Write one cell of both layers explicitly (paste path). */
+    writeBothLayers(x, y, tileChar, objectChar) {
+        if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
+            return false;
+        const index = x + y * mapdata_1.MAP_WIDTH;
+        let changed = false;
+        if (this.mapData.Tiles[index] !== tileChar) {
+            this.mapData.Tiles =
+                this.mapData.Tiles.substring(0, index) +
+                    tileChar +
+                    this.mapData.Tiles.substring(index + 1);
+            changed = true;
+        }
+        if (objectChar !== undefined &&
+            this.mapData.Objects[index] !== objectChar) {
+            this.mapData.Objects =
+                this.mapData.Objects.substring(0, index) +
+                    objectChar +
+                    this.mapData.Objects.substring(index + 1);
+            changed = true;
+        }
+        if (changed)
+            this.requestRender();
+        return changed;
     }
     onCanvasWheel(e) {
         e.preventDefault();
@@ -4456,6 +4693,21 @@ class BCMapEditor {
                 ctx.lineTo(startX + mapdata_1.MAP_WIDTH * tileSize, startY + j * tileSize);
                 ctx.stroke();
             }
+        }
+        // Tint the visual-mode selection under the hover/cursor outlines
+        const visualRegion = this.vim.getRegion();
+        if (visualRegion) {
+            const regionX = startX + visualRegion.from.X * tileSize;
+            const regionY = startY + visualRegion.from.Y * tileSize;
+            const regionW = (visualRegion.to.X - visualRegion.from.X + 1) * tileSize;
+            const regionH = (visualRegion.to.Y - visualRegion.from.Y + 1) * tileSize;
+            ctx.save();
+            ctx.fillStyle = REGION_TINT_COLOR;
+            ctx.fillRect(regionX, regionY, regionW, regionH);
+            ctx.strokeStyle = REGION_BORDER_COLOR;
+            ctx.lineWidth = REGION_BORDER_WIDTH;
+            ctx.strokeRect(regionX, regionY, regionW, regionH);
+            ctx.restore();
         }
         // Highlight only the hovered tile with a light white outline
         const hover = this.hoveredTile;

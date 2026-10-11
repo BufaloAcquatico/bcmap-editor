@@ -165,7 +165,7 @@ describe("Editor vim cursor integration", () => {
 
     it("does not consume unrelated keys", () => {
         expect(editor.handleVimKey(keyEvent("?"))).toBe(false);
-        expect(editor.handleVimKey(keyEvent("v"))).toBe(false);
+        expect(editor.handleVimKey(keyEvent("z"))).toBe(false);
         expect((editor as any).vim.getCursor()).toBeNull();
     });
 });
@@ -276,5 +276,132 @@ describe("Editor vim verb + edit-session integration", () => {
         // one undo removes the whole drag stroke
         expect(tileAt(0, 0)).toBe(210);
         expect(tileAt(5, 0)).toBe(210);
+    });
+});
+
+describe("Editor visual mode + yank/paste", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
+    });
+
+    const tileAt = (x: number, y: number) =>
+        editor.getMapData().Tiles.charCodeAt(x + y * 40);
+    const objectAt = (x: number, y: number) =>
+        editor.getMapData().Objects.charCodeAt(x + y * 40);
+
+    const paintCells = (...cells: [number, number][]) =>
+        cells.forEach(([x, y]) => {
+            editor.handleVimKey(keyEvent("g"));
+            editor.handleVimKey(keyEvent("g"));
+            for (let i = 0; i < y; i++) editor.handleVimKey(keyEvent("j"));
+            for (let i = 0; i < x; i++) editor.handleVimKey(keyEvent("l"));
+            editor.handleVimKey(keyEvent(" "));
+        });
+
+    it("shows the VISUAL label with region size", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        expect(mockElements["statusVimMode"].textContent).toBe(
+            "-- VISUAL -- 2x1",
+        );
+    });
+
+    it("draws a tinted rectangle for the visual region", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        mockCtx.fillRect.mockClear();
+        mockCtx.strokeRect.mockClear();
+        (editor as any).render();
+        const box = (editor as any).getDrawBox();
+        expect(mockCtx.fillRect).toHaveBeenCalledWith(
+            box.startX + 20 * box.tileSize,
+            box.startY + 20 * box.tileSize,
+            2 * box.tileSize,
+            box.tileSize,
+        );
+        expect(mockCtx.strokeRect).toHaveBeenCalled();
+    });
+
+    it("y captures both layers and p restores them", () => {
+        // paint two distinct tiles side by side and an object at one cell
+        editor.setCurrentLayer("tile");
+        paintCells([5, 5], [6, 5]);
+        editor.setCurrentLayer("object");
+        editor.setSelectedObject({ ID: 201, Type: "FloorItem", Style: "Test" });
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        for (let i = 0; i < 6; i++) editor.handleVimKey(keyEvent("j"));
+        editor.handleVimKey(keyEvent(" ")); // object at (6,6)
+
+        // select (6,5)..(7,5)? select the painted pair instead:
+        editor.setCurrentLayer("tile");
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        for (let i = 0; i < 5; i++) editor.handleVimKey(keyEvent("j"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("y"));
+        expect((editor as any).vim.getMode()).toBe("normal");
+
+        // erase originals, paste somewhere else
+        const buffer = (editor as any).yankBuffer;
+        expect(buffer.width).toBe(2);
+        expect(buffer.height).toBe(1);
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("p"));
+        expect(tileAt(1, 0)).toBe(215);
+        expect(tileAt(2, 0)).toBe(215);
+    });
+
+    it("d deletes the whole visual region as one undo entry", () => {
+        paintCells([5, 5], [6, 5], [7, 5]);
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        for (let i = 0; i < 5; i++) editor.handleVimKey(keyEvent("j"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("2"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("d"));
+        expect(tileAt(5, 5)).toBe(210);
+        expect(tileAt(6, 5)).toBe(210);
+        expect(tileAt(7, 5)).toBe(210);
+        expect(editor.canUndo()).toBe(true);
+        editor.undo();
+        expect(tileAt(5, 5)).toBe(215);
+        expect(tileAt(6, 5)).toBe(215);
+        expect(tileAt(7, 5)).toBe(215);
+    });
+
+    it("paste is empty-safe (no buffer = no-op)", () => {
+        editor.handleVimKey(keyEvent("p"));
+        expect(tileAt(20, 20)).toBe(210);
+        expect(editor.canUndo()).toBe(false);
+    });
+
+    it("Escape exits visual mode", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("Escape"));
+        expect((editor as any).vim.getRegion()).toBeNull();
+        expect(mockElements["statusVimMode"].textContent).toBe("-- NORMAL --");
     });
 });

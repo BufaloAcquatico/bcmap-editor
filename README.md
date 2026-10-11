@@ -49,6 +49,11 @@ docker compose up -d
 | Move cursor       | `hjkl` or arrow keys (counts: `3j`; `0`/`$` row bounds; `gg` top-left) |
 | Paint at cursor   | `Space` / `Enter` (uses the picker selection)                          |
 | Erase cursor cell | `x` (grass on tiles, blank object on objects)                          |
+| Visual mode       | `v` (extend with motions; tinted rectangle)                            |
+| Yank region       | `y` / `Y` (copies **both** layers of the selection)                    |
+| Delete region     | `d` (erases the visual selection)                                      |
+| Paste             | `p` at the cursor (restores both layers, clipped)                      |
+| Cancel selection  | `Esc`                                                                  |
 | Undo / Redo       | `u` / `Ctrl+R` (aliases), or Ctrl+Z / Ctrl+Y                           |
 | Toggle grid       | `G` (Shift+G)                                                          |
 | Toggle help       | `?`                                                                    |

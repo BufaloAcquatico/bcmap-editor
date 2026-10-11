@@ -212,7 +212,13 @@ describe("installEditorKeybinds", () => {
         dispatch(keyEvent("x"));
         dispatch(keyEvent(" "));
         dispatch(keyEvent("u"));
-        expect(actions.handleVimKey).toHaveBeenCalledTimes(3);
+        dispatch(keyEvent("v"));
+        dispatch(keyEvent("y"));
+        dispatch(keyEvent("Y"));
+        dispatch(keyEvent("d"));
+        dispatch(keyEvent("p"));
+        dispatch(keyEvent("Escape"));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(9);
     });
 
     it("does not route unbound letter keys to the vim controller", () => {
@@ -226,8 +232,8 @@ describe("installEditorKeybinds", () => {
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
         );
-        dispatch(keyEvent("y"));
-        dispatch(keyEvent("v"));
+        dispatch(keyEvent("z"));
+        dispatch(keyEvent("q"));
         expect(actions.handleVimKey).not.toHaveBeenCalled();
     });
 
@@ -261,6 +267,6 @@ describe("installEditorKeybinds", () => {
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
         }
-        expect(bindings).toHaveLength(8);
+        expect(bindings).toHaveLength(13);
     });
 });

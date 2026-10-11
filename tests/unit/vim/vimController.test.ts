@@ -11,6 +11,9 @@ function makeController(boot: GridPos = { X: 20, Y: 20 }) {
         bootCursor: () => boot,
         paintAt: vi.fn(),
         eraseAt: vi.fn(),
+        yankRegion: vi.fn(),
+        deleteRegion: vi.fn(),
+        pasteYank: vi.fn(),
         flushEdits: vi.fn(),
         undo: vi.fn(),
     };
@@ -91,8 +94,8 @@ describe("VimController motions (normal mode)", () => {
 
     it("does not consume unrelated keys", () => {
         expect(ctx.controller.handleKey("?")).toBe(false);
-        expect(ctx.controller.handleKey("v")).toBe(false);
         expect(ctx.controller.handleKey("z")).toBe(false);
+        expect(ctx.controller.handleKey("q")).toBe(false);
     });
 
     it("resets pending state after an unconsumed key", () => {
@@ -171,5 +174,109 @@ describe("VimController verbs (normal mode)", () => {
         intents.eraseAt.mockClear();
         controller.handleKey("x");
         expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
+    });
+});
+
+describe("VimController visual mode", () => {
+    let ctx: ReturnType<typeof makeController>;
+    beforeEach(() => {
+        ctx = makeController();
+    });
+
+    const region = () => ctx.controller.getRegion();
+    const mode = () => ctx.controller.getMode();
+
+    it("v enters visual mode anchored at the cursor", () => {
+        expect(ctx.controller.handleKey("v")).toBe(true);
+        expect(mode()).toBe("visual");
+        expect(region()).toEqual({
+            from: { X: 20, Y: 20 },
+            to: { X: 20, Y: 20 },
+        });
+    });
+
+    it("motions extend the selection", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("2");
+        ctx.controller.handleKey("l");
+        expect(region()).toEqual({
+            from: { X: 20, Y: 20 },
+            to: { X: 22, Y: 20 },
+        });
+        expect(ctx.controller.statusModeText()).toBe("-- VISUAL -- 3x1");
+    });
+
+    it("dragging backwards normalizes the region", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("l");
+        ctx.controller.handleKey("l");
+        ctx.controller.handleKey("h");
+        ctx.controller.handleKey("h");
+        ctx.controller.handleKey("h");
+        expect(region()).toEqual({
+            from: { X: 19, Y: 20 },
+            to: { X: 20, Y: 20 },
+        });
+    });
+
+    it("v again leaves visual mode", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("l");
+        ctx.controller.handleKey("v");
+        expect(mode()).toBe("normal");
+        expect(region()).toBeNull();
+    });
+
+    it("Escape leaves visual mode and drops the selection", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("l");
+        expect(ctx.controller.handleKey("Escape")).toBe(true);
+        expect(mode()).toBe("normal");
+        expect(region()).toBeNull();
+    });
+
+    it("y yanks the region (both layers) and exits visual", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("l");
+        ctx.controller.handleKey("y");
+        expect(ctx.intents.yankRegion).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 21, Y: 20 },
+        });
+        expect(mode()).toBe("normal");
+        expect(region()).toBeNull();
+    });
+
+    it("Y is an alias of y", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("Y");
+        expect(ctx.intents.yankRegion).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 20, Y: 20 },
+        });
+    });
+
+    it("d deletes the region and exits visual", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("2");
+        ctx.controller.handleKey("j");
+        ctx.controller.handleKey("d");
+        expect(ctx.intents.deleteRegion).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 20, Y: 22 },
+        });
+        expect(mode()).toBe("normal");
+        expect(region()).toBeNull();
+    });
+
+    it("p pastes at the cursor in normal mode", () => {
+        ctx.controller.handleKey("l");
+        expect(ctx.controller.handleKey("p")).toBe(true);
+        expect(ctx.intents.pasteYank).toHaveBeenCalledWith({ X: 21, Y: 20 });
+    });
+
+    it("region is null in normal mode", () => {
+        expect(region()).toBeNull();
+        expect(mode()).toBe("normal");
     });
 });

@@ -184,5 +184,57 @@ export function installEditorKeybinds(
                 actions.handleVimKey(e);
             },
         },
+        {
+            keys: "v",
+            description: "Visual mode (select region)",
+            scope: "map",
+            applies: (e) => isCharKey(e, "v") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "y / Y",
+            description: "Yank region (both layers)",
+            scope: "map",
+            applies: (e) =>
+                !isEditableTarget(e) &&
+                (isCharKey(e, "y") || isCharKey(e, "Y")),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "d",
+            description: "Delete visual region",
+            scope: "map",
+            applies: (e) => isCharKey(e, "d") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "p",
+            description: "Paste yank at cursor",
+            scope: "map",
+            applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "Esc",
+            description: "Cancel selection / pending state",
+            scope: "map",
+            applies: (e) => e.key === "Escape" && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
     ];
 }

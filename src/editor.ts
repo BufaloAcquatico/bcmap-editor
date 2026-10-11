@@ -23,6 +23,8 @@ import {
 import { MapPicker } from "./picker";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
+import { captureRegion, type YankBuffer } from "./vim/yank";
+import { regionCells, type Region } from "./vim/motions";
 import {
     EXPANDABLE_LEFT_RIGHT,
     findFloorWallEffect,
@@ -59,6 +61,9 @@ const HOVER_OUTLINE_WIDTH = 2;
 const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
+const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
+const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
+const REGION_BORDER_WIDTH = 2;
 const PAN_OVERSCROLL_TILES = 15;
 
 export class BCMapEditor {
@@ -99,6 +104,8 @@ export class BCMapEditor {
         end: () => this.history.endStroke(),
     });
     private sessionVerb: "paint" | "erase" | null = null;
+    /** Copy buffer from `y`, holding both layers; `p` pastes it. */
+    private yankBuffer: YankBuffer | null = null;
     private picker = new MapPicker({
         onSelectTile: (tile) => this.setSelectedTile(tile),
         onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -109,6 +116,9 @@ export class BCMapEditor {
         bootCursor: () => this.vimBootPosition(),
         paintAt: (at) => this.vimPaintAt(at),
         eraseAt: (at) => this.vimEraseAt(at),
+        yankRegion: (region) => this.captureYankRegion(region),
+        deleteRegion: (region) => this.deleteRegion(region),
+        pasteYank: (at) => this.pasteYank(at),
         flushEdits: () => this.session.flush(),
         undo: () => this.undo(),
     });
@@ -375,11 +385,96 @@ export class BCMapEditor {
     }
 
     private vimEraseAt(at: Point): void {
-        const eraseChar =
-            this.currentLayer === "object"
-                ? String.fromCharCode(BLANK_OBJECT_ID)
-                : String.fromCharCode(GRASS_TILE_ID);
-        this.applySessionEdit("erase", () => this.writeCell(at, eraseChar));
+        this.applySessionEdit("erase", () =>
+            this.writeCell(at, this.eraseCharForLayer()),
+        );
+    }
+
+    /** Erase character for the active layer: grass tile / blank object. */
+    private eraseCharForLayer(): string {
+        return this.currentLayer === "object"
+            ? String.fromCharCode(BLANK_OBJECT_ID)
+            : String.fromCharCode(GRASS_TILE_ID);
+    }
+
+    /** `y`: capture the region's content of both layers. */
+    private captureYankRegion(region: Region): void {
+        this.yankBuffer = captureRegion(
+            this.mapData.Tiles,
+            this.mapData.Objects,
+            region,
+            MAP_WIDTH,
+            MAP_HEIGHT,
+        );
+    }
+
+    /** `d`: erase every cell of the region as one undo entry. */
+    private deleteRegion(region: Region): void {
+        const cells = regionCells(region);
+        const eraseChar = this.eraseCharForLayer();
+        this.applySessionEdit("erase", () => {
+            let changed = false;
+            for (const cell of cells) {
+                if (this.writeCell(cell, eraseChar)) changed = true;
+            }
+            return changed;
+        });
+    }
+
+    /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
+    private pasteYank(at: Point): void {
+        const buffer = this.yankBuffer;
+        if (!buffer) return;
+        this.applySessionEdit("paint", () => {
+            let changed = false;
+            for (let row = 0; row < buffer.height; row++) {
+                for (let col = 0; col < buffer.width; col++) {
+                    const charIndex = row * buffer.width + col;
+                    if (
+                        this.writeBothLayers(
+                            at.X + col,
+                            at.Y + row,
+                            buffer.tiles[charIndex],
+                            buffer.objects[charIndex],
+                        )
+                    ) {
+                        changed = true;
+                    }
+                }
+            }
+            return changed;
+        });
+    }
+
+    /** Write one cell of both layers explicitly (paste path). */
+    private writeBothLayers(
+        x: number,
+        y: number,
+        tileChar: string,
+        objectChar: string,
+    ): boolean {
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return false;
+        const index = x + y * MAP_WIDTH;
+        let changed = false;
+        if (this.mapData.Tiles[index] !== tileChar) {
+            this.mapData.Tiles =
+                this.mapData.Tiles.substring(0, index) +
+                tileChar +
+                this.mapData.Tiles.substring(index + 1);
+            changed = true;
+        }
+        if (
+            objectChar !== undefined &&
+            this.mapData.Objects[index] !== objectChar
+        ) {
+            this.mapData.Objects =
+                this.mapData.Objects.substring(0, index) +
+                objectChar +
+                this.mapData.Objects.substring(index + 1);
+            changed = true;
+        }
+        if (changed) this.requestRender();
+        return changed;
     }
 
     private onCanvasWheel(e: WheelEvent): void {
@@ -857,6 +952,24 @@ export class BCMapEditor {
                 );
                 ctx.stroke();
             }
+        }
+
+        // Tint the visual-mode selection under the hover/cursor outlines
+        const visualRegion = this.vim.getRegion();
+        if (visualRegion) {
+            const regionX = startX + visualRegion.from.X * tileSize;
+            const regionY = startY + visualRegion.from.Y * tileSize;
+            const regionW =
+                (visualRegion.to.X - visualRegion.from.X + 1) * tileSize;
+            const regionH =
+                (visualRegion.to.Y - visualRegion.from.Y + 1) * tileSize;
+            ctx.save();
+            ctx.fillStyle = REGION_TINT_COLOR;
+            ctx.fillRect(regionX, regionY, regionW, regionH);
+            ctx.strokeStyle = REGION_BORDER_COLOR;
+            ctx.lineWidth = REGION_BORDER_WIDTH;
+            ctx.strokeRect(regionX, regionY, regionW, regionH);
+            ctx.restore();
         }
 
         // Highlight only the hovered tile with a light white outline
