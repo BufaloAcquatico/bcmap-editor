@@ -54,6 +54,8 @@ docker compose up -d
 | Delete region     | `d` (erases the visual selection)                                      |
 | Paste             | `p` at the cursor (restores both layers, clipped)                      |
 | Cancel selection  | `Esc`                                                                  |
+| Command line      | `:` (`:w [name]`, `:e`, `:help`, `:grid`, `:line x1,y1 x2,y2`)         |
+| Focus search      | `/`                                                                    |
 | Undo / Redo       | `u` / `Ctrl+R` (aliases), or Ctrl+Z / Ctrl+Y                           |
 | Toggle grid       | `G` (Shift+G)                                                          |
 | Toggle help       | `?`                                                                    |

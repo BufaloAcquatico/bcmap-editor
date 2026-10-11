@@ -110,6 +110,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const bindings = installEditorKeybinds(actions);
         const dispatch = createKeybindDispatcher(bindings);
@@ -141,6 +143,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -165,6 +169,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -186,6 +192,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -205,6 +213,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -228,6 +238,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -244,6 +256,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -254,6 +268,42 @@ describe("installEditorKeybinds", () => {
         expect(actions.handleVimKey).not.toHaveBeenCalled();
     });
 
+    it("routes : to the command prompt and / to the search box", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent(":"));
+        expect(actions.openCommandPrompt).toHaveBeenCalledTimes(1);
+        dispatch(keyEvent("/"));
+        expect(actions.focusSearch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not open the command prompt while typing in a field", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent(":", {}, { tagName: "INPUT" }));
+        expect(actions.openCommandPrompt).not.toHaveBeenCalled();
+    });
+
     it("describes every binding for the help registry", () => {
         const bindings = installEditorKeybinds({
             toggleGrid: vi.fn(),
@@ -261,12 +311,14 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
         });
         for (const binding of bindings) {
             expect(binding.keys.length).toBeGreaterThan(0);
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
         }
-        expect(bindings).toHaveLength(13);
+        expect(bindings).toHaveLength(15);
     });
 });

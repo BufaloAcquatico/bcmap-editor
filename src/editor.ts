@@ -25,6 +25,8 @@ import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
 import { captureRegion, type YankBuffer } from "./vim/yank";
 import { regionCells, type Region } from "./vim/motions";
+import { runCommand } from "./vim/commands";
+import { lineCells } from "./line";
 import {
     EXPANDABLE_LEFT_RIGHT,
     findFloorWallEffect,
@@ -64,6 +66,7 @@ const CURSOR_DASH_PATTERN = [4, 4];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
 const REGION_BORDER_WIDTH = 2;
+const FEEDBACK_MS = 1500;
 const PAN_OVERSCROLL_TILES = 15;
 
 export class BCMapEditor {
@@ -106,6 +109,11 @@ export class BCMapEditor {
     private sessionVerb: "paint" | "erase" | null = null;
     /** Copy buffer from `y`, holding both layers; `p` pastes it. */
     private yankBuffer: YankBuffer | null = null;
+    /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
+    public onWriteMapRequest: ((name?: string) => void) | null = null;
+    public onImportRequest: (() => void) | null = null;
+    /** Suppress mode-slot updates while a transient message shows. */
+    private feedbackUntil = 0;
     private picker = new MapPicker({
         onSelectTile: (tile) => this.setSelectedTile(tile),
         onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -424,7 +432,10 @@ export class BCMapEditor {
     /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
     private pasteYank(at: Point): void {
         const buffer = this.yankBuffer;
-        if (!buffer) return;
+        if (!buffer) {
+            this.showVimFeedback("E353: Nothing in register");
+            return;
+        }
         this.applySessionEdit("paint", () => {
             let changed = false;
             for (let row = 0; row < buffer.height; row++) {
@@ -1071,8 +1082,52 @@ export class BCMapEditor {
     }
 
     private updateVimMode(): void {
+        // Never clobber a transient feedback message while it is showing.
+        if (performance.now() < this.feedbackUntil) return;
         const el = document.getElementById("statusVimMode");
         if (el) el.textContent = this.vim.statusModeText();
+    }
+
+    /**
+     * Transient message in the mode slot (vim error style), reverting to the
+     * live mode text after FEEDBACK_MS. Drives E492/E353 feedback.
+     */
+    public showVimFeedback(message: string): void {
+        this.feedbackUntil = performance.now() + FEEDBACK_MS;
+        const el = document.getElementById("statusVimMode");
+        if (el) el.textContent = message;
+        setTimeout(() => {
+            this.feedbackUntil = 0;
+            this.updateVimMode();
+        }, FEEDBACK_MS);
+    }
+
+    /**
+     * Run a `:` command. Map-side actions (draw) execute here; DOM actions
+     * (export, import dialog, help, grid) go through handlers or directly.
+     * Unknown/bad input surfaces as a transient E-message.
+     */
+    public handleVimCommand(input: string): void {
+        const result = runCommand(input, {
+            writeMap: (name) => this.onWriteMapRequest?.(name),
+            openImport: () => this.onImportRequest?.(),
+            toggleHelp: () => this.toggleHelp(),
+            toggleGrid: () => this.toggleGrid(),
+            drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
+        });
+        if (!result.ok && result.error) this.showVimFeedback(result.error);
+    }
+
+    /** `:line` — paint a Bresenham line on the active layer, one entry. */
+    public drawLine(x1: number, y1: number, x2: number, y2: number): void {
+        const cells = lineCells({ X: x1, Y: y1 }, { X: x2, Y: y2 });
+        this.applySessionEdit("paint", () => {
+            let changed = false;
+            for (const cell of cells) {
+                if (this.writeCell(cell)) changed = true;
+            }
+            return changed;
+        });
     }
 
     /** Route a keyboard event into the vim controller (window dispatcher). */

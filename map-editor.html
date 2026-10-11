@@ -156,8 +156,11 @@
   </div>
 
   <!-- Status Bar -->
-  <div class="status-bar p-2 d-flex justify-content-between align-items-center">
-    <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
+  <div class="status-bar p-2 d-flex justify-content-between align-items-center gap-2">
+    <div class="flex-1" style="min-width: 0;">
+      <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
+      <input id="commandPrompt" class="d-none form-control form-control-sm bg-dark border-secondary text-light w-100" type="text" placeholder=":command" aria-label="Command prompt" autocomplete="off" spellcheck="false">
+    </div>
     <div id="statusSelection">No selection</div>
     <div id="statusMapSize">Map: 40x40</div>
     <div id="statusPosition">Position: (-, -)</div>
@@ -2890,6 +2893,45 @@ class MapHistory {
 window.MapHistory = MapHistory;
 
 "use strict";
+// BCMap Editor - pure Bresenham line between two grid cells.
+//
+// Shared by the vim `:line` command and the F1 fill-tools line tool; the
+// editor clips the returned cells to the map and paints with the current
+// selection, one undo entry per stroke.
+window.lineCells = lineCells;
+/** Every cell of a 4-connected Bresenham line, endpoints included. */
+function lineCells(from, to) {
+    const cells = [];
+    let x0 = Math.round(from.X);
+    let y0 = Math.round(from.Y);
+    const x1 = Math.round(to.X);
+    const y1 = Math.round(to.Y);
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    // Guard against infinite loops on identical endpoints.
+    if (dx === 0 && dy === 0)
+        return [{ X: x0, Y: y0 }];
+    for (;;) {
+        cells.push({ X: x0, Y: y0 });
+        if (x0 === x1 && y0 === y1)
+            break;
+        const e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x0 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+    return cells;
+}
+
+"use strict";
 // BCMap Editor - map data model and import/export.
 //
 // Pure functions over the 40x40 two-layer map format (LZString-compressed,
@@ -3725,6 +3767,102 @@ function normalizeYankSize(buffer) {
 }
 
 "use strict";
+// BCMap Editor - `:` command line for the vim keyboard feature.
+//
+// Pure parsing + dispatch against injected actions, so the command set is
+// unit-testable without the DOM. The registry below is also the single
+// source for help text (D13).
+window.COMMANDS = void 0;
+window.parseCommand = parseCommand;
+window.runCommand = runCommand;
+window.COMMANDS = [
+    {
+        name: "w",
+        syntax: ":w [name]",
+        description: "Write/export the current map",
+    },
+    {
+        name: "write",
+        syntax: ":write [name]",
+        description: "Alias of :w",
+    },
+    {
+        name: "e",
+        syntax: ":e",
+        description: "Open the import dialog",
+    },
+    {
+        name: "help",
+        syntax: ":help",
+        description: "Toggle the help overlay",
+    },
+    {
+        name: "grid",
+        syntax: ":grid",
+        description: "Toggle the grid",
+    },
+    {
+        name: "line",
+        syntax: ":line x1,y1 x2,y2",
+        description: "Draw a line on the active layer",
+    },
+];
+const USAGE = "usage: :line x1,y1 x2,y2 (e.g. :line 0,0 39,20)";
+/** Split command line into a lowercase name and its arguments. */
+function parseCommand(input) {
+    const trimmed = input.trim().replace(/^:+/, "").trim();
+    if (!trimmed)
+        return { name: "", args: [] };
+    const parts = trimmed.split(/\s+/);
+    return {
+        name: parts[0].toLowerCase(),
+        args: parts.slice(1),
+    };
+}
+/** Parse a "x,y" pair; returns null when malformed. */
+function parsePair(arg) {
+    const match = arg.trim().match(/^(-?\d+)\s*,\s*(-?\d+)$/);
+    if (!match)
+        return null;
+    return { x: Number(match[1]), y: Number(match[2]) };
+}
+/** Run one command; never throws — errors come back as {ok: false, error}. */
+function runCommand(input, actions) {
+    const { name, args } = parseCommand(input);
+    if (!name)
+        return { ok: false };
+    switch (name) {
+        case "w":
+        case "write":
+            actions.writeMap(args.join(" ") || undefined);
+            return { ok: true };
+        case "e":
+            actions.openImport();
+            return { ok: true };
+        case "help":
+            actions.toggleHelp();
+            return { ok: true };
+        case "grid":
+            actions.toggleGrid();
+            return { ok: true };
+        case "line": {
+            if (args.length !== 2) {
+                return { ok: false, error: `E486: ${USAGE}` };
+            }
+            const from = parsePair(args[0]);
+            const to = parsePair(args[1]);
+            if (!from || !to) {
+                return { ok: false, error: `E486: ${USAGE}` };
+            }
+            actions.drawLine(from.x, from.y, to.x, to.y);
+            return { ok: true };
+        }
+        default:
+            return { ok: false, error: `E492: Not an editor command: ${name}` };
+    }
+}
+
+"use strict";
 // BCMap Editor - single keybind dispatcher + registry.
 //
 // One window keydown listener owns all editor shortcuts. Each binding
@@ -3927,6 +4065,34 @@ function installEditorKeybinds(actions) {
                 actions.handleVimKey(e);
             },
         },
+        {
+            keys: ":",
+            description: "Command line (w/e/help/grid/line)",
+            scope: "map",
+            applies: (e) => e.key === ":" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.openCommandPrompt();
+            },
+        },
+        {
+            keys: "/",
+            description: "Focus the picker search",
+            scope: "map",
+            applies: (e) => e.key === "/" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.focusSearch();
+            },
+        },
     ];
 }
 
@@ -3942,6 +4108,8 @@ const vimController_1 = window;
 const editSession_1 = window;
 const yank_1 = window;
 
+const commands_1 = window;
+const line_1 = window;
 const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
@@ -3960,6 +4128,7 @@ const CURSOR_DASH_PATTERN = [4, 4];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
 const REGION_BORDER_WIDTH = 2;
+const FEEDBACK_MS = 1500;
 const PAN_OVERSCROLL_TILES = 15;
 class BCMapEditor {
     constructor(canvasId) {
@@ -3998,6 +4167,11 @@ class BCMapEditor {
         this.sessionVerb = null;
         /** Copy buffer from `y`, holding both layers; `p` pastes it. */
         this.yankBuffer = null;
+        /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
+        this.onWriteMapRequest = null;
+        this.onImportRequest = null;
+        /** Suppress mode-slot updates while a transient message shows. */
+        this.feedbackUntil = 0;
         this.picker = new picker_1.MapPicker({
             onSelectTile: (tile) => this.setSelectedTile(tile),
             onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -4269,8 +4443,10 @@ class BCMapEditor {
     /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
     pasteYank(at) {
         const buffer = this.yankBuffer;
-        if (!buffer)
+        if (!buffer) {
+            this.showVimFeedback("E353: Nothing in register");
             return;
+        }
         this.applySessionEdit("paint", () => {
             let changed = false;
             for (let row = 0; row < buffer.height; row++) {
@@ -4794,9 +4970,54 @@ class BCMapEditor {
             this.clampPan();
     }
     updateVimMode() {
+        // Never clobber a transient feedback message while it is showing.
+        if (performance.now() < this.feedbackUntil)
+            return;
         const el = document.getElementById("statusVimMode");
         if (el)
             el.textContent = this.vim.statusModeText();
+    }
+    /**
+     * Transient message in the mode slot (vim error style), reverting to the
+     * live mode text after FEEDBACK_MS. Drives E492/E353 feedback.
+     */
+    showVimFeedback(message) {
+        this.feedbackUntil = performance.now() + FEEDBACK_MS;
+        const el = document.getElementById("statusVimMode");
+        if (el)
+            el.textContent = message;
+        setTimeout(() => {
+            this.feedbackUntil = 0;
+            this.updateVimMode();
+        }, FEEDBACK_MS);
+    }
+    /**
+     * Run a `:` command. Map-side actions (draw) execute here; DOM actions
+     * (export, import dialog, help, grid) go through handlers or directly.
+     * Unknown/bad input surfaces as a transient E-message.
+     */
+    handleVimCommand(input) {
+        const result = (0, commands_1.runCommand)(input, {
+            writeMap: (name) => this.onWriteMapRequest?.(name),
+            openImport: () => this.onImportRequest?.(),
+            toggleHelp: () => this.toggleHelp(),
+            toggleGrid: () => this.toggleGrid(),
+            drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
+        });
+        if (!result.ok && result.error)
+            this.showVimFeedback(result.error);
+    }
+    /** `:line` — paint a Bresenham line on the active layer, one entry. */
+    drawLine(x1, y1, x2, y2) {
+        const cells = (0, line_1.lineCells)({ X: x1, Y: y1 }, { X: x2, Y: y2 });
+        this.applySessionEdit("paint", () => {
+            let changed = false;
+            for (const cell of cells) {
+                if (this.writeCell(cell))
+                    changed = true;
+            }
+            return changed;
+        });
     }
     /** Route a keyboard event into the vim controller (window dispatcher). */
     handleVimKey(e) {
@@ -5128,6 +5349,75 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     editor.onHistoryChange = syncHistoryButtons;
     syncHistoryButtons();
+    // Vim command line (`:` in the status bar): prompt replaces the mode
+    // slot, Enter runs a command, Escape cancels, Up/Down recalls history.
+    const commandPrompt = document.getElementById("commandPrompt");
+    const modeSlot = document.getElementById("statusVimMode");
+    const setCommandPromptOpen = (open) => {
+        commandPrompt?.classList.toggle("d-none", !open);
+        modeSlot?.classList.toggle("d-none", open);
+        if (open) {
+            commandPrompt.value = "";
+            commandPrompt.focus();
+        }
+    };
+    const commandHistory = [];
+    let historyIndex = -1;
+    commandPrompt?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            const input = commandPrompt.value;
+            if (input.trim()) {
+                commandHistory.push(input);
+                historyIndex = commandHistory.length;
+            }
+            setCommandPromptOpen(false);
+            editor.handleVimCommand(input);
+            commandPrompt.value = "";
+        }
+        else if (e.key === "Escape") {
+            e.preventDefault();
+            commandPrompt.value = "";
+            setCommandPromptOpen(false);
+        }
+        else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (historyIndex > 0) {
+                historyIndex--;
+                commandPrompt.value = commandHistory[historyIndex];
+            }
+        }
+        else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                commandPrompt.value = commandHistory[historyIndex];
+            }
+            else {
+                historyIndex = commandHistory.length;
+                commandPrompt.value = "";
+            }
+        }
+    });
+    // :w / :write reuses the export path; :e reuses the import modal.
+    editor.onWriteMapRequest = (name) => {
+        const mapName = name || "my-map";
+        const code = editor.exportMap(mapName);
+        const blob = new Blob([code], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        try {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${mapName}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+        finally {
+            URL.revokeObjectURL(url);
+        }
+    };
+    editor.onImportRequest = () => importModal.show();
     const keybindRegistry = (0, keybinds_1.installEditorKeybinds)({
         toggleGrid: () => {
             editor.toggleGrid();
@@ -5137,6 +5427,8 @@ document.addEventListener("DOMContentLoaded", () => {
         undo: () => editor.undo(),
         redo: () => editor.redo(),
         handleVimKey: (e) => editor.handleVimKey(e),
+        openCommandPrompt: () => setCommandPromptOpen(true),
+        focusSearch: () => searchInput?.focus(),
     });
     window.addEventListener("keydown", (0, keybinds_1.createKeybindDispatcher)(keybindRegistry));
 });

@@ -157,6 +157,74 @@ document.addEventListener("DOMContentLoaded", () => {
     editor.onHistoryChange = syncHistoryButtons;
     syncHistoryButtons();
 
+    // Vim command line (`:` in the status bar): prompt replaces the mode
+    // slot, Enter runs a command, Escape cancels, Up/Down recalls history.
+    const commandPrompt = document.getElementById(
+        "commandPrompt",
+    ) as HTMLInputElement;
+    const modeSlot = document.getElementById("statusVimMode");
+    const setCommandPromptOpen = (open: boolean) => {
+        commandPrompt?.classList.toggle("d-none", !open);
+        modeSlot?.classList.toggle("d-none", open);
+        if (open) {
+            commandPrompt.value = "";
+            commandPrompt.focus();
+        }
+    };
+    const commandHistory: string[] = [];
+    let historyIndex = -1;
+    commandPrompt?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            const input = commandPrompt.value;
+            if (input.trim()) {
+                commandHistory.push(input);
+                historyIndex = commandHistory.length;
+            }
+            setCommandPromptOpen(false);
+            editor.handleVimCommand(input);
+            commandPrompt.value = "";
+        } else if (e.key === "Escape") {
+            e.preventDefault();
+            commandPrompt.value = "";
+            setCommandPromptOpen(false);
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            if (historyIndex > 0) {
+                historyIndex--;
+                commandPrompt.value = commandHistory[historyIndex];
+            }
+        } else if (e.key === "ArrowDown") {
+            e.preventDefault();
+            if (historyIndex < commandHistory.length - 1) {
+                historyIndex++;
+                commandPrompt.value = commandHistory[historyIndex];
+            } else {
+                historyIndex = commandHistory.length;
+                commandPrompt.value = "";
+            }
+        }
+    });
+
+    // :w / :write reuses the export path; :e reuses the import modal.
+    editor.onWriteMapRequest = (name?: string) => {
+        const mapName = name || "my-map";
+        const code = editor.exportMap(mapName);
+        const blob = new Blob([code], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        try {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${mapName}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } finally {
+            URL.revokeObjectURL(url);
+        }
+    };
+    editor.onImportRequest = () => importModal.show();
+
     const keybindRegistry = installEditorKeybinds({
         toggleGrid: () => {
             editor.toggleGrid();
@@ -166,6 +234,8 @@ document.addEventListener("DOMContentLoaded", () => {
         undo: () => editor.undo(),
         redo: () => editor.redo(),
         handleVimKey: (e: KeyboardEvent) => editor.handleVimKey(e),
+        openCommandPrompt: () => setCommandPromptOpen(true),
+        focusSearch: () => searchInput?.focus(),
     });
     window.addEventListener(
         "keydown",

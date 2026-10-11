@@ -405,3 +405,87 @@ describe("Editor visual mode + yank/paste", () => {
         expect(mockElements["statusVimMode"].textContent).toBe("-- NORMAL --");
     });
 });
+
+describe("Editor command line (VB5)", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
+    });
+
+    const tileAt = (x: number, y: number) =>
+        editor.getMapData().Tiles.charCodeAt(x + y * 40);
+
+    it(":line paints a straight run on the active layer", () => {
+        editor.handleVimCommand("line 0,0 3,0");
+        expect(tileAt(0, 0)).toBe(215);
+        expect(tileAt(1, 0)).toBe(215);
+        expect(tileAt(2, 0)).toBe(215);
+        expect(tileAt(3, 0)).toBe(215);
+        expect(tileAt(4, 0)).toBe(210);
+    });
+
+    it(":line is one undo entry", () => {
+        editor.handleVimCommand("line 0,0 3,0");
+        expect(editor.canUndo()).toBe(true);
+        editor.undo();
+        expect(tileAt(2, 0)).toBe(210);
+    });
+
+    it(":line clips off-map cells", () => {
+        editor.handleVimCommand("line 39,39 44,44");
+        expect(tileAt(39, 39)).toBe(215);
+    });
+
+    it(":grid toggles the grid", () => {
+        const before = editor.getGridVisible();
+        editor.handleVimCommand(":grid");
+        expect(editor.getGridVisible()).toBe(!before);
+    });
+
+    it(":help toggles the help card", () => {
+        const before = editor.getHelpVisible();
+        editor.handleVimCommand("help");
+        expect(editor.getHelpVisible()).toBe(!before);
+    });
+
+    it(":w goes through the write handler with the name", () => {
+        const writer = vi.fn();
+        editor.onWriteMapRequest = writer;
+        editor.handleVimCommand("write my-map");
+        expect(writer).toHaveBeenCalledWith("my-map");
+    });
+
+    it(":e goes through the import handler", () => {
+        const opener = vi.fn();
+        editor.onImportRequest = opener;
+        editor.handleVimCommand("e");
+        expect(opener).toHaveBeenCalledTimes(1);
+    });
+
+    it("shows E492 for an unknown command", () => {
+        editor.handleVimCommand("nope");
+        expect(mockElements["statusVimMode"].textContent).toBe(
+            "E492: Not an editor command: nope",
+        );
+    });
+
+    it("shows E353 when pasting with an empty register", () => {
+        editor.handleVimKey(keyEvent("p"));
+        expect(mockElements["statusVimMode"].textContent).toBe(
+            "E353: Nothing in register",
+        );
+    });
+
+    it("bad :line usage reports an error and paints nothing", () => {
+        editor.handleVimCommand("line 3,4");
+        expect(mockElements["statusVimMode"].textContent).toMatch(/E486/);
+        expect(tileAt(3, 4)).toBe(210);
+    });
+});

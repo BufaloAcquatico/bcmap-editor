@@ -50,6 +50,10 @@ export interface EditorKeybindActions {
     undo: () => void;
     redo: () => void;
     handleVimKey: (e: KeyboardEvent) => boolean;
+    /** Open the `:` command prompt in the status bar. */
+    openCommandPrompt: () => void;
+    /** Focus the picker search box (`/`). */
+    focusSearch: () => void;
 }
 
 /** Bare keys owned by the vim controller (motions, counts, row bounds, gg). */
@@ -234,6 +238,36 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: ":",
+            description: "Command line (w/e/help/grid/line)",
+            scope: "map",
+            applies: (e) =>
+                e.key === ":" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.openCommandPrompt();
+            },
+        },
+        {
+            keys: "/",
+            description: "Focus the picker search",
+            scope: "map",
+            applies: (e) =>
+                e.key === "/" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.focusSearch();
             },
         },
     ];
