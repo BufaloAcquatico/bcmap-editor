@@ -13,6 +13,7 @@ const files = [
     "render.js",
     "vim/motions.js",
     "vim/vimController.js",
+    "vim/editSession.js",
     "vim/keybinds.js",
     "editor.js",
     "init.js",

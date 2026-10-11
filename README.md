@@ -47,13 +47,19 @@ docker compose up -d
 | Redo              | Ctrl+Y / Ctrl+Shift+Z or the Redo button                               |
 | Erase object      | Select a `Blank` object and paint                                      |
 | Move cursor       | `hjkl` or arrow keys (counts: `3j`; `0`/`$` row bounds; `gg` top-left) |
+| Paint at cursor   | `Space` / `Enter` (uses the picker selection)                          |
+| Erase cursor cell | `x` (grass on tiles, blank object on objects)                          |
+| Undo / Redo       | `u` / `Ctrl+R` (aliases), or Ctrl+Z / Ctrl+Y                           |
 | Toggle grid       | `G` (Shift+G)                                                          |
 | Toggle help       | `?`                                                                    |
 
 The keyboard cursor boots under the last hovered cell (map center if the
 mouse never visited) and auto-pans to stay visible when zoomed in. The
 status bar shows the vim mode (`-- NORMAL --`) on the left, the selection
-in the middle, and the cursor/pointer position on the right.
+in the middle, and the cursor/pointer position on the right. Consecutive
+edits of the same verb within 400 ms coalesce into a single undo entry;
+switching verb, `Esc`-style state changes, and mouse drags each start
+their own entry.
 
 ## Map Format
 

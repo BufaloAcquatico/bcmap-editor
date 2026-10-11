@@ -3505,15 +3505,111 @@ class VimController {
             this.notify();
             return true;
         }
+        if (key === "x") {
+            const at = this.ensureCursorForVerb();
+            this.intents.eraseAt(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === " " || key === "Enter") {
+            const at = this.ensureCursorForVerb();
+            this.intents.paintAt(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+        if (key === "u") {
+            this.intents.flushEdits();
+            this.intents.undo();
+            this.resetPending();
+            this.notify();
+            return true;
+        }
         // Unrelated keys are never consumed, and never boot the cursor.
         this.resetPending();
         return false;
+    }
+    ensureCursorForVerb() {
+        if (!this.cursor) {
+            this.cursor = this.intents.bootCursor();
+            this.intents.setCursor(this.cursor);
+        }
+        return this.cursor;
     }
     resetG() {
         this.pendingG = false;
     }
 }
 window.VimController = VimController;
+
+"use strict";
+// BCMap Editor - shared edit-session coalescing for mouse and keyboard.
+//
+// One "session" is one undo entry: the first edit opens it (history
+// begin), repeated edits inside the quiet window extend it (markDirty),
+// and it closes when the window elapses, on demand (verb/mode change,
+// Esc, undo) or when a held mouse gesture releases. A session whose
+// edits never changed a cell still closes — MapHistory rolls empty
+// strokes back, so an idle press costs no undo step.
+window.EditSession = void 0;
+class EditSession {
+    constructor(hooks, quietMs = 400) {
+        this.hooks = hooks;
+        this.quietMs = quietMs;
+        this.open = false;
+        this.held = false;
+        this.timer = null;
+    }
+    isOpen() {
+        return this.open;
+    }
+    /**
+     * Apply one edit inside the burst. The session opens BEFORE the mutator
+     * runs (so the history snapshot is the pre-edit state) and marks dirty
+     * only when the mutator reports a real change; unchanged bursts roll
+     * back on close.
+     */
+    runEdit(mutate) {
+        if (!this.open) {
+            this.hooks.begin();
+            this.open = true;
+        }
+        if (mutate())
+            this.hooks.markDirty();
+        if (!this.held)
+            this.reschedule();
+    }
+    /** Hold the session open regardless of the quiet window (mouse drag). */
+    hold() {
+        this.held = true;
+        this.clearTimer();
+    }
+    /** Resume quiet-timeout behavior after a hold. */
+    release() {
+        this.held = false;
+    }
+    /** Close the open session immediately. */
+    flush() {
+        this.clearTimer();
+        this.held = false;
+        if (this.open) {
+            this.open = false;
+            this.hooks.end();
+        }
+    }
+    reschedule() {
+        this.clearTimer();
+        this.timer = setTimeout(() => this.flush(), this.quietMs);
+    }
+    clearTimer() {
+        if (this.timer !== null) {
+            clearTimeout(this.timer);
+            this.timer = null;
+        }
+    }
+}
+window.EditSession = EditSession;
 
 "use strict";
 // BCMap Editor - single keybind dispatcher + registry.
@@ -3551,6 +3647,12 @@ function createKeybindDispatcher(bindings) {
 }
 /** Bare keys owned by the vim controller (motions, counts, row bounds, gg). */
 const VIM_MOTION_KEYS = /^([hjkl0-9$g]|ArrowLeft|ArrowDown|ArrowUp|ArrowRight)$/;
+/** Space/Enter must not steal activation from focused buttons/links. */
+function isInteractiveTarget(e) {
+    const target = e.target;
+    const tag = target?.tagName;
+    return (tag === "BUTTON" || tag === "A" || tag === "SELECT" || tag === "SUMMARY");
+}
 /**
  * The editor's built-in shortcuts. Returns the registry so callers can both
  * install the dispatcher and render help from the same source of truth.
@@ -3626,6 +3728,41 @@ function installEditorKeybinds(actions) {
                 actions.handleVimKey(e);
             },
         },
+        {
+            keys: "x",
+            description: "Erase cursor cell",
+            scope: "map",
+            applies: (e) => isCharKey(e, "x") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "Space / Enter",
+            description: "Paint selection at cursor",
+            scope: "map",
+            applies: (e) => (e.key === " " || e.key === "Enter") &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "u",
+            description: "Undo",
+            scope: "map",
+            applies: (e) => isCharKey(e, "u") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
     ];
 }
 
@@ -3638,6 +3775,7 @@ const history_1 = window;
 const mapdata_1 = window;
 const picker_1 = window;
 const vimController_1 = window;
+const editSession_1 = window;
 const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
@@ -3682,6 +3820,13 @@ class BCMapEditor {
         this.showHelp = true;
         this.renderRequested = false;
         this.history = new history_1.MapHistory();
+        /** One entry per gesture (mouse) or key-repeat burst (vim), D12. */
+        this.session = new editSession_1.EditSession({
+            begin: () => this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),
+            markDirty: () => this.history.markDirty(),
+            end: () => this.history.endStroke(),
+        });
+        this.sessionVerb = null;
         this.picker = new picker_1.MapPicker({
             onSelectTile: (tile) => this.setSelectedTile(tile),
             onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -3690,6 +3835,10 @@ class BCMapEditor {
         this.vim = new vimController_1.VimController({
             setCursor: (pos) => this.applyVimCursor(pos),
             bootCursor: () => this.vimBootPosition(),
+            paintAt: (at) => this.vimPaintAt(at),
+            eraseAt: (at) => this.vimEraseAt(at),
+            flushEdits: () => this.session.flush(),
+            undo: () => this.undo(),
         });
         this.zoomTarget = 1.0;
         this.zoomAnchor = null;
@@ -3859,37 +4008,69 @@ class BCMapEditor {
     canRedo() {
         return this.history.canRedo();
     }
-    paintAt(pos) {
-        if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
-            return;
-        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
-        if (this.currentLayer === "tile" && this.selectedTile) {
-            const ch = String.fromCharCode(this.selectedTile.ID);
-            // No-op guard: repainting the same cell must not dirty state or
-            // request renders (and, together with per-stroke pushes, keeps
-            // one physical click to exactly one undo entry).
-            if (this.mapData.Tiles[index] === ch)
-                return;
-            this.mapData.Tiles =
-                this.mapData.Tiles.substring(0, index) +
-                    ch +
-                    this.mapData.Tiles.substring(index + 1);
-            this.history.markDirty();
+    /**
+     * Route an edit into the coalesced session. A verb change closes the
+     * open burst so consecutive different verbs get separate undo entries;
+     * repeats of the same verb share one entry until the quiet window ends.
+     */
+    applySessionEdit(verb, mutate) {
+        if (this.sessionVerb !== verb) {
+            this.session.flush();
+            this.sessionVerb = verb;
         }
-        else if (this.currentLayer === "object" && this.selectedObject) {
-            const ch = String.fromCharCode(this.selectedObject.ID);
+        this.session.runEdit(mutate);
+    }
+    /**
+     * Write one cell of the active layer. `eraseChar` erases (grass / blank
+     * object); otherwise the current picker selection is painted. Returns
+     * whether the map changed, so no-op edits cost no undo entry.
+     */
+    writeCell(pos, eraseChar) {
+        if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
+            return false;
+        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        if (this.currentLayer === "object") {
+            const ch = eraseChar ??
+                (this.selectedObject
+                    ? String.fromCharCode(this.selectedObject.ID)
+                    : null);
+            if (ch === null)
+                return false;
             if (this.mapData.Objects[index] === ch)
-                return;
+                return false;
             this.mapData.Objects =
                 this.mapData.Objects.substring(0, index) +
                     ch +
                     this.mapData.Objects.substring(index + 1);
-            this.history.markDirty();
+            this.requestRender();
+            return true;
         }
-        else {
-            return;
-        }
+        const ch = eraseChar ??
+            (this.selectedTile
+                ? String.fromCharCode(this.selectedTile.ID)
+                : null);
+        if (ch === null)
+            return false;
+        if (this.mapData.Tiles[index] === ch)
+            return false;
+        this.mapData.Tiles =
+            this.mapData.Tiles.substring(0, index) +
+                ch +
+                this.mapData.Tiles.substring(index + 1);
         this.requestRender();
+        return true;
+    }
+    paintAt(pos) {
+        this.applySessionEdit("paint", () => this.writeCell(pos));
+    }
+    vimPaintAt(at) {
+        this.applySessionEdit("paint", () => this.writeCell(at));
+    }
+    vimEraseAt(at) {
+        const eraseChar = this.currentLayer === "object"
+            ? String.fromCharCode(catalog_1.BLANK_OBJECT_ID)
+            : String.fromCharCode(mapdata_1.GRASS_TILE_ID);
+        this.applySessionEdit("erase", () => this.writeCell(at, eraseChar));
     }
     onCanvasWheel(e) {
         e.preventDefault();
@@ -3968,7 +4149,9 @@ class BCMapEditor {
             y: e.clientY - rect.top,
         };
         if (this.isPainting) {
-            this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects);
+            this.session.flush();
+            this.sessionVerb = "paint";
+            this.session.hold();
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
         }
@@ -4004,7 +4187,10 @@ class BCMapEditor {
         this.lastMousePos = currentPos;
     }
     onCanvasMouseUp() {
-        this.history.endStroke();
+        // A drag stroke closes on release (the session's quiet window is
+        // irrelevant while the button is held).
+        this.session.release();
+        this.session.flush();
         this.isDragging = false;
         this.isPanning = false;
         this.isPainting = false;
@@ -4479,6 +4665,10 @@ class BCMapEditor {
         this.render();
     }
     undo() {
+        // No flush here: MapHistory is built so a mid-stroke undo consumes
+        // the stroke's own entry, and endStroke's rollback skips it by
+        // identity — pre-flushing would steal the wrong entry (the vim `u`
+        // path flushes via the controller's flushEdits intent).
         const prev = this.history.undo([
             this.mapData.Tiles,
             this.mapData.Objects,

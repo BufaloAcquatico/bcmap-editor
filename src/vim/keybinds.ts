@@ -56,6 +56,15 @@ export interface EditorKeybindActions {
 const VIM_MOTION_KEYS =
     /^([hjkl0-9$g]|ArrowLeft|ArrowDown|ArrowUp|ArrowRight)$/;
 
+/** Space/Enter must not steal activation from focused buttons/links. */
+function isInteractiveTarget(e: KeyboardEvent): boolean {
+    const target = e.target as HTMLElement | null;
+    const tag = target?.tagName;
+    return (
+        tag === "BUTTON" || tag === "A" || tag === "SELECT" || tag === "SUMMARY"
+    );
+}
+
 /**
  * The editor's built-in shortcuts. Returns the registry so callers can both
  * install the dispatcher and render help from the same source of truth.
@@ -135,6 +144,42 @@ export function installEditorKeybinds(
             run: (e) => {
                 // Matched keys are vim-owned (motions/counts); prevent the
                 // browser default (e.g. arrow-key page scroll) regardless.
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "x",
+            description: "Erase cursor cell",
+            scope: "map",
+            applies: (e) => isCharKey(e, "x") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "Space / Enter",
+            description: "Paint selection at cursor",
+            scope: "map",
+            applies: (e) =>
+                (e.key === " " || e.key === "Enter") &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+        {
+            keys: "u",
+            description: "Undo",
+            scope: "map",
+            applies: (e) => isCharKey(e, "u") && !isEditableTarget(e),
+            run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
             },

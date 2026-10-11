@@ -198,7 +198,7 @@ describe("installEditorKeybinds", () => {
         expect(actions.handleVimKey).toHaveBeenCalledTimes(5);
     });
 
-    it("does not route verb or letter keys to the vim controller", () => {
+    it("routes verb keys to the vim controller", () => {
         const actions = {
             toggleGrid: vi.fn(),
             toggleHelp: vi.fn(),
@@ -210,8 +210,41 @@ describe("installEditorKeybinds", () => {
             installEditorKeybinds(actions),
         );
         dispatch(keyEvent("x"));
+        dispatch(keyEvent(" "));
+        dispatch(keyEvent("u"));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not route unbound letter keys to the vim controller", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
         dispatch(keyEvent("y"));
         dispatch(keyEvent("v"));
+        expect(actions.handleVimKey).not.toHaveBeenCalled();
+    });
+
+    it("never steals Space/Enter from a focused button", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        const button = { tagName: "BUTTON" } as unknown;
+        dispatch(keyEvent(" ", {}, button));
+        dispatch(keyEvent("Enter", {}, button));
         expect(actions.handleVimKey).not.toHaveBeenCalled();
     });
 
@@ -228,6 +261,6 @@ describe("installEditorKeybinds", () => {
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
         }
-        expect(bindings).toHaveLength(5);
+        expect(bindings).toHaveLength(8);
     });
 });

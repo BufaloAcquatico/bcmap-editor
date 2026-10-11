@@ -22,6 +22,7 @@ import {
 } from "./mapdata";
 import { MapPicker } from "./picker";
 import { VimController } from "./vim/vimController";
+import { EditSession } from "./vim/editSession";
 import {
     EXPANDABLE_LEFT_RIGHT,
     findFloorWallEffect,
@@ -90,6 +91,14 @@ export class BCMapEditor {
     private showHelp = true;
     private renderRequested = false;
     private history = new MapHistory();
+    /** One entry per gesture (mouse) or key-repeat burst (vim), D12. */
+    private session = new EditSession({
+        begin: () =>
+            this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),
+        markDirty: () => this.history.markDirty(),
+        end: () => this.history.endStroke(),
+    });
+    private sessionVerb: "paint" | "erase" | null = null;
     private picker = new MapPicker({
         onSelectTile: (tile) => this.setSelectedTile(tile),
         onSelectObject: (obj) => this.setSelectedObject(obj),
@@ -98,6 +107,10 @@ export class BCMapEditor {
     private vim = new VimController({
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
+        paintAt: (at) => this.vimPaintAt(at),
+        eraseAt: (at) => this.vimEraseAt(at),
+        flushEdits: () => this.session.flush(),
+        undo: () => this.undo(),
     });
     private zoomTarget = 1.0;
     private zoomAnchor: { x: number; y: number } | null = null;
@@ -298,33 +311,75 @@ export class BCMapEditor {
         return this.history.canRedo();
     }
 
-    private paintAt(pos: Point): void {
+    /**
+     * Route an edit into the coalesced session. A verb change closes the
+     * open burst so consecutive different verbs get separate undo entries;
+     * repeats of the same verb share one entry until the quiet window ends.
+     */
+    private applySessionEdit(
+        verb: "paint" | "erase",
+        mutate: () => boolean,
+    ): void {
+        if (this.sessionVerb !== verb) {
+            this.session.flush();
+            this.sessionVerb = verb;
+        }
+        this.session.runEdit(mutate);
+    }
+
+    /**
+     * Write one cell of the active layer. `eraseChar` erases (grass / blank
+     * object); otherwise the current picker selection is painted. Returns
+     * whether the map changed, so no-op edits cost no undo entry.
+     */
+    private writeCell(pos: Point, eraseChar?: string): boolean {
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
-            return;
+            return false;
         const index = pos.X + pos.Y * MAP_WIDTH;
-        if (this.currentLayer === "tile" && this.selectedTile) {
-            const ch = String.fromCharCode(this.selectedTile.ID);
-            // No-op guard: repainting the same cell must not dirty state or
-            // request renders (and, together with per-stroke pushes, keeps
-            // one physical click to exactly one undo entry).
-            if (this.mapData.Tiles[index] === ch) return;
-            this.mapData.Tiles =
-                this.mapData.Tiles.substring(0, index) +
-                ch +
-                this.mapData.Tiles.substring(index + 1);
-            this.history.markDirty();
-        } else if (this.currentLayer === "object" && this.selectedObject) {
-            const ch = String.fromCharCode(this.selectedObject.ID);
-            if (this.mapData.Objects[index] === ch) return;
+        if (this.currentLayer === "object") {
+            const ch =
+                eraseChar ??
+                (this.selectedObject
+                    ? String.fromCharCode(this.selectedObject.ID)
+                    : null);
+            if (ch === null) return false;
+            if (this.mapData.Objects[index] === ch) return false;
             this.mapData.Objects =
                 this.mapData.Objects.substring(0, index) +
                 ch +
                 this.mapData.Objects.substring(index + 1);
-            this.history.markDirty();
-        } else {
-            return;
+            this.requestRender();
+            return true;
         }
+        const ch =
+            eraseChar ??
+            (this.selectedTile
+                ? String.fromCharCode(this.selectedTile.ID)
+                : null);
+        if (ch === null) return false;
+        if (this.mapData.Tiles[index] === ch) return false;
+        this.mapData.Tiles =
+            this.mapData.Tiles.substring(0, index) +
+            ch +
+            this.mapData.Tiles.substring(index + 1);
         this.requestRender();
+        return true;
+    }
+
+    private paintAt(pos: Point): void {
+        this.applySessionEdit("paint", () => this.writeCell(pos));
+    }
+
+    private vimPaintAt(at: Point): void {
+        this.applySessionEdit("paint", () => this.writeCell(at));
+    }
+
+    private vimEraseAt(at: Point): void {
+        const eraseChar =
+            this.currentLayer === "object"
+                ? String.fromCharCode(BLANK_OBJECT_ID)
+                : String.fromCharCode(GRASS_TILE_ID);
+        this.applySessionEdit("erase", () => this.writeCell(at, eraseChar));
     }
 
     private onCanvasWheel(e: WheelEvent): void {
@@ -411,7 +466,9 @@ export class BCMapEditor {
             y: e.clientY - rect.top,
         };
         if (this.isPainting) {
-            this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects);
+            this.session.flush();
+            this.sessionVerb = "paint";
+            this.session.hold();
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
         }
@@ -449,7 +506,10 @@ export class BCMapEditor {
     }
 
     private onCanvasMouseUp(): void {
-        this.history.endStroke();
+        // A drag stroke closes on release (the session's quiet window is
+        // irrelevant while the button is held).
+        this.session.release();
+        this.session.flush();
         this.isDragging = false;
         this.isPanning = false;
         this.isPainting = false;
@@ -1024,6 +1084,10 @@ export class BCMapEditor {
     }
 
     public undo(): void {
+        // No flush here: MapHistory is built so a mid-stroke undo consumes
+        // the stroke's own entry, and endStroke's rollback skips it by
+        // identity — pre-flushing would steal the wrong entry (the vim `u`
+        // path flushes via the controller's flushEdits intent).
         const prev = this.history.undo([
             this.mapData.Tiles,
             this.mapData.Objects,

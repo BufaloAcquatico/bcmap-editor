@@ -1,19 +1,21 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { VimController } from "../../../src/vim/vimController";
 import type { GridPos } from "../../../src/vim/motions";
 
 function makeController(boot: GridPos = { X: 20, Y: 20 }) {
     let cursor: GridPos | null = null;
-    const controller = new VimController({
-        setCursor: (pos) => {
+    const intents = {
+        setCursor: (pos: GridPos) => {
             cursor = pos;
         },
         bootCursor: () => boot,
-    });
-    return {
-        controller,
-        cursor: () => cursor,
+        paintAt: vi.fn(),
+        eraseAt: vi.fn(),
+        flushEdits: vi.fn(),
+        undo: vi.fn(),
     };
+    const controller = new VimController(intents);
+    return { controller, cursor: () => cursor, intents };
 }
 
 describe("VimController motions (normal mode)", () => {
@@ -88,14 +90,14 @@ describe("VimController motions (normal mode)", () => {
     });
 
     it("does not consume unrelated keys", () => {
-        expect(ctx.controller.handleKey("x")).toBe(false);
         expect(ctx.controller.handleKey("?")).toBe(false);
-        expect(ctx.controller.handleKey("Enter")).toBe(false);
+        expect(ctx.controller.handleKey("v")).toBe(false);
+        expect(ctx.controller.handleKey("z")).toBe(false);
     });
 
     it("resets pending state after an unconsumed key", () => {
         ctx.controller.handleKey("3");
-        ctx.controller.handleKey("x");
+        ctx.controller.handleKey("?");
         ctx.controller.handleKey("j");
         expect(ctx.cursor()).toEqual({ X: 20, Y: 21 });
     });
@@ -126,5 +128,48 @@ describe("VimController status text", () => {
         controller.handleKey("3");
         controller.handleKey("j");
         expect(controller.statusModeText()).toBe("-- NORMAL --");
+    });
+});
+
+describe("VimController verbs (normal mode)", () => {
+    it("erases at the cursor on x", () => {
+        const { controller, intents } = makeController();
+        controller.handleKey("j");
+        intents.eraseAt.mockClear();
+        expect(controller.handleKey("x")).toBe(true);
+        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 21 });
+    });
+
+    it("boots the cursor when a verb arrives as the first key", () => {
+        const { controller, intents } = makeController();
+        controller.handleKey("x");
+        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
+    });
+
+    it("paints at the cursor on Space and Enter", () => {
+        const { controller, intents } = makeController();
+        controller.handleKey("j");
+        intents.paintAt.mockClear();
+        expect(controller.handleKey(" ")).toBe(true);
+        expect(intents.paintAt).toHaveBeenCalledWith({ X: 20, Y: 21 });
+        controller.handleKey("l");
+        intents.paintAt.mockClear();
+        expect(controller.handleKey("Enter")).toBe(true);
+        expect(intents.paintAt).toHaveBeenCalledWith({ X: 21, Y: 21 });
+    });
+
+    it("u closes the current burst and undoes", () => {
+        const { controller, intents } = makeController();
+        expect(controller.handleKey("u")).toBe(true);
+        expect(intents.flushEdits).toHaveBeenCalledTimes(1);
+        expect(intents.undo).toHaveBeenCalledTimes(1);
+    });
+
+    it("counts do not leak into verb behavior", () => {
+        const { controller, intents } = makeController();
+        controller.handleKey("2");
+        intents.eraseAt.mockClear();
+        controller.handleKey("x");
+        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
     });
 });

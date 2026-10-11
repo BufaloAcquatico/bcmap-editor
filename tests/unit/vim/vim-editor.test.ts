@@ -164,7 +164,117 @@ describe("Editor vim cursor integration", () => {
     });
 
     it("does not consume unrelated keys", () => {
-        expect(editor.handleVimKey(keyEvent("x"))).toBe(false);
+        expect(editor.handleVimKey(keyEvent("?"))).toBe(false);
+        expect(editor.handleVimKey(keyEvent("v"))).toBe(false);
         expect((editor as any).vim.getCursor()).toBeNull();
+    });
+});
+
+describe("Editor vim verb + edit-session integration", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
+    });
+
+    const tileAt = (x: number, y: number) =>
+        editor.getMapData().Tiles.charCodeAt(x + y * 40);
+
+    it("Space paints the cursor cell with the selected tile", () => {
+        editor.handleVimKey(keyEvent(" "));
+        expect(tileAt(20, 20)).toBe(215);
+        expect(editor.canUndo()).toBe(true);
+        editor.undo();
+        expect(tileAt(20, 20)).toBe(210); // grass restored
+    });
+
+    it("x erases back to grass", () => {
+        editor.handleVimKey(keyEvent(" "));
+        editor.handleVimKey(keyEvent("x"));
+        expect(tileAt(20, 20)).toBe(210);
+    });
+
+    it("x over unchanged content costs no undo entry", () => {
+        editor.handleVimKey(keyEvent("x"));
+        expect(tileAt(20, 20)).toBe(210);
+        editor.handleVimKey(keyEvent("u")); // flush the empty burst, then undo
+        expect(tileAt(20, 20)).toBe(210);
+        // the empty burst rolled back: nothing was ever recorded
+        expect(editor.canUndo()).toBe(false);
+    });
+
+    it("coalesces a key-repeat burst into one undo entry", () => {
+        editor.handleVimKey(keyEvent("l")); // move off the painted cell
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("h"));
+        // burst: erase 3 cells under one held x
+        editor.handleVimKey(keyEvent(" ")); // paint current
+        editor.handleVimKey(keyEvent(" ")); // hold x below
+        // erase three distinct cells with x (same verb, one burst)
+        const before = editor.getMapData().Tiles;
+        editor.handleVimKey(keyEvent("x"));
+        editor.handleVimKey(keyEvent("h"));
+        editor.handleVimKey(keyEvent("x"));
+        editor.handleVimKey(keyEvent("h"));
+        editor.handleVimKey(keyEvent("x"));
+        expect(editor.getMapData().Tiles).not.toBe(before);
+        expect(editor.canUndo()).toBe(true);
+        editor.undo();
+        // one undo reverts the entire burst
+        expect(editor.getMapData().Tiles).toBe(before);
+    });
+
+    it("switching verb closes the burst into separate entries", () => {
+        editor.handleVimKey(keyEvent(" ")); // paint 215
+        editor.handleVimKey(keyEvent("x")); // erase  -> 210
+        editor.handleVimKey(keyEvent(" ")); // paint  -> 215
+        editor.handleVimKey(keyEvent("x")); // erase  -> 210
+        expect(tileAt(20, 20)).toBe(210);
+        expect(editor.canUndo()).toBe(true);
+        editor.undo(); // reverts the last erase
+        expect(tileAt(20, 20)).toBe(215);
+        editor.undo(); // reverts that paint
+        expect(tileAt(20, 20)).toBe(210);
+        editor.undo(); // reverts the first erase
+        expect(tileAt(20, 20)).toBe(215);
+        editor.undo(); // reverts the first paint
+        expect(tileAt(20, 20)).toBe(210);
+        expect(editor.canUndo()).toBe(false);
+    });
+
+    it("u undoes the last burst", () => {
+        editor.handleVimKey(keyEvent(" "));
+        editor.handleVimKey(keyEvent("u"));
+        expect(tileAt(20, 20)).toBe(210);
+    });
+
+    it("keeps a mouse drag as one undo entry (shared session)", () => {
+        const mouse = (clientX: number, clientY: number) => ({
+            clientX,
+            clientY,
+            button: 0,
+            ctrlKey: false,
+            metaKey: false,
+            preventDefault: vi.fn(),
+        });
+        (editor as any).onCanvasMouseDown(
+            mouse(100, 0) as unknown as MouseEvent,
+        );
+        for (let i = 0; i < 5; i++) {
+            (editor as any).onCanvasMouseMove(
+                mouse(100 + i * 15, 0) as unknown as MouseEvent,
+            );
+        }
+        (editor as any).onCanvasMouseUp();
+        editor.undo();
+        // one undo removes the whole drag stroke
+        expect(tileAt(0, 0)).toBe(210);
+        expect(tileAt(5, 0)).toBe(210);
     });
 });
