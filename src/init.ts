@@ -1,3 +1,5 @@
+import { createKeybindDispatcher, installEditorKeybinds } from "./vim/keybinds";
+
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new (window as any).BCMapEditor("mapCanvas");
 
@@ -134,29 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.toggleGrid();
         syncGridButton();
     });
-    window.addEventListener("keydown", (e) => {
-        if (e.ctrlKey || e.metaKey || e.altKey) return;
-        if (e.key.toLowerCase() !== "g") return;
-        const target = e.target as HTMLElement | null;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
-            return;
-        e.preventDefault();
-        editor.toggleGrid();
-        syncGridButton();
-    });
-
-    // Help toggle (?) keybind
-    window.addEventListener("keydown", (e) => {
-        if (e.ctrlKey || e.metaKey || e.altKey) return;
-        if (e.key !== "?") return;
-        const target = e.target as HTMLElement | null;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
-            return;
-        e.preventDefault();
-        editor.toggleHelp();
-    });
 
     // Undo/Redo (buttons + keybinds)
     const btnUndo = document.getElementById(
@@ -178,32 +157,17 @@ document.addEventListener("DOMContentLoaded", () => {
     editor.onHistoryChange = syncHistoryButtons;
     syncHistoryButtons();
 
-    const isEditableTarget = (e: KeyboardEvent): boolean => {
-        const target = e.target as HTMLElement | null;
-        const tag = target?.tagName;
-        return (
-            tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable
-        );
-    };
-
-    // Undo (Ctrl+Z / Cmd+Z, without Shift) keybind
-    window.addEventListener("keydown", (e) => {
-        if (e.key.toLowerCase() !== "z") return;
-        if (!(e.ctrlKey || e.metaKey) || e.shiftKey) return;
-        if (isEditableTarget(e)) return;
-        e.preventDefault();
-        editor.undo();
+    const keybindRegistry = installEditorKeybinds({
+        toggleGrid: () => {
+            editor.toggleGrid();
+            syncGridButton();
+        },
+        toggleHelp: () => editor.toggleHelp(),
+        undo: () => editor.undo(),
+        redo: () => editor.redo(),
     });
-
-    // Redo (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z) keybind
-    window.addEventListener("keydown", (e) => {
-        const key = e.key.toLowerCase();
-        const isRedoKey =
-            (key === "y" && (e.ctrlKey || e.metaKey)) ||
-            (key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey);
-        if (!isRedoKey) return;
-        if (isEditableTarget(e)) return;
-        e.preventDefault();
-        editor.redo();
-    });
+    window.addEventListener(
+        "keydown",
+        createKeybindDispatcher(keybindRegistry),
+    );
 });

@@ -4161,6 +4161,103 @@ class BCMapEditor {
 window.BCMapEditor = BCMapEditor;
 
 "use strict";
+// BCMap Editor - single keybind dispatcher + registry.
+//
+// One window keydown listener owns all editor shortcuts. Each binding
+// declares its keys, help text and scope (map / sidebar / global), so the
+// same array drives both behavior and any cheatsheet/README rendering.
+window.isEditableTarget = isEditableTarget;
+window.isCharKey = isCharKey;
+window.createKeybindDispatcher = createKeybindDispatcher;
+window.installEditorKeybinds = installEditorKeybinds;
+/** True when the event target is a text field: editor keys must not fire. */
+function isEditableTarget(e) {
+    const target = e.target;
+    const tag = target?.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable;
+}
+/** True for a bare character key with no Ctrl/Cmd/Alt (Shift allowed, e.g. "?"). */
+function isCharKey(e, key) {
+    return (e.key.toLowerCase() === key.toLowerCase() &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey);
+}
+/** First matching binding wins; unmatched keys fall through untouched. */
+function createKeybindDispatcher(bindings) {
+    return (e) => {
+        for (const binding of bindings) {
+            if (binding.applies(e)) {
+                binding.run(e);
+                return;
+            }
+        }
+    };
+}
+/**
+ * The editor's built-in shortcuts. Returns the registry so callers can both
+ * install the dispatcher and render help from the same source of truth.
+ */
+function installEditorKeybinds(actions) {
+    return [
+        {
+            keys: "G",
+            description: "Toggle grid",
+            scope: "map",
+            applies: (e) => isCharKey(e, "g") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleGrid();
+            },
+        },
+        {
+            keys: "?",
+            description: "Toggle help overlay",
+            scope: "map",
+            applies: (e) => isCharKey(e, "?") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleHelp();
+            },
+        },
+        {
+            keys: "Ctrl+Z",
+            description: "Undo",
+            scope: "global",
+            applies: (e) => {
+                const key = e.key.toLowerCase();
+                return (key === "z" &&
+                    (e.ctrlKey || e.metaKey) &&
+                    !e.shiftKey &&
+                    !e.altKey &&
+                    !isEditableTarget(e));
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.undo();
+            },
+        },
+        {
+            keys: "Ctrl+Y / Ctrl+Shift+Z",
+            description: "Redo",
+            scope: "global",
+            applies: (e) => {
+                const key = e.key.toLowerCase();
+                const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
+                return (((key === "y" && withCtrl) ||
+                    (key === "z" && withCtrl && e.shiftKey)) &&
+                    !isEditableTarget(e));
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.redo();
+            },
+        },
+    ];
+}
+
+"use strict";
+const keybinds_1 = window;
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
@@ -4268,32 +4365,6 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.toggleGrid();
         syncGridButton();
     });
-    window.addEventListener("keydown", (e) => {
-        if (e.ctrlKey || e.metaKey || e.altKey)
-            return;
-        if (e.key.toLowerCase() !== "g")
-            return;
-        const target = e.target;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
-            return;
-        e.preventDefault();
-        editor.toggleGrid();
-        syncGridButton();
-    });
-    // Help toggle (?) keybind
-    window.addEventListener("keydown", (e) => {
-        if (e.ctrlKey || e.metaKey || e.altKey)
-            return;
-        if (e.key !== "?")
-            return;
-        const target = e.target;
-        const tag = target?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target?.isContentEditable)
-            return;
-        e.preventDefault();
-        editor.toggleHelp();
-    });
     // Undo/Redo (buttons + keybinds)
     const btnUndo = document.getElementById("btnUndo");
     const btnRedo = document.getElementById("btnRedo");
@@ -4311,34 +4382,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     editor.onHistoryChange = syncHistoryButtons;
     syncHistoryButtons();
-    const isEditableTarget = (e) => {
-        const target = e.target;
-        const tag = target?.tagName;
-        return (tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable);
-    };
-    // Undo (Ctrl+Z / Cmd+Z, without Shift) keybind
-    window.addEventListener("keydown", (e) => {
-        if (e.key.toLowerCase() !== "z")
-            return;
-        if (!(e.ctrlKey || e.metaKey) || e.shiftKey)
-            return;
-        if (isEditableTarget(e))
-            return;
-        e.preventDefault();
-        editor.undo();
+    const keybindRegistry = (0, keybinds_1.installEditorKeybinds)({
+        toggleGrid: () => {
+            editor.toggleGrid();
+            syncGridButton();
+        },
+        toggleHelp: () => editor.toggleHelp(),
+        undo: () => editor.undo(),
+        redo: () => editor.redo(),
     });
-    // Redo (Ctrl+Y / Cmd+Y / Ctrl+Shift+Z / Cmd+Shift+Z) keybind
-    window.addEventListener("keydown", (e) => {
-        const key = e.key.toLowerCase();
-        const isRedoKey = (key === "y" && (e.ctrlKey || e.metaKey)) ||
-            (key === "z" && (e.ctrlKey || e.metaKey) && e.shiftKey);
-        if (!isRedoKey)
-            return;
-        if (isEditableTarget(e))
-            return;
-        e.preventDefault();
-        editor.redo();
-    });
+    window.addEventListener("keydown", (0, keybinds_1.createKeybindDispatcher)(keybindRegistry));
 });
 
 
