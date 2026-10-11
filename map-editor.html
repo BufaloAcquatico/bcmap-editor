@@ -141,7 +141,7 @@
 
     <!-- Map Panel -->
     <main class="map-panel flex-1 d-flex flex-column position-relative" style="min-width: 0; min-height: 0;">
-      <canvas id="mapCanvas"></canvas>
+      <canvas id="mapCanvas" tabindex="0" role="application" aria-label="Map canvas, 40 by 40 grid"></canvas>
       <div id="controlsHelp" class="controls-help">
         <div class="controls-help-title">Controls</div>
         <div><kbd>?</kbd> &mdash; toggle help</div>
@@ -157,9 +157,10 @@
 
   <!-- Status Bar -->
   <div class="status-bar p-2 d-flex justify-content-between align-items-center">
-    <div id="statusPosition">Position: (-, -)</div>
+    <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
     <div id="statusSelection">No selection</div>
     <div id="statusMapSize">Map: 40x40</div>
+    <div id="statusPosition">Position: (-, -)</div>
   </div>
 
   <!-- Import Modal -->
@@ -3311,6 +3312,324 @@ function railroadStyleName(neighbors) {
 }
 
 "use strict";
+// BCMap Editor - pure vim-style grid math.
+//
+// No editor state, no DOM: every function maps keys to clamped grid moves
+// or computes rectangle geometry. The vim controller owns counts/pending
+// state and calls into this; tests exercise it directly.
+window.motionDelta = motionDelta;
+window.isCountDigit = isCountDigit;
+window.stepFrom = stepFrom;
+window.lineStart = lineStart;
+window.lineEnd = lineEnd;
+window.normalizeRegion = normalizeRegion;
+window.regionSize = regionSize;
+window.regionCells = regionCells;
+window.clipRegion = clipRegion;
+/** Step vectors for hjkl and arrow keys. Null for non-motion keys. */
+function motionDelta(key) {
+    switch (key) {
+        case "h":
+        case "ArrowLeft":
+            return [-1, 0];
+        case "j":
+        case "ArrowDown":
+            return [0, 1];
+        case "k":
+        case "ArrowUp":
+            return [0, -1];
+        case "l":
+        case "ArrowRight":
+            return [1, 0];
+        default:
+            return null;
+    }
+}
+/** Count digits 1-9. A leading 0 is the row-start motion, not a count. */
+function isCountDigit(key) {
+    return key.length === 1 && key >= "1" && key <= "9";
+}
+/** Clamped relative move on a width x height grid. */
+function stepFrom(pos, dx, dy, count, width, height) {
+    const step = Math.max(1, Math.floor(count) || 1);
+    return {
+        X: Math.min(width - 1, Math.max(0, pos.X + dx * step)),
+        Y: Math.min(height - 1, Math.max(0, pos.Y + dy * step)),
+    };
+}
+/** `0`: first column of the cursor's row. */
+function lineStart(pos) {
+    return { X: 0, Y: pos.Y };
+}
+/** `$`: last column of the cursor's row. */
+function lineEnd(pos, width) {
+    return { X: width - 1, Y: pos.Y };
+}
+/** Sorted rectangle from a visual-mode anchor and the moving cursor. */
+function normalizeRegion(from, to) {
+    return {
+        from: { X: Math.min(from.X, to.X), Y: Math.min(from.Y, to.Y) },
+        to: { X: Math.max(from.X, to.X), Y: Math.max(from.Y, to.Y) },
+    };
+}
+/** Inclusive cell count per axis. */
+function regionSize(region) {
+    return {
+        width: region.to.X - region.from.X + 1,
+        height: region.to.Y - region.from.Y + 1,
+    };
+}
+/** Every cell of the region, row-major. */
+function regionCells(region) {
+    const cells = [];
+    for (let y = region.from.Y; y <= region.to.Y; y++) {
+        for (let x = region.from.X; x <= region.to.X; x++) {
+            cells.push({ X: x, Y: y });
+        }
+    }
+    return cells;
+}
+/** Region clipped to the map, or null when it lies fully outside. */
+function clipRegion(region, width, height) {
+    const fromX = Math.max(0, region.from.X);
+    const fromY = Math.max(0, region.from.Y);
+    const toX = Math.min(width - 1, region.to.X);
+    const toY = Math.min(height - 1, region.to.Y);
+    if (fromX > toX || fromY > toY)
+        return null;
+    return { from: { X: fromX, Y: fromY }, to: { X: toX, Y: toY } };
+}
+
+"use strict";
+// BCMap Editor - vim-style input controller (normal mode in this slice).
+//
+// Owns all vim state: cursor, pending count, pending g, visual anchor.
+// Resolves keys through the pure motions module and emits intents to the
+// editor, which applies them (clamping, auto-pan, render, history).
+// No DOM access here — keep it unit-testable against a fake.
+window.VimController = void 0;
+const motions_1 = window;
+class VimController {
+    constructor(intents) {
+        this.intents = intents;
+        this.mode = "normal";
+        this.cursor = null;
+        this.count = "";
+        this.pendingG = false;
+        this.onStateChange = null;
+    }
+    notify() {
+        this.onStateChange?.();
+    }
+    resetPending() {
+        this.count = "";
+        this.pendingG = false;
+    }
+    countValue() {
+        return this.count === "" ? 1 : parseInt(this.count, 10);
+    }
+    /** Ensure a cursor exists, booting at the intents' default position. */
+    ensureCursor() {
+        if (!this.cursor) {
+            this.cursor = this.intents.bootCursor();
+        }
+        return this.cursor;
+    }
+    moveTo(pos) {
+        this.cursor = pos;
+        this.intents.setCursor(pos);
+    }
+    /** Status-bar label, vim showcmd style (pending count / g / mode). */
+    statusModeText() {
+        if (this.pendingG)
+            return "g";
+        if (this.count !== "")
+            return this.count;
+        return this.mode === "visual" ? "-- VISUAL --" : "-- NORMAL --";
+    }
+    getMode() {
+        return this.mode;
+    }
+    getCursor() {
+        return this.cursor;
+    }
+    clearCursor() {
+        this.cursor = null;
+        this.resetPending();
+        this.notify();
+    }
+    /** Handle one keypress. Returns true when the controller consumed it. */
+    handleKey(key) {
+        // Count prefix: leading digit 1-9 (0 is the row-start motion).
+        if (this.count === "" && key.length === 1 && key >= "1" && key <= "9") {
+            this.count = key;
+            this.resetG();
+            this.notify();
+            return true;
+        }
+        if (this.count !== "" && key.length === 1 && key >= "0" && key <= "9") {
+            if (this.count.length < 3)
+                this.count += key;
+            this.notify();
+            return true;
+        }
+        if (key === "g") {
+            if (this.pendingG) {
+                this.resetPending();
+                this.moveTo({ X: 0, Y: 0 });
+            }
+            else {
+                this.count = "";
+                this.pendingG = true;
+            }
+            this.notify();
+            return true;
+        }
+        const count = this.countValue();
+        const delta = (0, motions_1.motionDelta)(key);
+        if (delta) {
+            this.resetPending();
+            this.moveTo((0, motions_1.stepFrom)(this.ensureCursor(), delta[0], delta[1], count, 40, 40));
+            this.notify();
+            return true;
+        }
+        if (key === "0") {
+            this.resetPending();
+            this.moveTo((0, motions_1.lineStart)(this.ensureCursor()));
+            this.notify();
+            return true;
+        }
+        if (key === "$") {
+            this.resetPending();
+            this.moveTo((0, motions_1.lineEnd)(this.ensureCursor(), 40));
+            this.notify();
+            return true;
+        }
+        // Unrelated keys are never consumed, and never boot the cursor.
+        this.resetPending();
+        return false;
+    }
+    resetG() {
+        this.pendingG = false;
+    }
+}
+window.VimController = VimController;
+
+"use strict";
+// BCMap Editor - single keybind dispatcher + registry.
+//
+// One window keydown listener owns all editor shortcuts. Each binding
+// declares its keys, help text and scope (map / sidebar / global), so the
+// same array drives both behavior and any cheatsheet/README rendering.
+window.isEditableTarget = isEditableTarget;
+window.isCharKey = isCharKey;
+window.createKeybindDispatcher = createKeybindDispatcher;
+window.installEditorKeybinds = installEditorKeybinds;
+/** True when the event target is a text field: editor keys must not fire. */
+function isEditableTarget(e) {
+    const target = e.target;
+    const tag = target?.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable;
+}
+/** True for a bare character key with no Ctrl/Cmd/Alt (Shift allowed, e.g. "?"). */
+function isCharKey(e, key) {
+    return (e.key.toLowerCase() === key.toLowerCase() &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey);
+}
+/** First matching binding wins; unmatched keys fall through untouched. */
+function createKeybindDispatcher(bindings) {
+    return (e) => {
+        for (const binding of bindings) {
+            if (binding.applies(e)) {
+                binding.run(e);
+                return;
+            }
+        }
+    };
+}
+/** Bare keys owned by the vim controller (motions, counts, row bounds, gg). */
+const VIM_MOTION_KEYS = /^([hjkl0-9$g]|ArrowLeft|ArrowDown|ArrowUp|ArrowRight)$/;
+/**
+ * The editor's built-in shortcuts. Returns the registry so callers can both
+ * install the dispatcher and render help from the same source of truth.
+ */
+function installEditorKeybinds(actions) {
+    return [
+        {
+            keys: "G",
+            description: "Toggle grid",
+            scope: "map",
+            applies: (e) => e.key === "G" && !e.ctrlKey && !e.metaKey && !e.altKey,
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleGrid();
+            },
+        },
+        {
+            keys: "?",
+            description: "Toggle help overlay",
+            scope: "map",
+            applies: (e) => isCharKey(e, "?") && !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleHelp();
+            },
+        },
+        {
+            keys: "Ctrl+Z",
+            description: "Undo",
+            scope: "global",
+            applies: (e) => {
+                const key = e.key.toLowerCase();
+                return (key === "z" &&
+                    (e.ctrlKey || e.metaKey) &&
+                    !e.shiftKey &&
+                    !e.altKey &&
+                    !isEditableTarget(e));
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.undo();
+            },
+        },
+        {
+            keys: "Ctrl+Y / Ctrl+Shift+Z",
+            description: "Redo",
+            scope: "global",
+            applies: (e) => {
+                const key = e.key.toLowerCase();
+                const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
+                return (((key === "y" && withCtrl) ||
+                    (key === "z" && withCtrl && e.shiftKey)) &&
+                    !isEditableTarget(e));
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.redo();
+            },
+        },
+        {
+            keys: "hjkl / arrows",
+            description: "Move cursor (counts, 0, $, gg)",
+            scope: "map",
+            applies: (e) => VIM_MOTION_KEYS.test(e.key) &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                // Matched keys are vim-owned (motions/counts); prevent the
+                // browser default (e.g. arrow-key page scroll) regardless.
+                e.preventDefault();
+                actions.handleVimKey(e);
+            },
+        },
+    ];
+}
+
+"use strict";
 // BCMap Editor - TypeScript Source
 window.BCMapEditor = void 0;
 
@@ -3318,6 +3637,7 @@ window.BCMapEditor = void 0;
 const history_1 = window;
 const mapdata_1 = window;
 const picker_1 = window;
+const vimController_1 = window;
 const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
 const ZOOM_ANIMATION_EASE = 0.25;
@@ -3330,6 +3650,9 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
+const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
+const CURSOR_OUTLINE_WIDTH = 2;
+const CURSOR_DASH_PATTERN = [4, 4];
 const PAN_OVERSCROLL_TILES = 15;
 class BCMapEditor {
     constructor(canvasId) {
@@ -3364,6 +3687,10 @@ class BCMapEditor {
             onSelectObject: (obj) => this.setSelectedObject(obj),
         });
         this.objectMarginTiles = 0;
+        this.vim = new vimController_1.VimController({
+            setCursor: (pos) => this.applyVimCursor(pos),
+            bootCursor: () => this.vimBootPosition(),
+        });
         this.zoomTarget = 1.0;
         this.zoomAnchor = null;
         this.zoomAnimating = false;
@@ -3382,6 +3709,8 @@ class BCMapEditor {
         this.applyDefaultSelection();
         this.init();
         this.preloadImages();
+        this.vim.onStateChange = () => this.updateVimMode();
+        this.updateVimMode();
     }
     preloadImages() {
         this.tileCatalog.forEach((tile) => {
@@ -3953,6 +4282,20 @@ class BCMapEditor {
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
+        // Draw the vim keyboard cursor as a dashed gold outline
+        const vimCursor = this.vim.getCursor();
+        if (vimCursor &&
+            vimCursor.X >= 0 &&
+            vimCursor.X < mapdata_1.MAP_WIDTH &&
+            vimCursor.Y >= 0 &&
+            vimCursor.Y < mapdata_1.MAP_HEIGHT) {
+            ctx.save();
+            ctx.setLineDash(CURSOR_DASH_PATTERN);
+            ctx.strokeStyle = CURSOR_OUTLINE_COLOR;
+            ctx.lineWidth = CURSOR_OUTLINE_WIDTH;
+            ctx.strokeRect(startX + vimCursor.X * tileSize, startY + vimCursor.Y * tileSize, tileSize, tileSize);
+            ctx.restore();
+        }
     }
     requestRender() {
         if (this.renderRequested)
@@ -3968,6 +4311,61 @@ class BCMapEditor {
             this.renderRequested = false;
             this.render();
         }
+    }
+    /** Where the cursor starts when the first vim key arrives. */
+    vimBootPosition() {
+        if (this.hoveredTile)
+            return { ...this.hoveredTile };
+        return { X: Math.floor(mapdata_1.MAP_WIDTH / 2), Y: Math.floor(mapdata_1.MAP_HEIGHT / 2) };
+    }
+    /** Apply a vim cursor move: reveal if needed, refresh position, redraw. */
+    applyVimCursor(pos) {
+        this.ensureCursorVisible(pos);
+        this.updateStatusPosition(pos);
+        this.requestRender();
+    }
+    /** Nudge the pan so a keyboard-moved cursor that left the view reappears. */
+    ensureCursorVisible(pos) {
+        const { startX, startY, tileSize } = this.getDrawBox();
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        let changed = false;
+        const cellX = startX + pos.X * tileSize;
+        const cellY = startY + pos.Y * tileSize;
+        if (cellX + tileSize < 0) {
+            this.panX += Math.ceil(-cellX / tileSize) * tileSize;
+            changed = true;
+        }
+        else if (cellX > canvasWidth) {
+            this.panX -=
+                Math.ceil((cellX + tileSize - canvasWidth) / tileSize) *
+                    tileSize;
+            changed = true;
+        }
+        if (cellY + tileSize < 0) {
+            this.panY += Math.ceil(-cellY / tileSize) * tileSize;
+            changed = true;
+        }
+        else if (cellY > canvasHeight) {
+            this.panY -=
+                Math.ceil((cellY + tileSize - canvasHeight) / tileSize) *
+                    tileSize;
+            changed = true;
+        }
+        if (changed)
+            this.clampPan();
+    }
+    updateVimMode() {
+        const el = document.getElementById("statusVimMode");
+        if (el)
+            el.textContent = this.vim.statusModeText();
+    }
+    /** Route a keyboard event into the vim controller (window dispatcher). */
+    handleVimKey(e) {
+        const consumed = this.vim.handleKey(e.key);
+        if (consumed)
+            e.preventDefault();
+        return consumed;
     }
     updateStatusPosition(pos) {
         const el = document.getElementById("statusPosition");
@@ -4048,6 +4446,7 @@ class BCMapEditor {
             this.mapData = (0, mapdata_1.parseMapData)(code, (id) => this.fullTileMap.has(id), (id) => this.fullObjectMap.has(id));
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
+            this.vim.clearCursor();
             this.resetView();
         }
         catch (e) {
@@ -4064,6 +4463,7 @@ class BCMapEditor {
         this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.vim.clearCursor();
         this.resetView();
     }
     resetView() {
@@ -4159,191 +4559,6 @@ class BCMapEditor {
     }
 }
 window.BCMapEditor = BCMapEditor;
-
-"use strict";
-// BCMap Editor - pure vim-style grid math.
-//
-// No editor state, no DOM: every function maps keys to clamped grid moves
-// or computes rectangle geometry. The vim controller owns counts/pending
-// state and calls into this; tests exercise it directly.
-window.motionDelta = motionDelta;
-window.isCountDigit = isCountDigit;
-window.stepFrom = stepFrom;
-window.lineStart = lineStart;
-window.lineEnd = lineEnd;
-window.normalizeRegion = normalizeRegion;
-window.regionSize = regionSize;
-window.regionCells = regionCells;
-window.clipRegion = clipRegion;
-/** Step vectors for hjkl and arrow keys. Null for non-motion keys. */
-function motionDelta(key) {
-    switch (key) {
-        case "h":
-        case "ArrowLeft":
-            return [-1, 0];
-        case "j":
-        case "ArrowDown":
-            return [0, 1];
-        case "k":
-        case "ArrowUp":
-            return [0, -1];
-        case "l":
-        case "ArrowRight":
-            return [1, 0];
-        default:
-            return null;
-    }
-}
-/** Count digits 1-9. A leading 0 is the row-start motion, not a count. */
-function isCountDigit(key) {
-    return key.length === 1 && key >= "1" && key <= "9";
-}
-/** Clamped relative move on a width x height grid. */
-function stepFrom(pos, dx, dy, count, width, height) {
-    const step = Math.max(1, Math.floor(count) || 1);
-    return {
-        X: Math.min(width - 1, Math.max(0, pos.X + dx * step)),
-        Y: Math.min(height - 1, Math.max(0, pos.Y + dy * step)),
-    };
-}
-/** `0`: first column of the cursor's row. */
-function lineStart(pos) {
-    return { X: 0, Y: pos.Y };
-}
-/** `$`: last column of the cursor's row. */
-function lineEnd(pos, width) {
-    return { X: width - 1, Y: pos.Y };
-}
-/** Sorted rectangle from a visual-mode anchor and the moving cursor. */
-function normalizeRegion(from, to) {
-    return {
-        from: { X: Math.min(from.X, to.X), Y: Math.min(from.Y, to.Y) },
-        to: { X: Math.max(from.X, to.X), Y: Math.max(from.Y, to.Y) },
-    };
-}
-/** Inclusive cell count per axis. */
-function regionSize(region) {
-    return {
-        width: region.to.X - region.from.X + 1,
-        height: region.to.Y - region.from.Y + 1,
-    };
-}
-/** Every cell of the region, row-major. */
-function regionCells(region) {
-    const cells = [];
-    for (let y = region.from.Y; y <= region.to.Y; y++) {
-        for (let x = region.from.X; x <= region.to.X; x++) {
-            cells.push({ X: x, Y: y });
-        }
-    }
-    return cells;
-}
-/** Region clipped to the map, or null when it lies fully outside. */
-function clipRegion(region, width, height) {
-    const fromX = Math.max(0, region.from.X);
-    const fromY = Math.max(0, region.from.Y);
-    const toX = Math.min(width - 1, region.to.X);
-    const toY = Math.min(height - 1, region.to.Y);
-    if (fromX > toX || fromY > toY)
-        return null;
-    return { from: { X: fromX, Y: fromY }, to: { X: toX, Y: toY } };
-}
-
-"use strict";
-// BCMap Editor - single keybind dispatcher + registry.
-//
-// One window keydown listener owns all editor shortcuts. Each binding
-// declares its keys, help text and scope (map / sidebar / global), so the
-// same array drives both behavior and any cheatsheet/README rendering.
-window.isEditableTarget = isEditableTarget;
-window.isCharKey = isCharKey;
-window.createKeybindDispatcher = createKeybindDispatcher;
-window.installEditorKeybinds = installEditorKeybinds;
-/** True when the event target is a text field: editor keys must not fire. */
-function isEditableTarget(e) {
-    const target = e.target;
-    const tag = target?.tagName;
-    return tag === "INPUT" || tag === "TEXTAREA" || !!target?.isContentEditable;
-}
-/** True for a bare character key with no Ctrl/Cmd/Alt (Shift allowed, e.g. "?"). */
-function isCharKey(e, key) {
-    return (e.key.toLowerCase() === key.toLowerCase() &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !e.altKey);
-}
-/** First matching binding wins; unmatched keys fall through untouched. */
-function createKeybindDispatcher(bindings) {
-    return (e) => {
-        for (const binding of bindings) {
-            if (binding.applies(e)) {
-                binding.run(e);
-                return;
-            }
-        }
-    };
-}
-/**
- * The editor's built-in shortcuts. Returns the registry so callers can both
- * install the dispatcher and render help from the same source of truth.
- */
-function installEditorKeybinds(actions) {
-    return [
-        {
-            keys: "G",
-            description: "Toggle grid",
-            scope: "map",
-            applies: (e) => isCharKey(e, "g") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.toggleGrid();
-            },
-        },
-        {
-            keys: "?",
-            description: "Toggle help overlay",
-            scope: "map",
-            applies: (e) => isCharKey(e, "?") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.toggleHelp();
-            },
-        },
-        {
-            keys: "Ctrl+Z",
-            description: "Undo",
-            scope: "global",
-            applies: (e) => {
-                const key = e.key.toLowerCase();
-                return (key === "z" &&
-                    (e.ctrlKey || e.metaKey) &&
-                    !e.shiftKey &&
-                    !e.altKey &&
-                    !isEditableTarget(e));
-            },
-            run: (e) => {
-                e.preventDefault();
-                actions.undo();
-            },
-        },
-        {
-            keys: "Ctrl+Y / Ctrl+Shift+Z",
-            description: "Redo",
-            scope: "global",
-            applies: (e) => {
-                const key = e.key.toLowerCase();
-                const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
-                return (((key === "y" && withCtrl) ||
-                    (key === "z" && withCtrl && e.shiftKey)) &&
-                    !isEditableTarget(e));
-            },
-            run: (e) => {
-                e.preventDefault();
-                actions.redo();
-            },
-        },
-    ];
-}
 
 "use strict";
 const keybinds_1 = window;
@@ -4479,6 +4694,7 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),
+        handleVimKey: (e) => editor.handleVimKey(e),
     });
     window.addEventListener("keydown", (0, keybinds_1.createKeybindDispatcher)(keybindRegistry));
 });

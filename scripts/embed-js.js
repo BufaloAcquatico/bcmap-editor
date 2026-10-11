@@ -11,9 +11,10 @@ const files = [
     "mapdata.js",
     "picker.js",
     "render.js",
-    "editor.js",
     "vim/motions.js",
+    "vim/vimController.js",
     "vim/keybinds.js",
+    "editor.js",
     "init.js",
 ];
 

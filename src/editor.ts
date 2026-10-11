@@ -21,6 +21,7 @@ import {
     serializeMap,
 } from "./mapdata";
 import { MapPicker } from "./picker";
+import { VimController } from "./vim/vimController";
 import {
     EXPANDABLE_LEFT_RIGHT,
     findFloorWallEffect,
@@ -54,6 +55,9 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
+const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
+const CURSOR_OUTLINE_WIDTH = 2;
+const CURSOR_DASH_PATTERN = [4, 4];
 const PAN_OVERSCROLL_TILES = 15;
 
 export class BCMapEditor {
@@ -91,6 +95,10 @@ export class BCMapEditor {
         onSelectObject: (obj) => this.setSelectedObject(obj),
     });
     private objectMarginTiles = 0;
+    private vim = new VimController({
+        setCursor: (pos) => this.applyVimCursor(pos),
+        bootCursor: () => this.vimBootPosition(),
+    });
     private zoomTarget = 1.0;
     private zoomAnchor: { x: number; y: number } | null = null;
     private zoomAnimating = false;
@@ -109,6 +117,8 @@ export class BCMapEditor {
         this.applyDefaultSelection();
         this.init();
         this.preloadImages();
+        this.vim.onStateChange = () => this.updateVimMode();
+        this.updateVimMode();
     }
 
     private preloadImages(): void {
@@ -807,6 +817,28 @@ export class BCMapEditor {
                 tileSize,
             );
         }
+
+        // Draw the vim keyboard cursor as a dashed gold outline
+        const vimCursor = this.vim.getCursor();
+        if (
+            vimCursor &&
+            vimCursor.X >= 0 &&
+            vimCursor.X < MAP_WIDTH &&
+            vimCursor.Y >= 0 &&
+            vimCursor.Y < MAP_HEIGHT
+        ) {
+            ctx.save();
+            ctx.setLineDash(CURSOR_DASH_PATTERN);
+            ctx.strokeStyle = CURSOR_OUTLINE_COLOR;
+            ctx.lineWidth = CURSOR_OUTLINE_WIDTH;
+            ctx.strokeRect(
+                startX + vimCursor.X * tileSize,
+                startY + vimCursor.Y * tileSize,
+                tileSize,
+                tileSize,
+            );
+            ctx.restore();
+        }
     }
 
     private requestRender(): void {
@@ -821,6 +853,60 @@ export class BCMapEditor {
             this.renderRequested = false;
             this.render();
         }
+    }
+
+    /** Where the cursor starts when the first vim key arrives. */
+    private vimBootPosition(): Point {
+        if (this.hoveredTile) return { ...this.hoveredTile };
+        return { X: Math.floor(MAP_WIDTH / 2), Y: Math.floor(MAP_HEIGHT / 2) };
+    }
+
+    /** Apply a vim cursor move: reveal if needed, refresh position, redraw. */
+    private applyVimCursor(pos: Point): void {
+        this.ensureCursorVisible(pos);
+        this.updateStatusPosition(pos);
+        this.requestRender();
+    }
+
+    /** Nudge the pan so a keyboard-moved cursor that left the view reappears. */
+    private ensureCursorVisible(pos: Point): void {
+        const { startX, startY, tileSize } = this.getDrawBox();
+        const canvasWidth = this.canvas.width;
+        const canvasHeight = this.canvas.height;
+        let changed = false;
+        const cellX = startX + pos.X * tileSize;
+        const cellY = startY + pos.Y * tileSize;
+        if (cellX + tileSize < 0) {
+            this.panX += Math.ceil(-cellX / tileSize) * tileSize;
+            changed = true;
+        } else if (cellX > canvasWidth) {
+            this.panX -=
+                Math.ceil((cellX + tileSize - canvasWidth) / tileSize) *
+                tileSize;
+            changed = true;
+        }
+        if (cellY + tileSize < 0) {
+            this.panY += Math.ceil(-cellY / tileSize) * tileSize;
+            changed = true;
+        } else if (cellY > canvasHeight) {
+            this.panY -=
+                Math.ceil((cellY + tileSize - canvasHeight) / tileSize) *
+                tileSize;
+            changed = true;
+        }
+        if (changed) this.clampPan();
+    }
+
+    private updateVimMode(): void {
+        const el = document.getElementById("statusVimMode");
+        if (el) el.textContent = this.vim.statusModeText();
+    }
+
+    /** Route a keyboard event into the vim controller (window dispatcher). */
+    public handleVimKey(e: KeyboardEvent): boolean {
+        const consumed = this.vim.handleKey(e.key);
+        if (consumed) e.preventDefault();
+        return consumed;
     }
 
     private updateStatusPosition(pos: Point | null): void {
@@ -905,6 +991,7 @@ export class BCMapEditor {
             );
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
+            this.vim.clearCursor();
             this.resetView();
         } catch (e) {
             throw new Error("Failed to import map: " + e);
@@ -920,6 +1007,7 @@ export class BCMapEditor {
         this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.vim.clearCursor();
         this.resetView();
     }
 

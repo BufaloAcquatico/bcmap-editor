@@ -49,7 +49,12 @@ export interface EditorKeybindActions {
     toggleHelp: () => void;
     undo: () => void;
     redo: () => void;
+    handleVimKey: (e: KeyboardEvent) => boolean;
 }
+
+/** Bare keys owned by the vim controller (motions, counts, row bounds, gg). */
+const VIM_MOTION_KEYS =
+    /^([hjkl0-9$g]|ArrowLeft|ArrowDown|ArrowUp|ArrowRight)$/;
 
 /**
  * The editor's built-in shortcuts. Returns the registry so callers can both
@@ -63,7 +68,8 @@ export function installEditorKeybinds(
             keys: "G",
             description: "Toggle grid",
             scope: "map",
-            applies: (e) => isCharKey(e, "g") && !isEditableTarget(e),
+            applies: (e) =>
+                e.key === "G" && !e.ctrlKey && !e.metaKey && !e.altKey,
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
@@ -114,6 +120,23 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 actions.redo();
+            },
+        },
+        {
+            keys: "hjkl / arrows",
+            description: "Move cursor (counts, 0, $, gg)",
+            scope: "map",
+            applies: (e) =>
+                VIM_MOTION_KEYS.test(e.key) &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                // Matched keys are vim-owned (motions/counts); prevent the
+                // browser default (e.g. arrow-key page scroll) regardless.
+                e.preventDefault();
+                actions.handleVimKey(e);
             },
         },
     ];

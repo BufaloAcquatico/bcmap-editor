@@ -488,7 +488,8 @@ test("grid toggles via button and G keybind", async ({
     await page.click("#btnToggleGrid");
     expect(await gridVisible()).toBe(false);
 
-    await page.keyboard.press("g");
+    // Shift+G toggles the grid; lowercase g belongs to the vim controller
+    await page.keyboard.press("Shift+G");
     expect(await gridVisible()).toBe(true);
 
     // Typing "g" in the search box must not toggle the grid

@@ -109,13 +109,17 @@ describe("installEditorKeybinds", () => {
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
         };
         const bindings = installEditorKeybinds(actions);
         const dispatch = createKeybindDispatcher(bindings);
 
-        dispatch(keyEvent("g"));
+        dispatch(keyEvent("G"));
         expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
-        expect(actions.undo).not.toHaveBeenCalled();
+
+        dispatch(keyEvent("g"));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(1);
+        expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
 
         dispatch(keyEvent("?"));
         expect(actions.toggleHelp).toHaveBeenCalledTimes(1);
@@ -136,6 +140,7 @@ describe("installEditorKeybinds", () => {
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -159,6 +164,7 @@ describe("installEditorKeybinds", () => {
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -173,18 +179,55 @@ describe("installEditorKeybinds", () => {
         expect(actions.redo).toHaveBeenCalledTimes(1);
     });
 
+    it("routes vim motion keys, counts and arrows to the vim controller", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("3"));
+        dispatch(keyEvent("j"));
+        dispatch(keyEvent("ArrowDown"));
+        dispatch(keyEvent("0"));
+        dispatch(keyEvent("$"));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(5);
+    });
+
+    it("does not route verb or letter keys to the vim controller", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("x"));
+        dispatch(keyEvent("y"));
+        dispatch(keyEvent("v"));
+        expect(actions.handleVimKey).not.toHaveBeenCalled();
+    });
+
     it("describes every binding for the help registry", () => {
         const bindings = installEditorKeybinds({
             toggleGrid: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
         });
         for (const binding of bindings) {
             expect(binding.keys.length).toBeGreaterThan(0);
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
         }
-        expect(bindings).toHaveLength(4);
+        expect(bindings).toHaveLength(5);
     });
 });

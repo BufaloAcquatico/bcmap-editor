@@ -38,14 +38,22 @@ docker compose up -d
 
 ## Controls
 
-| Action            | Input                                    |
-| ----------------- | ---------------------------------------- |
-| Paint tile/object | Left click or left-drag                  |
-| Pan               | Right-drag                               |
-| Zoom              | Mouse wheel                              |
-| Undo              | Ctrl+Z / Cmd+Z or the Undo button        |
-| Redo              | Ctrl+Y / Ctrl+Shift+Z or the Redo button |
-| Erase object      | Select a `Blank` object and paint        |
+| Action            | Input                                                                  |
+| ----------------- | ---------------------------------------------------------------------- |
+| Paint tile/object | Left click or left-drag                                                |
+| Pan               | Right-drag                                                             |
+| Zoom              | Mouse wheel                                                            |
+| Undo              | Ctrl+Z / Cmd+Z or the Undo button                                      |
+| Redo              | Ctrl+Y / Ctrl+Shift+Z or the Redo button                               |
+| Erase object      | Select a `Blank` object and paint                                      |
+| Move cursor       | `hjkl` or arrow keys (counts: `3j`; `0`/`$` row bounds; `gg` top-left) |
+| Toggle grid       | `G` (Shift+G)                                                          |
+| Toggle help       | `?`                                                                    |
+
+The keyboard cursor boots under the last hovered cell (map center if the
+mouse never visited) and auto-pans to stay visible when zoomed in. The
+status bar shows the vim mode (`-- NORMAL --`) on the left, the selection
+in the middle, and the cursor/pointer position on the right.
 
 ## Map Format
 

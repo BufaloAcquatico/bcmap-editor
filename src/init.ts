@@ -165,6 +165,7 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),
+        handleVimKey: (e: KeyboardEvent) => editor.handleVimKey(e),
     });
     window.addEventListener(
         "keydown",
