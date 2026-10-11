@@ -29,6 +29,19 @@
     .btn-toolbar .btn { border-radius: 0.375rem; }
     .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; }
     .category-header:hover { background-color: #2a2a4a; }
+    /* Picker nodes are real <button>s (F3): strip UA button chrome so the
+       existing div-era styling above still applies unchanged. */
+    button.category-header,
+    button.sprite-item {
+      appearance: none;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+      background-color: transparent;
+      text-align: left;
+    }
+    button.sprite-item { display: inline-block; }
+    button.category-header { width: 100%; }
     .category-caret { font-size: 0.75rem; transition: transform 0.15s ease; }
     .category-caret.expanded { transform: rotate(90deg); }
     .category-content { display: flex; flex-wrap: wrap; }
@@ -128,7 +141,7 @@
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
-          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects...">
+          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects..." aria-label="Search tiles and objects">
         </div>
       </div>
       <div class="flex-1 overflow-auto" id="sidebarContent">
@@ -144,13 +157,7 @@
       <canvas id="mapCanvas" tabindex="0" role="application" aria-label="Map canvas, 40 by 40 grid"></canvas>
       <div id="controlsHelp" class="controls-help">
         <div class="controls-help-title">Controls</div>
-        <div><kbd>?</kbd> &mdash; toggle help</div>
-        <div><kbd>Left click</kbd> / <kbd>drag</kbd> &mdash; paint</div>
-        <div><kbd>Right drag</kbd> &mdash; pan</div>
-        <div><kbd>Wheel</kbd> &mdash; zoom</div>
-        <div><kbd>G</kbd> &mdash; toggle grid</div>
-        <div><kbd>Ctrl</kbd> + <kbd>Z</kbd> &mdash; undo</div>
-        <div><kbd>Ctrl</kbd> + <kbd>Y</kbd> &mdash; redo</div>
+        <!-- keyboard rows are rendered from the keybind registry by init.ts -->
       </div>
     </main>
   </div>
@@ -167,7 +174,7 @@
   </div>
 
   <!-- Import Modal -->
-  <div class="modal fade" id="importModal" tabindex="-1">
+  <div class="modal fade" id="importModal" tabindex="-1" role="dialog" aria-modal="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
@@ -189,7 +196,7 @@
   </div>
 
   <!-- Export Modal -->
-  <div class="modal fade" id="exportModal" tabindex="-1">
+  <div class="modal fade" id="exportModal" tabindex="-1" role="dialog" aria-modal="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -215,7 +222,7 @@
   </div>
 
   <!-- New Map Confirmation Modal -->
-  <div class="modal fade" id="newMapModal" tabindex="-1">
+  <div class="modal fade" id="newMapModal" tabindex="-1" role="dialog" aria-modal="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -3057,12 +3064,16 @@ class MapPicker {
             this.tileCategoryEls.push(entry);
             const container = entry.content;
             tiles.forEach((tile) => {
-                const item = document.createElement("div");
+                const item = document.createElement("button");
+                item.type = "button";
                 item.className = "sprite-item";
+                item.tabIndex = -1;
+                item.setAttribute?.("aria-pressed", "false");
                 const key = tile.Type + "/" + tile.Style;
                 item.style.backgroundImage =
                     "url(assets/tiles/" + key + ".png)";
                 item.title = tile.Style;
+                item.setAttribute?.("aria-label", `Select tile ${tile.Style}`);
                 item.addEventListener("click", () => {
                     this.delegate.onSelectTile(tile);
                 });
@@ -3106,13 +3117,17 @@ class MapPicker {
                     }
                     blankAdded = true;
                 }
-                const item = document.createElement("div");
+                const item = document.createElement("button");
+                item.type = "button";
                 item.className = "sprite-item";
+                item.tabIndex = -1;
+                item.setAttribute?.("aria-pressed", "false");
                 if (obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
                     item.style.backgroundImage =
                         "url(assets/objects/" + key + ".png)";
                     item.title = obj.Style;
+                    item.setAttribute?.("aria-label", `Select object ${obj.Style}`);
                 }
                 else {
                     // Static compile-time SVG constant only (no interpolation
@@ -3120,6 +3135,7 @@ class MapPicker {
                     // innerHTML use in this file.
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
+                    item.setAttribute?.("aria-label", "Blank (erase objects)");
                 }
                 item.addEventListener("click", () => {
                     this.delegate.onSelectObject(obj);
@@ -3166,10 +3182,71 @@ class MapPicker {
     syncSelection(selectedTileId, selectedObjectId) {
         this.tilePickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedTileId === id);
+            el.setAttribute?.("aria-pressed", selectedTileId === id ? "true" : "false");
         });
         this.objectPickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedObjectId === id);
+            el.setAttribute?.("aria-pressed", selectedObjectId === id ? "true" : "false");
         });
+    }
+    /**
+     * Move focus along the visible picker: category headers and sprite
+     * buttons of the active layer, in DOM order (D2). Folded categories
+     * contribute only their header; filtered-out items are skipped.
+     */
+    focusMove(direction) {
+        const nodes = this.visibleNavNodes();
+        if (nodes.length === 0)
+            return;
+        const active = document.activeElement;
+        const index = active ? nodes.indexOf(active) : -1;
+        const nextIndex = index < 0
+            ? 0
+            : direction === "next"
+                ? Math.min(nodes.length - 1, index + 1)
+                : Math.max(0, index - 1);
+        const node = nodes[nextIndex];
+        node?.focus();
+        node?.scrollIntoView?.({ block: "nearest" });
+    }
+    /**
+     * Collapse (delta -1) or expand (delta +1) the category that owns the
+     * focused node (header or one of its sprites). Returns false when focus
+     * is elsewhere so the key can fall through.
+     */
+    foldFocused(delta) {
+        const active = document.activeElement;
+        const entry = this.entryForNode(active);
+        if (!entry)
+            return false;
+        this.setCategoryCollapsed(entry, delta === -1);
+        return true;
+    }
+    /** Visible focusable nodes of the active layer, header-then-items. */
+    visibleNavNodes() {
+        const entries = this.activeEntries();
+        const nodes = [];
+        entries.forEach((entry) => {
+            nodes.push(entry.header);
+            if (entry.collapsed)
+                return;
+            entry.content.querySelectorAll(".sprite-item").forEach((el) => {
+                const htmlEl = el;
+                if (htmlEl.style.display !== "none")
+                    nodes.push(htmlEl);
+            });
+        });
+        return nodes.filter((el) => !!el.closest?.("#sidebar"));
+    }
+    activeEntries() {
+        return this.layer === "tile"
+            ? this.tileCategoryEls
+            : this.objectCategoryEls;
+    }
+    entryForNode(node) {
+        if (!node)
+            return null;
+        return (this.activeEntries().find((entry) => entry.header === node || entry.content.contains(node)) ?? null);
     }
     updateVisibility() {
         const tileCategories = document.getElementById("tileCategories");
@@ -3186,24 +3263,36 @@ class MapPicker {
         }
     }
     createCategoryHeader(name) {
-        const header = document.createElement("div");
+        const header = document.createElement("button");
+        header.type = "button";
+        header.tabIndex = -1;
+        header.setAttribute?.("aria-expanded", "false");
         header.className =
             "category-header p-2 border-bottom border-secondary d-flex align-items-center gap-2";
         const caret = document.createElement("i");
         caret.className = "bi bi-caret-right-fill category-caret";
+        caret.setAttribute?.("aria-hidden", "true");
         const label = document.createElement("span");
         label.textContent = name;
         header.appendChild(caret);
         header.appendChild(label);
         const content = document.createElement("div");
         content.className = "category-content p-2";
-        const entry = { content, caret, collapsed: false };
+        content.id = "cat-" + Math.random().toString(36).slice(2, 8);
+        header.setAttribute?.("aria-controls", content.id);
+        const entry = {
+            header,
+            content,
+            caret,
+            collapsed: false,
+        };
         header.addEventListener("click", () => this.setCategoryCollapsed(entry, !entry.collapsed));
         return { header, entry };
     }
     setCategoryCollapsed(entry, collapsed) {
         entry.collapsed = collapsed;
         entry.content.style.display = collapsed ? "none" : "";
+        entry.header.setAttribute?.("aria-expanded", collapsed ? "false" : "true");
         if (collapsed)
             entry.caret.classList?.remove("expanded");
         else
@@ -3868,9 +3957,11 @@ function runCommand(input, actions) {
 // One window keydown listener owns all editor shortcuts. Each binding
 // declares its keys, help text and scope (map / sidebar / global), so the
 // same array drives both behavior and any cheatsheet/README rendering.
+window.KEYBIND_HELP = void 0;
 window.isEditableTarget = isEditableTarget;
 window.isCharKey = isCharKey;
 window.createKeybindDispatcher = createKeybindDispatcher;
+window.isSidebarSurface = isSidebarSurface;
 window.installEditorKeybinds = installEditorKeybinds;
 /** True when the event target is a text field: editor keys must not fire. */
 function isEditableTarget(e) {
@@ -3885,14 +3976,66 @@ function isCharKey(e, key) {
         !e.metaKey &&
         !e.altKey);
 }
-/** First matching binding wins; unmatched keys fall through untouched. */
+/**
+ * Plain-data view of every shortcut: the single source for the in-app help
+ * card (init.ts renders it) and the README Controls table
+ * (scripts/render-keybinds-doc.js). A unit test guards it against drift
+ * from the installEditorKeybinds definitions.
+ */
+window.KEYBIND_HELP = [
+    {
+        keys: "hjkl / arrows",
+        description: "Move cursor (counts, 0, $, gg)",
+        scope: "map",
+    },
+    {
+        keys: "Space / Enter",
+        description: "Paint selection at cursor",
+        scope: "map",
+    },
+    { keys: "x", description: "Erase cursor cell", scope: "map" },
+    { keys: "v", description: "Visual mode (select region)", scope: "map" },
+    { keys: "y / Y", description: "Yank region (both layers)", scope: "map" },
+    { keys: "d", description: "Delete visual region", scope: "map" },
+    { keys: "p", description: "Paste yank at cursor", scope: "map" },
+    { keys: "u", description: "Undo (vim alias)", scope: "map" },
+    {
+        keys: "Esc",
+        description: "Cancel selection / pending state",
+        scope: "map",
+    },
+    {
+        keys: ":",
+        description: "Command line (w/e/help/grid/line)",
+        scope: "map",
+    },
+    { keys: "/", description: "Focus the picker search", scope: "map" },
+    {
+        keys: "arrows",
+        description: "Navigate picker (groups: collapse/expand)",
+        scope: "sidebar",
+    },
+    { keys: "G", description: "Toggle grid", scope: "map" },
+    { keys: "?", description: "Toggle help overlay", scope: "map" },
+    { keys: "Ctrl+Z", description: "Undo", scope: "global" },
+    {
+        keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
+        description: "Redo",
+        scope: "global",
+    },
+];
+/**
+ * Bindings are tried in order; the first whose `applies` matches AND whose
+ * `run` returns true consumes the key. A binding that declines (e.g. the
+ * sidebar router sees a key it does not own) lets later bindings try.
+ */
 function createKeybindDispatcher(bindings) {
     return (e) => {
         for (const binding of bindings) {
-            if (binding.applies(e)) {
-                binding.run(e);
+            if (!binding.applies(e))
+                continue;
+            if (binding.run(e))
                 return;
-            }
         }
     };
 }
@@ -3905,11 +4048,27 @@ function isInteractiveTarget(e) {
     return (tag === "BUTTON" || tag === "A" || tag === "SELECT" || tag === "SUMMARY");
 }
 /**
+ * True when focus sits inside the picker sidebar (a sprite button or a
+ * category header). The sidebar router binding runs first and may decline,
+ * so G/?/undo keep working no matter where focus is (D10).
+ */
+function isSidebarSurface(e) {
+    const target = e.target;
+    return !!target?.closest?.("#sidebar");
+}
+/**
  * The editor's built-in shortcuts. Returns the registry so callers can both
  * install the dispatcher and render help from the same source of truth.
  */
 function installEditorKeybinds(actions) {
     return [
+        {
+            keys: "arrows",
+            description: "Navigate picker (groups: collapse/expand)",
+            scope: "sidebar",
+            applies: (e) => isSidebarSurface(e) && !e.ctrlKey && !e.metaKey && !e.altKey,
+            run: (e) => actions.handleSidebarKey(e),
+        },
         {
             keys: "G",
             description: "Toggle grid",
@@ -3918,6 +4077,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
+                return true;
             },
         },
         {
@@ -3928,6 +4088,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.toggleHelp();
+                return true;
             },
         },
         {
@@ -3945,22 +4106,25 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.undo();
+                return true;
             },
         },
         {
-            keys: "Ctrl+Y / Ctrl+Shift+Z",
+            keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
             description: "Redo",
             scope: "global",
             applies: (e) => {
                 const key = e.key.toLowerCase();
                 const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
                 return (((key === "y" && withCtrl) ||
-                    (key === "z" && withCtrl && e.shiftKey)) &&
+                    (key === "z" && withCtrl && e.shiftKey) ||
+                    (key === "r" && withCtrl)) &&
                     !isEditableTarget(e));
             },
             run: (e) => {
                 e.preventDefault();
                 actions.redo();
+                return true;
             },
         },
         {
@@ -3977,6 +4141,7 @@ function installEditorKeybinds(actions) {
                 // browser default (e.g. arrow-key page scroll) regardless.
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -3987,6 +4152,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4002,16 +4168,18 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
             keys: "u",
-            description: "Undo",
+            description: "Undo (vim alias)",
             scope: "map",
             applies: (e) => isCharKey(e, "u") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4022,6 +4190,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4033,6 +4202,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4043,6 +4213,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4053,6 +4224,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4063,6 +4235,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
             },
         },
         {
@@ -4077,6 +4250,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.openCommandPrompt();
+                return true;
             },
         },
         {
@@ -4091,6 +4265,7 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.focusSearch();
+                return true;
             },
         },
     ];
@@ -5196,6 +5371,10 @@ class BCMapEditor {
         this.picker.populate(this.tileCatalog, this.objectCatalog);
         this.syncPickerSelection();
     }
+    /** Picker instance (used by the sidebar keyboard router in init.ts). */
+    getPicker() {
+        return this.picker;
+    }
     updatePickerVisibility() {
         this.picker.updateVisibility();
     }
@@ -5429,8 +5608,70 @@ document.addEventListener("DOMContentLoaded", () => {
         handleVimKey: (e) => editor.handleVimKey(e),
         openCommandPrompt: () => setCommandPromptOpen(true),
         focusSearch: () => searchInput?.focus(),
+        handleSidebarKey: (e) => {
+            // Esc always returns to the map surface (also from the search
+            // box inside the sidebar). The command prompt has its own Esc
+            // and lives outside the sidebar.
+            if (e.key === "Escape") {
+                e.preventDefault();
+                document.activeElement?.blur?.();
+                document.getElementById("mapCanvas")?.focus?.();
+                return true;
+            }
+            // Other keys inside text fields belong to the field.
+            const target = e.target;
+            if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
+                return false;
+            }
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                editor
+                    .getPicker()
+                    ?.focusMove(e.key === "ArrowDown" ? "next" : "prev");
+                return true;
+            }
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                editor.getPicker()?.foldFocused(e.key === "ArrowLeft" ? -1 : 1);
+                return true;
+            }
+            if (e.key === "Escape") {
+                e.preventDefault();
+                document.activeElement?.blur?.();
+                document.getElementById("mapCanvas")?.focus?.();
+                return true;
+            }
+            // Any printable character jumps into the search box (D9).
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                searchInput?.focus();
+                return true;
+            }
+            return false;
+        },
     });
     window.addEventListener("keydown", (0, keybinds_1.createKeybindDispatcher)(keybindRegistry));
+    // Help card rows render from the keybind registry so the card, the
+    // README table and the dispatcher can never drift (D13). Mouse-only
+    // controls have no keybind entry and are prepended here.
+    const helpCard = document.getElementById("controlsHelp");
+    if (helpCard) {
+        const addRow = (keys, description) => {
+            const row = document.createElement("div");
+            const kbds = keys
+                .split("/")
+                .map((k) => k.trim())
+                .filter((k) => k.length > 0)
+                .map((k) => `<kbd>${k}</kbd>`)
+                .join(" / ");
+            row.innerHTML = `${kbds} &mdash; ${description}`;
+            helpCard.appendChild(row);
+        };
+        addRow("Left click / drag", "Paint tile or object");
+        addRow("Right drag", "Pan");
+        addRow("Wheel", "Zoom");
+        keybinds_1.KEYBIND_HELP.forEach((entry) => addRow(entry.keys, entry.description));
+    }
 });
 
 

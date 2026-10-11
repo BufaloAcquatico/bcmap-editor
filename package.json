@@ -7,7 +7,7 @@
         "node": ">=20"
     },
     "scripts": {
-        "build": "tsc && node scripts/embed-js.js",
+        "build": "tsc && node scripts/embed-js.js && node scripts/render-keybinds-doc.js",
         "dev": "tsc --watch",
         "download-assets": "ts-node scripts/download-assets.ts",
         "format": "prettier --write .",

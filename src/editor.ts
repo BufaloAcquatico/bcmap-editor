@@ -1322,6 +1322,11 @@ export class BCMapEditor {
         this.syncPickerSelection();
     }
 
+    /** Picker instance (used by the sidebar keyboard router in init.ts). */
+    public getPicker(): MapPicker {
+        return this.picker;
+    }
+
     public updatePickerVisibility(): void {
         this.picker.updateVisibility();
     }

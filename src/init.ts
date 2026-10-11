@@ -1,4 +1,8 @@
-import { createKeybindDispatcher, installEditorKeybinds } from "./vim/keybinds";
+import {
+    createKeybindDispatcher,
+    installEditorKeybinds,
+    KEYBIND_HELP,
+} from "./vim/keybinds";
 
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new (window as any).BCMapEditor("mapCanvas");
@@ -236,9 +240,72 @@ document.addEventListener("DOMContentLoaded", () => {
         handleVimKey: (e: KeyboardEvent) => editor.handleVimKey(e),
         openCommandPrompt: () => setCommandPromptOpen(true),
         focusSearch: () => searchInput?.focus(),
+        handleSidebarKey: (e: KeyboardEvent): boolean => {
+            // Esc always returns to the map surface (also from the search
+            // box inside the sidebar). The command prompt has its own Esc
+            // and lives outside the sidebar.
+            if (e.key === "Escape") {
+                e.preventDefault();
+                (document.activeElement as HTMLElement | null)?.blur?.();
+                document.getElementById("mapCanvas")?.focus?.();
+                return true;
+            }
+            // Other keys inside text fields belong to the field.
+            const target = e.target as HTMLElement | null;
+            if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
+                return false;
+            }
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                editor
+                    .getPicker()
+                    ?.focusMove(e.key === "ArrowDown" ? "next" : "prev");
+                return true;
+            }
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                editor.getPicker()?.foldFocused(e.key === "ArrowLeft" ? -1 : 1);
+                return true;
+            }
+            if (e.key === "Escape") {
+                e.preventDefault();
+                (document.activeElement as HTMLElement | null)?.blur?.();
+                document.getElementById("mapCanvas")?.focus?.();
+                return true;
+            }
+            // Any printable character jumps into the search box (D9).
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                e.preventDefault();
+                searchInput?.focus();
+                return true;
+            }
+            return false;
+        },
     });
     window.addEventListener(
         "keydown",
         createKeybindDispatcher(keybindRegistry),
     );
+
+    // Help card rows render from the keybind registry so the card, the
+    // README table and the dispatcher can never drift (D13). Mouse-only
+    // controls have no keybind entry and are prepended here.
+    const helpCard = document.getElementById("controlsHelp");
+    if (helpCard) {
+        const addRow = (keys: string, description: string) => {
+            const row = document.createElement("div");
+            const kbds = keys
+                .split("/")
+                .map((k) => k.trim())
+                .filter((k) => k.length > 0)
+                .map((k) => `<kbd>${k}</kbd>`)
+                .join(" / ");
+            row.innerHTML = `${kbds} &mdash; ${description}`;
+            helpCard.appendChild(row);
+        };
+        addRow("Left click / drag", "Paint tile or object");
+        addRow("Right drag", "Pan");
+        addRow("Wheel", "Zoom");
+        KEYBIND_HELP.forEach((entry) => addRow(entry.keys, entry.description));
+    }
 });

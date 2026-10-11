@@ -17,6 +17,7 @@ export interface PickerDelegate {
 }
 
 interface CategoryEntry {
+    header: HTMLElement;
     content: HTMLElement;
     caret: HTMLElement;
     collapsed: boolean;
@@ -66,12 +67,16 @@ export class MapPicker {
             this.tileCategoryEls.push(entry);
             const container = entry.content;
             tiles.forEach((tile) => {
-                const item = document.createElement("div");
+                const item = document.createElement("button");
+                item.type = "button";
                 item.className = "sprite-item";
+                item.tabIndex = -1;
+                item.setAttribute?.("aria-pressed", "false");
                 const key = tile.Type + "/" + tile.Style;
                 item.style.backgroundImage =
                     "url(assets/tiles/" + key + ".png)";
                 item.title = tile.Style;
+                item.setAttribute?.("aria-label", `Select tile ${tile.Style}`);
                 item.addEventListener("click", () => {
                     this.delegate.onSelectTile(tile);
                 });
@@ -114,19 +119,27 @@ export class MapPicker {
                     }
                     blankAdded = true;
                 }
-                const item = document.createElement("div");
+                const item = document.createElement("button");
+                item.type = "button";
                 item.className = "sprite-item";
+                item.tabIndex = -1;
+                item.setAttribute?.("aria-pressed", "false");
                 if (obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
                     item.style.backgroundImage =
                         "url(assets/objects/" + key + ".png)";
                     item.title = obj.Style;
+                    item.setAttribute?.(
+                        "aria-label",
+                        `Select object ${obj.Style}`,
+                    );
                 } else {
                     // Static compile-time SVG constant only (no interpolation
                     // of catalog or user data); the single sanctioned
                     // innerHTML use in this file.
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
+                    item.setAttribute?.("aria-label", "Blank (erase objects)");
                 }
                 item.addEventListener("click", () => {
                     this.delegate.onSelectObject(obj);
@@ -188,10 +201,83 @@ export class MapPicker {
     ): void {
         this.tilePickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedTileId === id);
+            el.setAttribute?.(
+                "aria-pressed",
+                selectedTileId === id ? "true" : "false",
+            );
         });
         this.objectPickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedObjectId === id);
+            el.setAttribute?.(
+                "aria-pressed",
+                selectedObjectId === id ? "true" : "false",
+            );
         });
+    }
+
+    /**
+     * Move focus along the visible picker: category headers and sprite
+     * buttons of the active layer, in DOM order (D2). Folded categories
+     * contribute only their header; filtered-out items are skipped.
+     */
+    focusMove(direction: "next" | "prev"): void {
+        const nodes = this.visibleNavNodes();
+        if (nodes.length === 0) return;
+        const active = document.activeElement as HTMLElement | null;
+        const index = active ? nodes.indexOf(active) : -1;
+        const nextIndex =
+            index < 0
+                ? 0
+                : direction === "next"
+                  ? Math.min(nodes.length - 1, index + 1)
+                  : Math.max(0, index - 1);
+        const node = nodes[nextIndex];
+        node?.focus();
+        node?.scrollIntoView?.({ block: "nearest" });
+    }
+
+    /**
+     * Collapse (delta -1) or expand (delta +1) the category that owns the
+     * focused node (header or one of its sprites). Returns false when focus
+     * is elsewhere so the key can fall through.
+     */
+    foldFocused(delta: 1 | -1): boolean {
+        const active = document.activeElement as HTMLElement | null;
+        const entry = this.entryForNode(active);
+        if (!entry) return false;
+        this.setCategoryCollapsed(entry, delta === -1);
+        return true;
+    }
+
+    /** Visible focusable nodes of the active layer, header-then-items. */
+    private visibleNavNodes(): HTMLElement[] {
+        const entries = this.activeEntries();
+        const nodes: HTMLElement[] = [];
+        entries.forEach((entry) => {
+            nodes.push(entry.header);
+            if (entry.collapsed) return;
+            entry.content.querySelectorAll(".sprite-item").forEach((el) => {
+                const htmlEl = el as HTMLElement;
+                if (htmlEl.style.display !== "none") nodes.push(htmlEl);
+            });
+        });
+        return nodes.filter((el) => !!el.closest?.("#sidebar"));
+    }
+
+    private activeEntries(): CategoryEntry[] {
+        return this.layer === "tile"
+            ? this.tileCategoryEls
+            : this.objectCategoryEls;
+    }
+
+    private entryForNode(node: HTMLElement | null): CategoryEntry | null {
+        if (!node) return null;
+        return (
+            this.activeEntries().find(
+                (entry) =>
+                    entry.header === node || entry.content.contains(node),
+            ) ?? null
+        );
     }
 
     updateVisibility(): void {
@@ -211,18 +297,29 @@ export class MapPicker {
         header: HTMLElement;
         entry: CategoryEntry;
     } {
-        const header = document.createElement("div");
+        const header = document.createElement("button");
+        header.type = "button";
+        header.tabIndex = -1;
+        header.setAttribute?.("aria-expanded", "false");
         header.className =
             "category-header p-2 border-bottom border-secondary d-flex align-items-center gap-2";
         const caret = document.createElement("i");
         caret.className = "bi bi-caret-right-fill category-caret";
+        caret.setAttribute?.("aria-hidden", "true");
         const label = document.createElement("span");
         label.textContent = name;
         header.appendChild(caret);
         header.appendChild(label);
         const content = document.createElement("div");
         content.className = "category-content p-2";
-        const entry: CategoryEntry = { content, caret, collapsed: false };
+        content.id = "cat-" + Math.random().toString(36).slice(2, 8);
+        header.setAttribute?.("aria-controls", content.id);
+        const entry: CategoryEntry = {
+            header,
+            content,
+            caret,
+            collapsed: false,
+        };
         header.addEventListener("click", () =>
             this.setCategoryCollapsed(entry, !entry.collapsed),
         );
@@ -235,6 +332,10 @@ export class MapPicker {
     ): void {
         entry.collapsed = collapsed;
         entry.content.style.display = collapsed ? "none" : "";
+        entry.header.setAttribute?.(
+            "aria-expanded",
+            collapsed ? "false" : "true",
+        );
         if (collapsed) entry.caret.classList?.remove("expanded");
         else entry.caret.classList?.add("expanded");
     }

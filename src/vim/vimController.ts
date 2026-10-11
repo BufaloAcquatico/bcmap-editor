@@ -9,8 +9,10 @@ import {
     lineEnd,
     lineStart,
     motionDelta,
+    normalizeRegion,
     stepFrom,
     type GridPos,
+    type Region,
 } from "./motions";
 
 export type VimMode = "normal" | "visual";
@@ -20,11 +22,25 @@ export interface VimIntents {
     setCursor: (pos: GridPos) => void;
     /** Where the cursor starts on the first vim key (last hover or center). */
     bootCursor: () => GridPos;
+    /** Paint the current selection at the given cell. */
+    paintAt: (at: GridPos) => void;
+    /** Erase the given cell (grass on tiles, blank object on objects). */
+    eraseAt: (at: GridPos) => void;
+    /** Capture the region into the yank buffer (both layers). */
+    yankRegion: (region: Region) => void;
+    /** Erase every cell of the region as one undo entry. */
+    deleteRegion: (region: Region) => void;
+    /** Paste the yank buffer at the given anchor cell (clipped by editor). */
+    pasteYank: (at: GridPos) => void;
+    /** Close the open edit burst before an undo/mode change. */
+    flushEdits: () => void;
+    undo: () => void;
 }
 
 export class VimController {
     private mode: VimMode = "normal";
     private cursor: GridPos | null = null;
+    private anchor: GridPos | null = null;
     private count = "";
     private pendingG = false;
 
@@ -62,11 +78,36 @@ export class VimController {
     statusModeText(): string {
         if (this.pendingG) return "g";
         if (this.count !== "") return this.count;
-        return this.mode === "visual" ? "-- VISUAL --" : "-- NORMAL --";
+        if (this.mode === "visual") {
+            const region = this.getRegion();
+            const size = region
+                ? ` ${region.to.X - region.from.X + 1}x${region.to.Y - region.from.Y + 1}`
+                : "";
+            return `-- VISUAL --${size}`;
+        }
+        return "-- NORMAL --";
     }
 
     getMode(): VimMode {
         return this.mode;
+    }
+
+    /** The visual selection, normalized, or null outside visual mode. */
+    getRegion(): Region | null {
+        if (this.mode !== "visual" || !this.cursor || !this.anchor) return null;
+        return normalizeRegion(this.anchor, this.cursor);
+    }
+
+    private exitVisual(): void {
+        this.mode = "normal";
+        this.anchor = null;
+    }
+
+    private enterVisual(): void {
+        const at = this.cursor ?? this.intents.bootCursor();
+        if (!this.cursor) this.moveTo(at);
+        this.mode = "visual";
+        this.anchor = { ...at };
     }
 
     getCursor(): GridPos | null {
@@ -75,6 +116,8 @@ export class VimController {
 
     clearCursor(): void {
         this.cursor = null;
+        this.anchor = null;
+        this.mode = "normal";
         this.resetPending();
         this.notify();
     }
@@ -139,9 +182,93 @@ export class VimController {
             return true;
         }
 
+        if (key === "x") {
+            const at = this.ensureCursorForVerb();
+            this.intents.eraseAt(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "v") {
+            if (this.mode === "visual") {
+                this.exitVisual();
+            } else {
+                this.ensureCursorForVerb();
+                this.enterVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "y" || key === "Y") {
+            const region = this.getRegion();
+            if (region) {
+                this.intents.flushEdits();
+                this.intents.yankRegion(region);
+                this.exitVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "d" && this.mode === "visual") {
+            const region = this.getRegion();
+            if (region) {
+                this.intents.deleteRegion(region);
+                this.exitVisual();
+            }
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "p") {
+            const at = this.ensureCursorForVerb();
+            this.intents.pasteYank(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "Escape") {
+            // Esc cancels the innermost state: pending input first, then
+            // the visual selection.
+            this.resetPending();
+            this.exitVisual();
+            this.notify();
+            return true;
+        }
+
+        if (key === " " || key === "Enter") {
+            const at = this.ensureCursorForVerb();
+            this.intents.paintAt(at);
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
+        if (key === "u") {
+            this.intents.flushEdits();
+            this.intents.undo();
+            this.resetPending();
+            this.notify();
+            return true;
+        }
+
         // Unrelated keys are never consumed, and never boot the cursor.
         this.resetPending();
         return false;
+    }
+
+    private ensureCursorForVerb(): GridPos {
+        if (!this.cursor) {
+            this.cursor = this.intents.bootCursor();
+            this.intents.setCursor(this.cursor);
+        }
+        return this.cursor;
     }
 
     private resetG(): void {

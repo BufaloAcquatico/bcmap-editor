@@ -38,27 +38,29 @@ docker compose up -d
 
 ## Controls
 
-| Action            | Input                                                                  |
-| ----------------- | ---------------------------------------------------------------------- |
-| Paint tile/object | Left click or left-drag                                                |
-| Pan               | Right-drag                                                             |
-| Zoom              | Mouse wheel                                                            |
-| Undo              | Ctrl+Z / Cmd+Z or the Undo button                                      |
-| Redo              | Ctrl+Y / Ctrl+Shift+Z or the Redo button                               |
-| Erase object      | Select a `Blank` object and paint                                      |
-| Move cursor       | `hjkl` or arrow keys (counts: `3j`; `0`/`$` row bounds; `gg` top-left) |
-| Paint at cursor   | `Space` / `Enter` (uses the picker selection)                          |
-| Erase cursor cell | `x` (grass on tiles, blank object on objects)                          |
-| Visual mode       | `v` (extend with motions; tinted rectangle)                            |
-| Yank region       | `y` / `Y` (copies **both** layers of the selection)                    |
-| Delete region     | `d` (erases the visual selection)                                      |
-| Paste             | `p` at the cursor (restores both layers, clipped)                      |
-| Cancel selection  | `Esc`                                                                  |
-| Command line      | `:` (`:w [name]`, `:e`, `:help`, `:grid`, `:line x1,y1 x2,y2`)         |
-| Focus search      | `/`                                                                    |
-| Undo / Redo       | `u` / `Ctrl+R` (aliases), or Ctrl+Z / Ctrl+Y                           |
-| Toggle grid       | `G` (Shift+G)                                                          |
-| Toggle help       | `?`                                                                    |
+<!-- KEYBINDS:START -->
+| Action | Input |
+| --- | --- |
+| Paint tile/object | Left click or left-drag |
+| Pan | Right drag |
+| Zoom | Mouse wheel |
+| Move cursor (counts, 0, $, gg) | `hjkl` / `arrows` |
+| Paint selection at cursor | `Space` / `Enter` |
+| Erase cursor cell | `x` |
+| Visual mode (select region) | `v` |
+| Yank region (both layers) | `y` / `Y` |
+| Delete visual region | `d` |
+| Paste yank at cursor | `p` |
+| Undo (vim alias) | `u` |
+| Cancel selection / pending state | `Esc` |
+| Command line (w/e/help/grid/line) | `:` |
+| Focus the picker search | `/` |
+| Navigate picker (groups: collapse/expand) | `arrows` |
+| Toggle grid | `G` |
+| Toggle help overlay | `?` |
+| Undo | `Ctrl+Z` |
+| Redo | `Ctrl+Y` / `Ctrl+Shift+Z` / `Ctrl+R` |
+<!-- KEYBINDS:END -->
 
 The keyboard cursor boots under the last hovered cell (map center if the
 mouse never visited) and auto-pans to stay visible when zoomed in. The

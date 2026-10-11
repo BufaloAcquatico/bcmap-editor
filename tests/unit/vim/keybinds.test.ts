@@ -3,7 +3,9 @@ import {
     createKeybindDispatcher,
     isCharKey,
     isEditableTarget,
+    isSidebarSurface,
     installEditorKeybinds,
+    KEYBIND_HELP,
 } from "../../../src/vim/keybinds";
 
 const keyEvent = (
@@ -62,9 +64,9 @@ describe("isCharKey", () => {
 });
 
 describe("createKeybindDispatcher", () => {
-    it("runs the first matching binding only", () => {
-        const first = vi.fn();
-        const second = vi.fn();
+    it("stops at the first binding that consumes the key", () => {
+        const first = vi.fn(() => true);
+        const second = vi.fn(() => true);
         const dispatch = createKeybindDispatcher([
             {
                 keys: "j",
@@ -112,6 +114,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const bindings = installEditorKeybinds(actions);
         const dispatch = createKeybindDispatcher(bindings);
@@ -145,6 +148,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -171,6 +175,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -194,6 +199,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -215,6 +221,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -240,6 +247,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -258,6 +266,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -277,6 +286,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -296,6 +306,7 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
@@ -313,12 +324,106 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
         });
         for (const binding of bindings) {
             expect(binding.keys.length).toBeGreaterThan(0);
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
         }
-        expect(bindings).toHaveLength(15);
+        expect(bindings).toHaveLength(16);
+    });
+});
+
+describe("Keybind registry (D13)", () => {
+    const bindingsWith = (handleSidebarKey: (e: KeyboardEvent) => boolean) =>
+        installEditorKeybinds({
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            handleSidebarKey,
+        });
+
+    it("keeps every binding documented in KEYBIND_HELP", () => {
+        for (const binding of bindingsWith(() => true)) {
+            const entry = KEYBIND_HELP.find((h) => h.keys === binding.keys);
+            expect(
+                entry,
+                `${binding.keys} missing from KEYBIND_HELP`,
+            ).toBeDefined();
+            expect(entry!.description).toBe(binding.description);
+            expect(entry!.scope).toBe(binding.scope);
+        }
+    });
+
+    it("has no stale help entries", () => {
+        const bindings = bindingsWith(() => true);
+        for (const entry of KEYBIND_HELP) {
+            expect(
+                bindings.some((b) => b.keys === entry.keys),
+                `${entry.keys} has no binding`,
+            ).toBe(true);
+        }
+    });
+});
+
+describe("Sidebar surface routing (D9/D10)", () => {
+    const sidebar = () => {
+        const target = {
+            tagName: "BUTTON",
+            closest: (sel: string) => (sel === "#sidebar" ? {} : null),
+        };
+        return target as unknown;
+    };
+    const map = () => ({ tagName: "CANVAS" }) as unknown;
+
+    it("detects sidebar focus via the #sidebar ancestor", () => {
+        expect(isSidebarSurface(keyEvent("j", {}, sidebar()))).toBe(true);
+        expect(isSidebarSurface(keyEvent("j", {}, map()))).toBe(false);
+        expect(isSidebarSurface(keyEvent("j", {}, undefined))).toBe(false);
+    });
+
+    it("offers sidebar keys to the sidebar router first", () => {
+        const handleSidebarKey = vi.fn(() => true);
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            handleSidebarKey,
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("j", {}, sidebar()));
+        expect(handleSidebarKey).toHaveBeenCalledTimes(1);
+        expect(actions.handleVimKey).not.toHaveBeenCalled();
+    });
+
+    it("falls through to later bindings when the sidebar router declines", () => {
+        const handleSidebarKey = vi.fn(() => false);
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            handleSidebarKey,
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("G", {}, sidebar()));
+        expect(handleSidebarKey).toHaveBeenCalledTimes(1);
+        expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
     });
 });
