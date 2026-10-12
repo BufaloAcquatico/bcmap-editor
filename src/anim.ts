@@ -7,7 +7,7 @@
 // loop) can never corrupt map data or selection.
 
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-export const MOTION_MS = 250;
+export const MOTION_MS = 500;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
 export const MOTION_QUICK_MS = 200;
 
@@ -34,6 +34,12 @@ export function rateForDuration(durationMs: number): number {
  */
 export const CURSOR_APPROACH_RATE = rateForDuration(MOTION_MS);
 export const HOVER_APPROACH_RATE = rateForDuration(MOTION_QUICK_MS);
+/**
+ * Wheel-zoom smoothing, tied to the quick tier like every other chase:
+ * zoom targets stream continuously from the wheel, and the loop tracks
+ * them with the same rhythm instead of its own private ease.
+ */
+export const ZOOM_APPROACH_RATE = rateForDuration(MOTION_QUICK_MS);
 
 /** Snap threshold in tile units (sub-pixel at any zoom). */
 export const MOTION_EPSILON_TILES = 0.01;

@@ -463,7 +463,8 @@ test("wheel zoom anchors to cursor", async ({ page }: { page: Page }) => {
     const before = await coordAt(px, py);
 
     await page.mouse.wheel(0, -120);
-    await page.waitForTimeout(400);
+    // Poll zoom rest instead of a fixed wait: settle time follows rates.
+    await page.waitForFunction(() => !(window as any).editor.zoomAnimating);
 
     const after = await coordAt(px, py);
     const zoomText = await page.locator("#zoomLevel").textContent();
@@ -508,7 +509,10 @@ test("redundant fold keypress does not replay the expand animation", async ({
         .locator("#tileCategories .category-header")
         .first();
     await firstHeader.click(); // expand + animate
-    await page.waitForTimeout(400); // let the expand fade finish
+    // Settle wait derives from the canonical duration so retuning
+    // motion never strands this test mid-fade.
+    const settleMs = await page.evaluate(() => (window as any).MOTION_MS + 250);
+    await page.waitForTimeout(settleMs);
     await page.keyboard.press("ArrowRight"); // already open: must stay silent
     const running = await page.evaluate(() => {
         const header = document.querySelector(
@@ -551,6 +555,14 @@ test("CSS motion durations match the canonical TS constants", async ({
     expect(Math.abs(rates.cursor - rates.expCursor)).toBeLessThan(1e-9);
     expect(Math.abs(rates.hover - rates.expHover)).toBeLessThan(1e-9);
     expect(rates.hover).toBeGreaterThan(rates.cursor);
+    const zoom = await page.evaluate(() => {
+        const w = window as any;
+        return {
+            rate: w.ZOOM_APPROACH_RATE as number,
+            expected: 1 - Math.pow(0.01, 1000 / 60 / w.MOTION_QUICK_MS),
+        };
+    });
+    expect(Math.abs(zoom.rate - zoom.expected)).toBeLessThan(1e-9);
 });
 
 test("hover outline follows the mouse while painting identical tiles", async ({
@@ -573,7 +585,13 @@ test("hover outline follows the mouse while painting identical tiles", async ({
     await page.mouse.down({ button: "left" });
     await page.mouse.move(startX + 30, startY, { steps: 5 });
     await page.mouse.up({ button: "left" });
-    await page.waitForTimeout(500);
+    // Poll render convergence: wall-clock waits couple to tunable rates.
+    await page.waitForFunction(() => {
+        const ed = (window as any).editor;
+        const h = ed.hoveredTile;
+        const r = ed.hoverRenderPos;
+        return h && r && r.X === h.X && r.Y === h.Y;
+    });
     const state = await page.evaluate(() => {
         const ed = (window as any).editor;
         return { hover: ed.hoveredTile, render: ed.hoverRenderPos };

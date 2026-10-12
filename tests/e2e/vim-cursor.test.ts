@@ -103,8 +103,10 @@ test("cursor glides toward motions across frames (motion on)", async ({
     page: Page;
 }) => {
     await openEditor(page);
-    await page.keyboard.press("j"); // boot (20, 21)
-    await page.waitForTimeout(500); // let the boot glide settle
+    await page.keyboard.press("j"); // boot (20, 21), snaps on first frame
+    await page.waitForFunction(
+        () => (window as any).editor.cursorRenderPos !== null,
+    );
     // Record the render position at each animation frame.
     await page.evaluate(() => {
         (window as any).__traj = [];
