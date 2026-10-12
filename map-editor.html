@@ -323,9 +323,9 @@ window.cancelEffects = cancelEffects;
 window.fadeIn = fadeIn;
 window.fadeOut = fadeOut;
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-window.MOTION_MS = 5000;
+window.MOTION_MS = 200;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-window.MOTION_QUICK_MS = 2000;
+window.MOTION_QUICK_MS = 150;
 /** Nominal first-frame step when no previous timestamp exists. */
 window.FRAME_MS = 1000 / 60;
 /**
@@ -6341,6 +6341,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // (The :root values below are pre-JS fallbacks only.)
     document.documentElement.style.setProperty("--motion-ms", `${anim_1.MOTION_MS}ms`);
     document.documentElement.style.setProperty("--motion-quick-ms", `${anim_1.MOTION_QUICK_MS}ms`);
+    // One-line proof of which tuning is live (see it in devtools after
+    // every rebuild; source edits need `npm run build` to reach the page).
+    console.info(`Motion durations: standard ${anim_1.MOTION_MS}ms, quick ${anim_1.MOTION_QUICK_MS}ms.`);
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
     window.editor = editor;

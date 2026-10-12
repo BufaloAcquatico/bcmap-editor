@@ -16,6 +16,11 @@ document.addEventListener("DOMContentLoaded", () => {
         "--motion-quick-ms",
         `${MOTION_QUICK_MS}ms`,
     );
+    // One-line proof of which tuning is live (see it in devtools after
+    // every rebuild; source edits need `npm run build` to reach the page).
+    console.info(
+        `Motion durations: standard ${MOTION_MS}ms, quick ${MOTION_QUICK_MS}ms.`,
+    );
     const editor = new (window as any).BCMapEditor("mapCanvas");
 
     // Store editor globally

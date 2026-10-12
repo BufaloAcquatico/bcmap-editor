@@ -7,9 +7,9 @@
 // loop) can never corrupt map data or selection.
 
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-export const MOTION_MS = 5000;
+export const MOTION_MS = 200;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-export const MOTION_QUICK_MS = 2000;
+export const MOTION_QUICK_MS = 150;
 
 /** Nominal first-frame step when no previous timestamp exists. */
 export const FRAME_MS = 1000 / 60;

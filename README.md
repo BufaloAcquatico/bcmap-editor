@@ -87,6 +87,16 @@ pnpm install
 # Build
 npm run build
 
+# Tuning motion
+All animation durations live in `src/anim.ts` (`MOTION_MS` and
+`MOTION_QUICK_MS`); canvas loops, CSS transitions, fades and tests all
+derive from them, so retuning those two constants retunes everything.
+Source edits only reach the page through a rebuild: run `npm run build`
+after changing values, then hard-refresh (note: `npm run dev` compiles
+without re-embedding, so it alone changes nothing visible). The live
+tuning prints one `Motion durations: …` line to the devtools console on
+every load — check there first if a retune seems to do nothing.
+
 # Download assets (drive from the shared catalog, with throttling)
 npm run download-assets
 
