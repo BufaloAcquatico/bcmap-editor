@@ -10,6 +10,7 @@
 // region is open.
 
 import type { AppSurface } from "./appSurface";
+import { fadeIn } from "./anim";
 
 export interface HelpRegistryEntry {
     keys: string;
@@ -143,7 +144,15 @@ export function createHelpRenderer(deps: HelpCardDeps): HelpCardRenderer {
     const setShowAll = (show: boolean) => {
         showAll = show;
         render();
+        fadeIn(deps.card);
     };
 
-    return { render, setShowAll };
+    // The card breathes on every reslice; the toggle path above
+    // re-renders first, so wrapping render would double-fade it.
+    const renderAndBreathe = () => {
+        render();
+        fadeIn(deps.card);
+    };
+
+    return { render: renderAndBreathe, setShowAll };
 }

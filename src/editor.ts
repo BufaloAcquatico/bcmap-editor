@@ -26,10 +26,12 @@ import {
     approach,
     settled,
     prefersReducedMotion,
+    fadeIn,
     CURSOR_APPROACH_RATE,
     HOVER_APPROACH_RATE,
     MOTION_EPSILON_TILES,
     MOTION_EPSILON_SCALE,
+    MOTION_MS,
 } from "./anim";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
@@ -150,6 +152,13 @@ export class BCMapEditor {
      */
     private hoverRenderPos: Point | null = null;
     private hoverRenderScale = 0;
+    /**
+     * One-shot commit pulse: region + start timestamp. The render loop
+     * draws it decaying over the standard token, then clears it.
+     * Presentation only; skipped under reduced motion.
+     */
+    private flashRegion: Region | null = null;
+    private flashStartedAt = 0;
     private vim = new VimController({
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
@@ -422,13 +431,15 @@ export class BCMapEditor {
      */
     private paintRegion(region: Region): void {
         const cells = regionCells(region);
+        let painted = false;
         this.applySessionEdit(() => {
-            let changed = false;
+            painted = false;
             for (const cell of cells) {
-                if (this.writeCell(cell)) changed = true;
+                if (this.writeCell(cell)) painted = true;
             }
-            return changed;
+            return painted;
         });
+        if (painted) this.flashCommit(region);
     }
 
     /** `y`: capture the region's content of both layers. */
@@ -483,8 +494,9 @@ export class BCMapEditor {
         }
         const width = region.to.X - region.from.X + 1;
         const height = region.to.Y - region.from.Y + 1;
+        let painted = false;
         this.applySessionEdit(() => {
-            let changed = false;
+            painted = false;
             for (let row = 0; row < height; row++) {
                 for (let col = 0; col < width; col++) {
                     const charIndex =
@@ -498,12 +510,28 @@ export class BCMapEditor {
                             buffer.objects[charIndex],
                         )
                     ) {
-                        changed = true;
+                        painted = true;
                     }
                 }
             }
-            return changed;
+            return painted;
         });
+        if (painted) this.flashCommit(region);
+    }
+
+    /**
+     * Arm the one-shot commit pulse: the region flashes softly, then
+     * fades over the standard token. Presentation only; skipped under
+     * reduced motion.
+     */
+    private flashCommit(region: Region): void {
+        if (prefersReducedMotion()) return;
+        this.flashRegion = {
+            from: { ...region.from },
+            to: { ...region.to },
+        };
+        this.flashStartedAt = performance.now();
+        this.requestRender();
     }
 
     /** Write one cell of both layers explicitly (paste path). */
@@ -1035,6 +1063,28 @@ export class BCMapEditor {
             ctx.restore();
         }
 
+        // One-shot commit pulse: region-tinted flash decaying over the
+        // standard token, then gone. Chains frames only while alive.
+        const flash = this.flashRegion;
+        if (flash) {
+            const age = performance.now() - this.flashStartedAt;
+            if (age >= MOTION_MS) {
+                this.flashRegion = null;
+            } else {
+                ctx.save();
+                ctx.globalAlpha = 1 - age / MOTION_MS;
+                ctx.fillStyle = REGION_TINT_COLOR;
+                ctx.fillRect(
+                    startX + flash.from.X * tileSize,
+                    startY + flash.from.Y * tileSize,
+                    (flash.to.X - flash.from.X + 1) * tileSize,
+                    (flash.to.Y - flash.from.Y + 1) * tileSize,
+                );
+                ctx.restore();
+                this.requestRender();
+            }
+        }
+
         // Hover outline: chases the raw cell and grows from the tile
         // middle on appear, shrinking back on leave (presentation only).
         const hoverDraw = this.hoverRenderPos;
@@ -1453,6 +1503,8 @@ export class BCMapEditor {
             this.history.clearRedo();
             this.vim.clearCursor();
             this.resetView();
+            // Wholesale content swap reads as a transition, not a glitch.
+            fadeIn(this.canvas);
         } catch (e) {
             throw new Error("Failed to import map: " + e);
         }
@@ -1469,6 +1521,8 @@ export class BCMapEditor {
         this.syncPickerSelection();
         this.vim.clearCursor();
         this.resetView();
+        // Wholesale content swap reads as a transition, not a glitch.
+        fadeIn(this.canvas);
     }
 
     public resetView(): void {

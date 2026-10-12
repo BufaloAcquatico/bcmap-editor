@@ -3,6 +3,9 @@ import {
     approach,
     settled,
     prefersReducedMotion,
+    fadeIn,
+    fadeOut,
+    cancelEffects,
     MOTION_MS,
     MOTION_QUICK_MS,
     CURSOR_APPROACH_RATE,
@@ -70,5 +73,93 @@ describe("prefersReducedMotion", () => {
             matchMedia: vi.fn(() => ({ matches: false })),
         });
         expect(prefersReducedMotion()).toBe(false);
+    });
+});
+
+describe("fadeIn / fadeOut", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    const motionOn = () =>
+        vi.stubGlobal("window", {
+            matchMedia: vi.fn(() => ({ matches: false })),
+        });
+
+    const fakeElement = () => {
+        const cancelled: Array<{ cancel: () => void }> = [];
+        const animations: Array<{
+            onfinish: (() => void) | null;
+            cancel: () => void;
+        }> = [];
+        return {
+            cancelled,
+            animations,
+            animate: vi.fn(() => {
+                const effect = {
+                    onfinish: null as (() => void) | null,
+                    cancel: vi.fn(() => {
+                        cancelled.push(effect);
+                    }),
+                };
+                animations.push(effect);
+                return effect;
+            }),
+            getAnimations: vi.fn(() => [...animations]),
+        };
+    };
+
+    it("fades in over the standard token", () => {
+        motionOn();
+        const el = fakeElement();
+        fadeIn(el as unknown as HTMLElement);
+        expect(el.animate).toHaveBeenCalledTimes(1);
+        expect(el.animate.mock.calls[0][1]).toMatchObject({
+            duration: MOTION_MS,
+        });
+    });
+
+    it("skips animation entirely under reduced motion", () => {
+        vi.stubGlobal("window", {
+            matchMedia: vi.fn(() => ({ matches: true })),
+        });
+        const el = fakeElement();
+        const done = vi.fn();
+        fadeIn(el as unknown as HTMLElement);
+        fadeOut(el as unknown as HTMLElement, done);
+        expect(el.animate).not.toHaveBeenCalled();
+        expect(done).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs done only when the fade-out finishes", () => {
+        motionOn();
+        const el = fakeElement();
+        const done = vi.fn();
+        fadeOut(el as unknown as HTMLElement, done, MOTION_QUICK_MS);
+        expect(done).not.toHaveBeenCalled();
+        el.animations[0].onfinish?.();
+        expect(done).toHaveBeenCalledTimes(1);
+    });
+
+    it("cancels in-flight effects before starting over", () => {
+        motionOn();
+        const el = fakeElement();
+        fadeIn(el as unknown as HTMLElement);
+        fadeIn(el as unknown as HTMLElement);
+        expect(el.cancelled).toHaveLength(1);
+        expect(el.animate).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe("cancelEffects", () => {
+    it("cancels running effects and tolerates mock DOM", () => {
+        const first = { cancel: vi.fn() };
+        const second = { cancel: vi.fn() };
+        cancelEffects({
+            getAnimations: () => [first, second],
+        } as unknown as HTMLElement);
+        expect(first.cancel).toHaveBeenCalledTimes(1);
+        expect(second.cancel).toHaveBeenCalledTimes(1);
+        expect(() => cancelEffects({} as HTMLElement)).not.toThrow();
     });
 });

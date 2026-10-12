@@ -5,6 +5,7 @@ import {
 } from "./vim/keybinds";
 import { appSurface, surfaceForTarget } from "./appSurface";
 import { createHelpRenderer } from "./helpCard";
+import { fadeIn } from "./anim";
 
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new (window as any).BCMapEditor("mapCanvas");
@@ -195,9 +196,18 @@ document.addEventListener("DOMContentLoaded", () => {
         modeSlot?.classList.toggle("d-none", open);
         if (open) {
             commandPrompt.value = "";
+            commandPromptWrap?.classList.remove("d-none");
+            modeSlot?.classList.add("d-none");
             commandPrompt.focus();
             appSurface.set("command");
+            if (commandPromptWrap) fadeIn(commandPromptWrap);
         } else {
+            // Dismissal fades the mode slot back in while keyboard flow
+            // (focus) moves immediately underneath — no layout overlap,
+            // since only one of the two is ever laid out at a time.
+            commandPromptWrap?.classList.add("d-none");
+            modeSlot?.classList.remove("d-none");
+            if (modeSlot) fadeIn(modeSlot);
             // Closing returns to the map so keyboard flow continues;
             // a modal opened by the command re-focuses via the backstop.
             focusMapSurface();
@@ -249,6 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
         commandPrompt.value = "";
         commandPromptWrap?.classList.add("d-none");
         modeSlot?.classList.remove("d-none");
+        if (modeSlot) fadeIn(modeSlot);
     });
 
     // :w / :write reuses the export path; :e reuses the import modal.

@@ -682,4 +682,49 @@ describe("Canvas cursor glide", () => {
         expect((editor as any).cursorRenderPos).toEqual({ X: 22, Y: 21 });
         expect((editor as any).stepMotion()).toBe(false);
     });
+
+    it("pulses once on region fill, then clears past the token", () => {
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent(" "));
+        const flash = (editor as any).flashRegion;
+        expect(flash).toEqual({
+            from: { X: 20, Y: 20 },
+            to: { X: 21, Y: 20 },
+        });
+        const now = vi.spyOn(performance, "now");
+        try {
+            now.mockReturnValue(performance.now() + 10_000);
+            (editor as any).render();
+            expect((editor as any).flashRegion).toBeNull();
+        } finally {
+            now.mockRestore();
+        }
+    });
+
+    it("skips the pulse under reduced motion", () => {
+        vi.stubGlobal("window", {
+            matchMedia: vi.fn(() => ({ matches: true })),
+            devicePixelRatio: 1,
+            addEventListener: vi.fn(),
+        });
+        try {
+            editor.setSelectedTile({
+                ID: 215,
+                Type: "FloorExterior",
+                Style: "LongGrass",
+            });
+            editor.handleVimKey(keyEvent("v"));
+            editor.handleVimKey(keyEvent("l"));
+            editor.handleVimKey(keyEvent(" "));
+            expect((editor as any).flashRegion).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
 });

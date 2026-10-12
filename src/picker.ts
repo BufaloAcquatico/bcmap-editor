@@ -9,6 +9,13 @@
 
 import type { ObjectDef, TileDef } from "./catalog";
 import { appSurface } from "./appSurface";
+import {
+    fadeIn,
+    cancelEffects,
+    prefersReducedMotion,
+    MOTION_MS,
+    MOTION_QUICK_MS,
+} from "./anim";
 
 export type PickerLayer = "tile" | "object";
 
@@ -168,10 +175,10 @@ export class MapPicker {
         });
 
         this.tileCategoryEls.forEach((entry) =>
-            this.setCategoryCollapsed(entry, true),
+            this.setCategoryCollapsed(entry, true, false),
         );
         this.objectCategoryEls.forEach((entry) =>
-            this.setCategoryCollapsed(entry, true),
+            this.setCategoryCollapsed(entry, true, false),
         );
         this.updateVisibility();
     }
@@ -201,12 +208,19 @@ export class MapPicker {
                     lowered === "" ||
                     title.toLowerCase().includes(lowered) ||
                     txt.toLowerCase().includes(lowered);
+                const wasHidden = htmlEl.style.display === "none";
                 htmlEl.style.display = match ? "" : "none";
-                if (match) matches++;
+                if (match) {
+                    matches++;
+                    // Newly revealed items fade in; hiding stays instant
+                    // so per-keystroke filtering never queues motion.
+                    if (wasHidden) fadeIn(htmlEl);
+                }
             });
             this.setCategoryCollapsed(
                 entry,
                 lowered === "" ? true : matches === 0,
+                false,
             );
         });
     }
@@ -480,9 +494,11 @@ export class MapPicker {
         if (this.layer === "tile") {
             tileCategories.style.display = "";
             objectCategories.style.display = "none";
+            fadeIn(tileCategories);
         } else {
             tileCategories.style.display = "none";
             objectCategories.style.display = "";
+            fadeIn(objectCategories);
         }
     }
 
@@ -522,14 +538,60 @@ export class MapPicker {
     private setCategoryCollapsed(
         entry: CategoryEntry,
         collapsed: boolean,
+        animate = true,
     ): void {
         entry.collapsed = collapsed;
-        entry.content.style.display = collapsed ? "none" : "";
         entry.header.setAttribute?.(
             "aria-expanded",
             collapsed ? "false" : "true",
         );
         if (collapsed) entry.caret.classList?.remove("expanded");
         else entry.caret.classList?.add("expanded");
+        // State (collapsed flag, aria, caret) always applies instantly;
+        // only the content visibility animates: fade-slide in on expand,
+        // quick fade-out-then-hide on collapse. Bulk callers (initial
+        // paint, per-keystroke filter) pass animate=false.
+        const content = entry.content;
+        const animated =
+            animate &&
+            !prefersReducedMotion() &&
+            typeof content.animate === "function";
+        if (!collapsed) {
+            content.style.display = "";
+            if (animated) {
+                cancelEffects(content);
+                content.animate(
+                    [
+                        { opacity: "0", transform: "translateY(-4px)" },
+                        { opacity: "1", transform: "none" },
+                    ],
+                    { duration: MOTION_MS, easing: "ease-out" },
+                );
+            }
+            return;
+        }
+        if (!animated) {
+            content.style.display = "none";
+            return;
+        }
+        cancelEffects(content);
+        const fade = content.animate(
+            [
+                { opacity: "1", transform: "none" },
+                { opacity: "0", transform: "translateY(-4px)" },
+            ],
+            {
+                duration: MOTION_QUICK_MS,
+                easing: "ease-out",
+                fill: "forwards",
+            },
+        );
+        if (fade) {
+            fade.onfinish = () => {
+                content.style.display = "none";
+            };
+        } else {
+            content.style.display = "none";
+        }
     }
 }
