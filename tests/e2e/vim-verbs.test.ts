@@ -100,7 +100,10 @@ test("painting unchanged content leaves the history empty", async ({
 }) => {
     await openEditor(page);
     await page.keyboard.press(" "); // grass over grass (default brush)
-    await page.waitForTimeout(500); // let the empty burst flush
+    // Derive the flush wait from the live coalescing window, not a guess.
+    await page.waitForTimeout(
+        await page.evaluate(() => (window as any).editor.session.quietMs + 150),
+    );
     expect(await page.evaluate(() => (window as any).editor.canUndo())).toBe(
         false,
     );

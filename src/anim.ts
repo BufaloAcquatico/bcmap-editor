@@ -7,53 +7,45 @@
 // loop) can never corrupt map data or selection.
 
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-export const MOTION_MS = 500;
+export const MOTION_MS = 5000;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-export const MOTION_QUICK_MS = 200;
+export const MOTION_QUICK_MS = 2000;
 
-/** Display rate assumed when converting durations to per-frame rates. */
+/** Nominal first-frame step when no previous timestamp exists. */
 export const FRAME_MS = 1000 / 60;
 
 /**
- * Per-frame approach rate covering ~99% of the gap within durationMs.
- * Inverting the exponential approach makes durations mean what they
- * say: retuning MOTION_MS retunes every chase loop with it. Real
- * displays refresh faster/slower than assumed, so wall-clock settle
- * is approximate — the contract is coherence, not metronomes.
+ * Largest timestep a single frame may advance. Bounds catch-up after
+ * idle gaps and background tabs; steady 60fps rendering never notices
+ * it, since real frames carry ~16ms.
  */
-export function rateForDuration(durationMs: number): number {
-    if (!(durationMs > 0)) return 1;
-    return 1 - Math.pow(0.01, FRAME_MS / durationMs);
-}
+export const MOTION_MAX_STEP_MS = 50;
 
 /**
- * Canvas approach rates, derived from the duration tokens above:
- * cursor/region settle in roughly the standard token; hover runs
- * hotter so a flicked pointer never outruns its outline into looking
- * broken. Never hand-tune these — tune the durations instead.
+ * One wall-clock step from current toward target, covering the same
+ * fraction per millisecond as an exponential approach that closes 99%
+ * of the gap within durationMs. Durations therefore govern real time
+ * on any refresh rate — never hand-tune per-frame rates instead.
+ * Degenerate inputs stay safe: non-positive durations snap, frozen
+ * clocks hold still.
  */
-export const CURSOR_APPROACH_RATE = rateForDuration(MOTION_MS);
-export const HOVER_APPROACH_RATE = rateForDuration(MOTION_QUICK_MS);
-/**
- * Wheel-zoom smoothing, tied to the quick tier like every other chase:
- * zoom targets stream continuously from the wheel, and the loop tracks
- * them with the same rhythm instead of its own private ease.
- */
-export const ZOOM_APPROACH_RATE = rateForDuration(MOTION_QUICK_MS);
+export function advanceToward(
+    current: number,
+    target: number,
+    durationMs: number,
+    dtMs: number,
+): number {
+    if (!(durationMs > 0)) return target;
+    if (!(dtMs > 0)) return current;
+    return (
+        current + (target - current) * (1 - Math.pow(0.01, dtMs / durationMs))
+    );
+}
 
 /** Snap threshold in tile units (sub-pixel at any zoom). */
 export const MOTION_EPSILON_TILES = 0.01;
 /** Snap threshold for unitless 0..1 scales. */
 export const MOTION_EPSILON_SCALE = 0.01;
-
-/** One exponential-approach step from current toward target. */
-export function approach(
-    current: number,
-    target: number,
-    rate: number,
-): number {
-    return current + (target - current) * rate;
-}
 
 /** True when a value has settled close enough to snap to target. */
 export function settled(

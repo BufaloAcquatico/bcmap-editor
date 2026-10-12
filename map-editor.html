@@ -315,54 +315,44 @@
 // approach. Presentation-only: logic always reads raw state while
 // rendering interpolates toward it, so reduced motion (or a paused
 // loop) can never corrupt map data or selection.
-window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.ZOOM_APPROACH_RATE = window.HOVER_APPROACH_RATE = window.CURSOR_APPROACH_RATE = window.FRAME_MS = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
-window.rateForDuration = rateForDuration;
-window.approach = approach;
+window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.MOTION_MAX_STEP_MS = window.FRAME_MS = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
+window.advanceToward = advanceToward;
 window.settled = settled;
 window.prefersReducedMotion = prefersReducedMotion;
 window.cancelEffects = cancelEffects;
 window.fadeIn = fadeIn;
 window.fadeOut = fadeOut;
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-window.MOTION_MS = 500;
+window.MOTION_MS = 5000;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-window.MOTION_QUICK_MS = 200;
-/** Display rate assumed when converting durations to per-frame rates. */
+window.MOTION_QUICK_MS = 2000;
+/** Nominal first-frame step when no previous timestamp exists. */
 window.FRAME_MS = 1000 / 60;
 /**
- * Per-frame approach rate covering ~99% of the gap within durationMs.
- * Inverting the exponential approach makes durations mean what they
- * say: retuning MOTION_MS retunes every chase loop with it. Real
- * displays refresh faster/slower than assumed, so wall-clock settle
- * is approximate — the contract is coherence, not metronomes.
+ * Largest timestep a single frame may advance. Bounds catch-up after
+ * idle gaps and background tabs; steady 60fps rendering never notices
+ * it, since real frames carry ~16ms.
  */
-function rateForDuration(durationMs) {
+window.MOTION_MAX_STEP_MS = 50;
+/**
+ * One wall-clock step from current toward target, covering the same
+ * fraction per millisecond as an exponential approach that closes 99%
+ * of the gap within durationMs. Durations therefore govern real time
+ * on any refresh rate — never hand-tune per-frame rates instead.
+ * Degenerate inputs stay safe: non-positive durations snap, frozen
+ * clocks hold still.
+ */
+function advanceToward(current, target, durationMs, dtMs) {
     if (!(durationMs > 0))
-        return 1;
-    return 1 - Math.pow(0.01, window.FRAME_MS / durationMs);
+        return target;
+    if (!(dtMs > 0))
+        return current;
+    return (current + (target - current) * (1 - Math.pow(0.01, dtMs / durationMs)));
 }
-/**
- * Canvas approach rates, derived from the duration tokens above:
- * cursor/region settle in roughly the standard token; hover runs
- * hotter so a flicked pointer never outruns its outline into looking
- * broken. Never hand-tune these — tune the durations instead.
- */
-window.CURSOR_APPROACH_RATE = rateForDuration(window.MOTION_MS);
-window.HOVER_APPROACH_RATE = rateForDuration(window.MOTION_QUICK_MS);
-/**
- * Wheel-zoom smoothing, tied to the quick tier like every other chase:
- * zoom targets stream continuously from the wheel, and the loop tracks
- * them with the same rhythm instead of its own private ease.
- */
-window.ZOOM_APPROACH_RATE = rateForDuration(window.MOTION_QUICK_MS);
 /** Snap threshold in tile units (sub-pixel at any zoom). */
 window.MOTION_EPSILON_TILES = 0.01;
 /** Snap threshold for unitless 0..1 scales. */
 window.MOTION_EPSILON_SCALE = 0.01;
-/** One exponential-approach step from current toward target. */
-function approach(current, target, rate) {
-    return current + (target - current) * rate;
-}
 /** True when a value has settled close enough to snap to target. */
 function settled(current, target, epsilon) {
     return Math.abs(current - target) <= epsilon;
@@ -4936,7 +4926,6 @@ const commands_1 = window;
 const line_1 = window;
 const render_1 = window;
 const WHEEL_ZOOM_FACTOR = 1.08;
-const ZOOM_ANIMATION_EASE = 0.25;
 const ZOOM_ANIMATION_EPSILON = 0.001;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3.0;
@@ -5023,6 +5012,14 @@ class BCMapEditor {
         this.hoverRenderPos = null;
         this.hoverRenderScale = 0;
         /**
+         * Last wall-clock timestamps consumed by the motion and zoom loops.
+         * Null until the first frame; each frame advances at most
+         * MOTION_MAX_STEP_MS so idle gaps and background tabs catch up
+         * smoothly instead of jumping.
+         */
+        this.lastMotionAt = null;
+        this.lastZoomAt = null;
+        /**
          * One-shot commit pulse: region + start timestamp. The render loop
          * draws it decaying over the standard token, then clears it.
          * Presentation only; skipped under reduced motion.
@@ -5044,6 +5041,8 @@ class BCMapEditor {
         this.zoomAnchor = null;
         this.zoomAnimating = false;
         this.onHistoryChange = null;
+        /** True while a synchronous (no-rAF) render is on the stack. */
+        this.rendering = false;
         const canvasElement = document.getElementById(canvasId);
         if (!canvasElement)
             throw new Error(`Canvas element #${canvasId} not found`);
@@ -5393,9 +5392,14 @@ class BCMapEditor {
             this.animateZoomStep();
         }
     }
-    animateZoomStep() {
+    animateZoomStep(now = performance.now()) {
         const anchor = this.zoomAnchor;
-        const next = this.zoom + (this.zoomTarget - this.zoom) * ZOOM_ANIMATION_EASE;
+        const last = this.lastZoomAt;
+        this.lastZoomAt = now;
+        const dt = last === null
+            ? anim_1.FRAME_MS
+            : Math.min(Math.max(0, now - last), anim_1.MOTION_MAX_STEP_MS);
+        const next = (0, anim_1.advanceToward)(this.zoom, this.zoomTarget, anim_1.MOTION_QUICK_MS, dt);
         const done = Math.abs(this.zoomTarget - next) < ZOOM_ANIMATION_EPSILON ||
             next === this.zoom;
         this.applyZoom(done ? this.zoomTarget : next, anchor ?? undefined);
@@ -5431,6 +5435,22 @@ class BCMapEditor {
             zoomLevelEl.textContent = Math.round(this.zoom * 100) + "%";
         this.clampPan();
         this.render();
+    }
+    /**
+     * UI-initiated zoom step (toolbar buttons): retargets and glides
+     * through the shared animation loop, so repeated presses retarget
+     * mid-flight instead of jumping. Unlike setZoom (synchronous and
+     * exact, kept for programmatic use and clamping tests), this honors
+     * the motion durations like every other chase.
+     */
+    zoomBy(factor) {
+        const base = this.zoomAnimating ? this.zoomTarget : this.zoom;
+        this.zoomTarget = Math.max(this.minZoom, Math.min(this.maxZoom, base * factor));
+        this.zoomAnchor = null;
+        if (!this.zoomAnimating) {
+            this.zoomAnimating = true;
+            this.animateZoomStep();
+        }
     }
     setZoom(zoom, anchor) {
         // A manual zoom cancels any in-flight wheel animation.
@@ -5835,9 +5855,12 @@ class BCMapEditor {
             this.requestRender();
     }
     /**
-     * Ease render positions toward the logical vim state. Open/close
-     * snaps (a fresh outline appears whole, a dismissed one vanishes);
-     * resizes glide. Returns true while anything is still moving.
+     * Ease render positions toward the logical vim state using wall-clock
+     * deltas, so settle time follows the duration tokens on any refresh
+     * rate. Open/close snaps (a fresh outline appears whole, a dismissed
+     * one vanishes); resizes glide. Returns true while anything is still
+     * moving. A frozen clock (dt 0) moves nothing and chains nothing, so
+     * synchronous environments can never recurse.
      */
     stepMotion() {
         if ((0, anim_1.prefersReducedMotion)()) {
@@ -5851,8 +5874,14 @@ class BCMapEditor {
             const hoverVisible = !!hover && this.isTileOnMap(hover);
             this.hoverRenderPos = hoverVisible ? { ...hover } : null;
             this.hoverRenderScale = hoverVisible ? 1 : 0;
+            this.lastMotionAt = performance.now();
             return false;
         }
+        const now = performance.now();
+        const dt = this.lastMotionAt === null
+            ? 0
+            : Math.min(Math.max(0, now - this.lastMotionAt), anim_1.MOTION_MAX_STEP_MS);
+        this.lastMotionAt = now;
         let moving = false;
         const cursor = this.vim.getCursor();
         if (!cursor) {
@@ -5863,8 +5892,8 @@ class BCMapEditor {
         }
         else {
             const next = {
-                X: (0, anim_1.approach)(this.cursorRenderPos.X, cursor.X, anim_1.CURSOR_APPROACH_RATE),
-                Y: (0, anim_1.approach)(this.cursorRenderPos.Y, cursor.Y, anim_1.CURSOR_APPROACH_RATE),
+                X: (0, anim_1.advanceToward)(this.cursorRenderPos.X, cursor.X, anim_1.MOTION_MS, dt),
+                Y: (0, anim_1.advanceToward)(this.cursorRenderPos.Y, cursor.Y, anim_1.MOTION_MS, dt),
             };
             if ((0, anim_1.settled)(next.X, cursor.X, anim_1.MOTION_EPSILON_TILES) &&
                 (0, anim_1.settled)(next.Y, cursor.Y, anim_1.MOTION_EPSILON_TILES)) {
@@ -5872,7 +5901,7 @@ class BCMapEditor {
             }
             else {
                 this.cursorRenderPos = next;
-                moving = true;
+                moving = dt > 0;
             }
         }
         const hover = this.hoveredTile;
@@ -5882,13 +5911,13 @@ class BCMapEditor {
             // middle, then hide. Re-entry mid-shrink reverses below.
             if (this.hoverRenderPos &&
                 this.hoverRenderScale > anim_1.MOTION_EPSILON_SCALE) {
-                this.hoverRenderScale = (0, anim_1.approach)(this.hoverRenderScale, 0, anim_1.HOVER_APPROACH_RATE);
+                this.hoverRenderScale = (0, anim_1.advanceToward)(this.hoverRenderScale, 0, anim_1.MOTION_QUICK_MS, dt);
                 if (this.hoverRenderScale <= anim_1.MOTION_EPSILON_SCALE) {
                     this.hoverRenderScale = 0;
                     this.hoverRenderPos = null;
                 }
                 else {
-                    moving = true;
+                    moving = dt > 0;
                 }
             }
             else {
@@ -5901,8 +5930,8 @@ class BCMapEditor {
                 this.hoverRenderPos = { ...hoverCell };
             else {
                 const next = {
-                    X: (0, anim_1.approach)(this.hoverRenderPos.X, hoverCell.X, anim_1.HOVER_APPROACH_RATE),
-                    Y: (0, anim_1.approach)(this.hoverRenderPos.Y, hoverCell.Y, anim_1.HOVER_APPROACH_RATE),
+                    X: (0, anim_1.advanceToward)(this.hoverRenderPos.X, hoverCell.X, anim_1.MOTION_QUICK_MS, dt),
+                    Y: (0, anim_1.advanceToward)(this.hoverRenderPos.Y, hoverCell.Y, anim_1.MOTION_QUICK_MS, dt),
                 };
                 if ((0, anim_1.settled)(next.X, hoverCell.X, anim_1.MOTION_EPSILON_TILES) &&
                     (0, anim_1.settled)(next.Y, hoverCell.Y, anim_1.MOTION_EPSILON_TILES)) {
@@ -5910,16 +5939,16 @@ class BCMapEditor {
                 }
                 else {
                     this.hoverRenderPos = next;
-                    moving = true;
+                    moving = dt > 0;
                 }
             }
             if (this.hoverRenderScale < 1) {
-                const nextScale = (0, anim_1.approach)(this.hoverRenderScale, 1, anim_1.HOVER_APPROACH_RATE);
+                const nextScale = (0, anim_1.advanceToward)(this.hoverRenderScale, 1, anim_1.MOTION_QUICK_MS, dt);
                 this.hoverRenderScale = (0, anim_1.settled)(nextScale, 1, anim_1.MOTION_EPSILON_SCALE)
                     ? 1
                     : nextScale;
                 if (this.hoverRenderScale !== 1)
-                    moving = true;
+                    moving = dt > 0;
             }
         }
         const region = this.vim.getRegion();
@@ -5934,12 +5963,12 @@ class BCMapEditor {
         }
         else {
             const from = {
-                X: (0, anim_1.approach)(this.regionRender.from.X, region.from.X, anim_1.CURSOR_APPROACH_RATE),
-                Y: (0, anim_1.approach)(this.regionRender.from.Y, region.from.Y, anim_1.CURSOR_APPROACH_RATE),
+                X: (0, anim_1.advanceToward)(this.regionRender.from.X, region.from.X, anim_1.MOTION_MS, dt),
+                Y: (0, anim_1.advanceToward)(this.regionRender.from.Y, region.from.Y, anim_1.MOTION_MS, dt),
             };
             const to = {
-                X: (0, anim_1.approach)(this.regionRender.to.X, region.to.X, anim_1.CURSOR_APPROACH_RATE),
-                Y: (0, anim_1.approach)(this.regionRender.to.Y, region.to.Y, anim_1.CURSOR_APPROACH_RATE),
+                X: (0, anim_1.advanceToward)(this.regionRender.to.X, region.to.X, anim_1.MOTION_MS, dt),
+                Y: (0, anim_1.advanceToward)(this.regionRender.to.Y, region.to.Y, anim_1.MOTION_MS, dt),
             };
             const done = (0, anim_1.settled)(from.X, region.from.X, anim_1.MOTION_EPSILON_TILES) &&
                 (0, anim_1.settled)(from.Y, region.from.Y, anim_1.MOTION_EPSILON_TILES) &&
@@ -5948,7 +5977,7 @@ class BCMapEditor {
             this.regionRender = done
                 ? { from: { ...region.from }, to: { ...region.to } }
                 : { from, to };
-            moving = moving || !done;
+            moving = moving || (!done && dt > 0);
         }
         return moving;
     }
@@ -5962,9 +5991,22 @@ class BCMapEditor {
                 this.render();
             });
         }
+        else if (!this.rendering) {
+            // No rAF (unit tests, SSR): render once, synchronously. Never
+            // nest: a moving loop would otherwise recurse thousands deep
+            // on microsecond real-time deltas. Progress resumes on the
+            // next explicit render with a fresh timestamp.
+            this.renderRequested = false;
+            this.rendering = true;
+            try {
+                this.render();
+            }
+            finally {
+                this.rendering = false;
+            }
+        }
         else {
             this.renderRequested = false;
-            this.render();
         }
     }
     /** True for cells inside the 40x40 map (hover can stray outside). */
@@ -6385,10 +6427,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnZoomOut = document.getElementById("btnZoomOut");
     const btnZoomReset = document.getElementById("btnZoomReset");
     btnZoomIn?.addEventListener("click", () => {
-        editor.setZoom(editor.zoom * 1.1);
+        editor.zoomBy(1.1);
     });
     btnZoomOut?.addEventListener("click", () => {
-        editor.setZoom(editor.zoom * 0.9);
+        editor.zoomBy(0.9);
     });
     btnZoomReset?.addEventListener("click", () => {
         editor.resetView();

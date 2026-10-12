@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../src/editor";
+import { MOTION_QUICK_MS } from "../../src/anim";
 
 // Mock DOM for testing
 const mockCtx = {
@@ -146,7 +147,7 @@ describe("Mouse Interaction and Rendering", () => {
         expect((mockCtx as any).strokeStyle).toBe("rgba(30, 30, 40, 0.45)");
     });
 
-    it("should track the hovered tile and outline only that tile", () => {
+    it("should track the hovered tile and grow its outline to full size", () => {
         const ctx = mockCtx as any;
         const event = {
             clientX: 107,
@@ -156,13 +157,33 @@ describe("Mouse Interaction and Rendering", () => {
             metaKey: false,
             preventDefault: vi.fn(),
         } as unknown as MouseEvent;
-        editor.onCanvasMouseMove(event);
-        expect((editor as any).hoveredTile).toEqual({ X: 0, Y: 0 });
-        // Last strokeRect must outline tile (0, 0): draw box is 600px at (100, 0), tileSize 15
-        const calls = ctx.strokeRect.mock.calls;
-        expect(calls[calls.length - 1]).toEqual([100, 0, 15, 15]);
-        // Highlight color must be the light white outline
-        expect(ctx.strokeStyle).toBe("rgba(255, 255, 255, 0.9)");
+        const now = vi.spyOn(performance, "now");
+        let time = 100000;
+        now.mockImplementation(() => time);
+        try {
+            editor.onCanvasMouseMove(event);
+            expect((editor as any).hoveredTile).toEqual({ X: 0, Y: 0 });
+            // The grow animation needs wall-clock time, not just frames.
+            // Each render advances at most one clamp window, so settle in
+            // bounded steps scaled to the live quick duration (a same-cell
+            // move would skip rendering by design, hence direct renders).
+            const cap = Math.ceil(MOTION_QUICK_MS / (1000 / 60)) * 4 + 100;
+            for (
+                let i = 0;
+                i < cap && (editor as any).hoverRenderScale !== 1;
+                i++
+            ) {
+                time += 1000 / 60;
+                (editor as any).render();
+            }
+            // Last strokeRect must outline tile (0, 0): draw box is 600px at (100, 0), tileSize 15
+            const calls = ctx.strokeRect.mock.calls;
+            expect(calls[calls.length - 1]).toEqual([100, 0, 15, 15]);
+            // Highlight color must be the light white outline
+            expect(ctx.strokeStyle).toBe("rgba(255, 255, 255, 0.9)");
+        } finally {
+            now.mockRestore();
+        }
     });
 
     it("should clear the hovered tile on mouse leave", () => {

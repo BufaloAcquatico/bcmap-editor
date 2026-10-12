@@ -23,16 +23,16 @@ import {
 import { MapPicker } from "./picker";
 import { appSurface } from "./appSurface";
 import {
-    approach,
+    advanceToward,
     settled,
     prefersReducedMotion,
     fadeIn,
-    CURSOR_APPROACH_RATE,
-    HOVER_APPROACH_RATE,
-    ZOOM_APPROACH_RATE,
+    FRAME_MS,
     MOTION_EPSILON_TILES,
     MOTION_EPSILON_SCALE,
+    MOTION_MAX_STEP_MS,
     MOTION_MS,
+    MOTION_QUICK_MS,
 } from "./anim";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
@@ -62,7 +62,6 @@ export interface MapRegion {
 }
 
 const WHEEL_ZOOM_FACTOR = 1.08;
-const ZOOM_ANIMATION_EASE = 0.25;
 const ZOOM_ANIMATION_EPSILON = 0.001;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 3.0;
@@ -153,6 +152,14 @@ export class BCMapEditor {
      */
     private hoverRenderPos: Point | null = null;
     private hoverRenderScale = 0;
+    /**
+     * Last wall-clock timestamps consumed by the motion and zoom loops.
+     * Null until the first frame; each frame advances at most
+     * MOTION_MAX_STEP_MS so idle gaps and background tabs catch up
+     * smoothly instead of jumping.
+     */
+    private lastMotionAt: number | null = null;
+    private lastZoomAt: number | null = null;
     /**
      * One-shot commit pulse: region + start timestamp. The render loop
      * draws it decaying over the standard token, then clears it.
@@ -587,10 +594,20 @@ export class BCMapEditor {
         }
     }
 
-    private animateZoomStep(): void {
+    private animateZoomStep(now: number = performance.now()): void {
         const anchor = this.zoomAnchor;
-        const next =
-            this.zoom + (this.zoomTarget - this.zoom) * ZOOM_ANIMATION_EASE;
+        const last = this.lastZoomAt;
+        this.lastZoomAt = now;
+        const dt =
+            last === null
+                ? FRAME_MS
+                : Math.min(Math.max(0, now - last), MOTION_MAX_STEP_MS);
+        const next = advanceToward(
+            this.zoom,
+            this.zoomTarget,
+            MOTION_QUICK_MS,
+            dt,
+        );
         const done =
             Math.abs(this.zoomTarget - next) < ZOOM_ANIMATION_EPSILON ||
             next === this.zoom;
@@ -626,6 +643,26 @@ export class BCMapEditor {
             zoomLevelEl.textContent = Math.round(this.zoom * 100) + "%";
         this.clampPan();
         this.render();
+    }
+
+    /**
+     * UI-initiated zoom step (toolbar buttons): retargets and glides
+     * through the shared animation loop, so repeated presses retarget
+     * mid-flight instead of jumping. Unlike setZoom (synchronous and
+     * exact, kept for programmatic use and clamping tests), this honors
+     * the motion durations like every other chase.
+     */
+    public zoomBy(factor: number): void {
+        const base = this.zoomAnimating ? this.zoomTarget : this.zoom;
+        this.zoomTarget = Math.max(
+            this.minZoom,
+            Math.min(this.maxZoom, base * factor),
+        );
+        this.zoomAnchor = null;
+        if (!this.zoomAnimating) {
+            this.zoomAnimating = true;
+            this.animateZoomStep();
+        }
     }
 
     public setZoom(zoom: number, anchor?: { x: number; y: number }): void {
@@ -1139,9 +1176,12 @@ export class BCMapEditor {
     }
 
     /**
-     * Ease render positions toward the logical vim state. Open/close
-     * snaps (a fresh outline appears whole, a dismissed one vanishes);
-     * resizes glide. Returns true while anything is still moving.
+     * Ease render positions toward the logical vim state using wall-clock
+     * deltas, so settle time follows the duration tokens on any refresh
+     * rate. Open/close snaps (a fresh outline appears whole, a dismissed
+     * one vanishes); resizes glide. Returns true while anything is still
+     * moving. A frozen clock (dt 0) moves nothing and chains nothing, so
+     * synchronous environments can never recurse.
      */
     private stepMotion(): boolean {
         if (prefersReducedMotion()) {
@@ -1155,8 +1195,18 @@ export class BCMapEditor {
             const hoverVisible = !!hover && this.isTileOnMap(hover);
             this.hoverRenderPos = hoverVisible ? { ...hover } : null;
             this.hoverRenderScale = hoverVisible ? 1 : 0;
+            this.lastMotionAt = performance.now();
             return false;
         }
+        const now = performance.now();
+        const dt =
+            this.lastMotionAt === null
+                ? 0
+                : Math.min(
+                      Math.max(0, now - this.lastMotionAt),
+                      MOTION_MAX_STEP_MS,
+                  );
+        this.lastMotionAt = now;
         let moving = false;
         const cursor = this.vim.getCursor();
         if (!cursor) {
@@ -1165,15 +1215,17 @@ export class BCMapEditor {
             this.cursorRenderPos = { ...cursor };
         } else {
             const next = {
-                X: approach(
+                X: advanceToward(
                     this.cursorRenderPos.X,
                     cursor.X,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
-                Y: approach(
+                Y: advanceToward(
                     this.cursorRenderPos.Y,
                     cursor.Y,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
             };
             if (
@@ -1183,7 +1235,7 @@ export class BCMapEditor {
                 this.cursorRenderPos = { ...cursor };
             } else {
                 this.cursorRenderPos = next;
-                moving = true;
+                moving = dt > 0;
             }
         }
         const hover = this.hoveredTile;
@@ -1195,16 +1247,17 @@ export class BCMapEditor {
                 this.hoverRenderPos &&
                 this.hoverRenderScale > MOTION_EPSILON_SCALE
             ) {
-                this.hoverRenderScale = approach(
+                this.hoverRenderScale = advanceToward(
                     this.hoverRenderScale,
                     0,
-                    HOVER_APPROACH_RATE,
+                    MOTION_QUICK_MS,
+                    dt,
                 );
                 if (this.hoverRenderScale <= MOTION_EPSILON_SCALE) {
                     this.hoverRenderScale = 0;
                     this.hoverRenderPos = null;
                 } else {
-                    moving = true;
+                    moving = dt > 0;
                 }
             } else {
                 this.hoverRenderScale = 0;
@@ -1214,15 +1267,17 @@ export class BCMapEditor {
             if (!this.hoverRenderPos) this.hoverRenderPos = { ...hoverCell };
             else {
                 const next = {
-                    X: approach(
+                    X: advanceToward(
                         this.hoverRenderPos.X,
                         hoverCell.X,
-                        HOVER_APPROACH_RATE,
+                        MOTION_QUICK_MS,
+                        dt,
                     ),
-                    Y: approach(
+                    Y: advanceToward(
                         this.hoverRenderPos.Y,
                         hoverCell.Y,
-                        HOVER_APPROACH_RATE,
+                        MOTION_QUICK_MS,
+                        dt,
                     ),
                 };
                 if (
@@ -1232,14 +1287,15 @@ export class BCMapEditor {
                     this.hoverRenderPos = { ...hoverCell };
                 } else {
                     this.hoverRenderPos = next;
-                    moving = true;
+                    moving = dt > 0;
                 }
             }
             if (this.hoverRenderScale < 1) {
-                const nextScale = approach(
+                const nextScale = advanceToward(
                     this.hoverRenderScale,
                     1,
-                    HOVER_APPROACH_RATE,
+                    MOTION_QUICK_MS,
+                    dt,
                 );
                 this.hoverRenderScale = settled(
                     nextScale,
@@ -1248,7 +1304,7 @@ export class BCMapEditor {
                 )
                     ? 1
                     : nextScale;
-                if (this.hoverRenderScale !== 1) moving = true;
+                if (this.hoverRenderScale !== 1) moving = dt > 0;
             }
         }
         const region = this.vim.getRegion();
@@ -1261,27 +1317,31 @@ export class BCMapEditor {
             };
         } else {
             const from = {
-                X: approach(
+                X: advanceToward(
                     this.regionRender.from.X,
                     region.from.X,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
-                Y: approach(
+                Y: advanceToward(
                     this.regionRender.from.Y,
                     region.from.Y,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
             };
             const to = {
-                X: approach(
+                X: advanceToward(
                     this.regionRender.to.X,
                     region.to.X,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
-                Y: approach(
+                Y: advanceToward(
                     this.regionRender.to.Y,
                     region.to.Y,
-                    CURSOR_APPROACH_RATE,
+                    MOTION_MS,
+                    dt,
                 ),
             };
             const done =
@@ -1292,10 +1352,13 @@ export class BCMapEditor {
             this.regionRender = done
                 ? { from: { ...region.from }, to: { ...region.to } }
                 : { from, to };
-            moving = moving || !done;
+            moving = moving || (!done && dt > 0);
         }
         return moving;
     }
+
+    /** True while a synchronous (no-rAF) render is on the stack. */
+    private rendering = false;
 
     private requestRender(): void {
         if (this.renderRequested) return;
@@ -1305,9 +1368,20 @@ export class BCMapEditor {
                 this.renderRequested = false;
                 this.render();
             });
+        } else if (!this.rendering) {
+            // No rAF (unit tests, SSR): render once, synchronously. Never
+            // nest: a moving loop would otherwise recurse thousands deep
+            // on microsecond real-time deltas. Progress resumes on the
+            // next explicit render with a fresh timestamp.
+            this.renderRequested = false;
+            this.rendering = true;
+            try {
+                this.render();
+            } finally {
+                this.rendering = false;
+            }
         } else {
             this.renderRequested = false;
-            this.render();
         }
     }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BCMapEditor } from "../../../src/editor";
 import { appSurface } from "../../../src/appSurface";
 
@@ -561,13 +561,17 @@ describe("Off-map cursor restyle", () => {
 describe("Canvas cursor glide", () => {
     let editor: BCMapEditor;
     let frames: Array<() => void>;
+    let now = 100000;
 
     beforeEach(() => {
         vi.clearAllMocks();
         appSurface.set("map");
-        // Pump frames manually: renders only run when flushed, so
-        // mid-flight positions are observable without any timing.
+        // Pump frames manually AND control the clock: renders only run
+        // when flushed, and only advance time when tests say so. Motion
+        // stays fully deterministic for any duration tuning.
         frames = [];
+        now = 100000;
+        vi.spyOn(performance, "now").mockImplementation(() => now);
         vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
             frames.push(cb);
             return frames.length;
@@ -576,6 +580,7 @@ describe("Canvas cursor glide", () => {
     });
 
     afterEach(() => {
+        vi.restoreAllMocks();
         vi.unstubAllGlobals();
     });
 
@@ -584,86 +589,100 @@ describe("Canvas cursor glide", () => {
         frames = [];
         pending.forEach((cb) => cb());
     };
-    const flushAll = () => {
-        for (let i = 0; i < 500 && frames.length > 0; i++) flushOne();
+    // Advance the clock by whole frames until the loop drains. Bounded
+    // generously so any sane duration tuning converges mid-test.
+    const settleFrames = () => {
+        for (let i = 0; i < 5000 && frames.length > 0; i++) {
+            now += 1000 / 60;
+            flushOne();
+        }
         expect(frames).toHaveLength(0);
+    };
+    // Exactly one frame after advancing the clock: a single step.
+    const stepFrame = (ms: number) => {
+        now += ms;
+        flushOne();
+    };
+    // Direct renders (field pokes, not key events) step once, on demand.
+    const renderAt = (ms: number) => {
+        now += ms;
+        (editor as any).render();
     };
 
     it("snaps the render position on first appearance", () => {
         editor.handleVimKey(keyEvent("j")); // logical (20, 21)
-        flushAll();
+        settleFrames();
         expect((editor as any).cursorRenderPos).toEqual({ X: 20, Y: 21 });
     });
 
     it("glides mid-flight, then lands exactly", () => {
         editor.handleVimKey(keyEvent("j"));
-        flushAll(); // snap to (20, 21)
+        settleFrames(); // snap to (20, 21)
         editor.handleVimKey(keyEvent("l")); // logical (21, 21)
-        flushOne(); // exactly one frame toward it
+        stepFrame(1000 / 60); // exactly one frame toward it
         const mid = (editor as any).cursorRenderPos;
         expect(mid.X).toBeGreaterThan(20);
         expect(mid.X).toBeLessThan(21);
         expect(mid.Y).toBe(21);
         expect(frames.length).toBeGreaterThan(0); // chain continues
-        flushAll();
+        settleFrames();
         expect((editor as any).cursorRenderPos).toEqual({ X: 21, Y: 21 });
     });
 
     it("eases an open region and snaps a fresh one", () => {
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("l"));
-        flushAll(); // snap region (20..21, 20)
+        settleFrames(); // snap region (20..21, 20)
         editor.handleVimKey(keyEvent("l")); // logical to.x = 22
-        flushOne();
+        stepFrame(1000 / 60);
         const mid = (editor as any).regionRender.to.X;
         expect(mid).toBeGreaterThan(21);
         expect(mid).toBeLessThan(22);
-        flushAll();
+        settleFrames();
         expect((editor as any).regionRender.to).toEqual({ X: 22, Y: 20 });
     });
 
     it("grows the hover outline from the tile middle on appear", () => {
         (editor as any).hoveredTile = { X: 5, Y: 5 };
-        (editor as any).render();
-        flushOne();
+        renderAt(1000 / 60);
         const scale = (editor as any).hoverRenderScale;
         expect(scale).toBeGreaterThan(0);
         expect(scale).toBeLessThan(1);
         expect((editor as any).hoverRenderPos).toEqual({ X: 5, Y: 5 });
-        flushAll();
+        settleFrames();
         expect((editor as any).hoverRenderScale).toBe(1);
     });
 
     it("chases the hover across tiles, then shrinks away on leave", () => {
         (editor as any).hoveredTile = { X: 5, Y: 5 };
-        (editor as any).render();
-        flushAll();
+        renderAt(1000 / 60);
+        settleFrames();
         (editor as any).hoveredTile = { X: 8, Y: 5 };
-        (editor as any).render(); // exactly one step toward (8, 5)
+        renderAt(1000 / 60); // exactly one step toward (8, 5)
         const mid = (editor as any).hoverRenderPos;
         expect(mid.X).toBeGreaterThan(5);
         expect(mid.X).toBeLessThan(8);
-        flushAll();
+        settleFrames();
         expect((editor as any).hoverRenderPos).toEqual({ X: 8, Y: 5 });
         // Leaving for void shrinks back toward the middle, then hides.
         (editor as any).hoveredTile = null;
-        (editor as any).render(); // exactly one step toward hidden
+        renderAt(1000 / 60); // exactly one step toward hidden
         const shrinking = (editor as any).hoverRenderScale;
         expect(shrinking).toBeGreaterThan(0);
         expect(shrinking).toBeLessThan(1);
-        flushAll();
+        settleFrames();
         expect((editor as any).hoverRenderScale).toBe(0);
         expect((editor as any).hoverRenderPos).toBeNull();
     });
 
     it("treats an out-of-bounds hover as hidden until it returns", () => {
         (editor as any).hoveredTile = { X: -3, Y: 0 };
-        (editor as any).render();
-        flushAll();
+        renderAt(1000 / 60);
+        settleFrames();
         expect((editor as any).hoverRenderScale).toBe(0);
         expect((editor as any).hoverRenderPos).toBeNull();
         (editor as any).hoveredTile = { X: 5, Y: 5 };
-        (editor as any).render(); // snap position, first grow step
+        renderAt(1000 / 60); // snap position, first grow step
         expect((editor as any).hoverRenderScale).toBeGreaterThan(0);
         expect((editor as any).hoverRenderPos).toEqual({ X: 5, Y: 5 });
     });
@@ -677,7 +696,7 @@ describe("Canvas cursor glide", () => {
         editor.handleVimKey(keyEvent("j"));
         editor.handleVimKey(keyEvent("l"));
         editor.handleVimKey(keyEvent("l"));
-        flushAll();
+        settleFrames();
         // Jumped two cells with no intermediate positions rendered.
         expect((editor as any).cursorRenderPos).toEqual({ X: 22, Y: 21 });
         expect((editor as any).stepMotion()).toBe(false);

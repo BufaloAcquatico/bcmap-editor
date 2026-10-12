@@ -1,17 +1,18 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import {
-    approach,
+    advanceToward,
     settled,
     prefersReducedMotion,
     fadeIn,
     fadeOut,
     cancelEffects,
-    rateForDuration,
     MOTION_MS,
     MOTION_QUICK_MS,
-    CURSOR_APPROACH_RATE,
-    HOVER_APPROACH_RATE,
+    MOTION_MAX_STEP_MS,
 } from "../../src/anim";
+// NOTE: no per-frame rates exist anymore by design — every loop below
+// takes an explicit wall-clock dt, so retuning durations cannot strand
+// these tests; only the tier relationship is pinned.
 
 describe("motion tokens", () => {
     it("keeps one duration family with a quicker tier beneath it", () => {
@@ -22,48 +23,43 @@ describe("motion tokens", () => {
             expect(ms).toBeGreaterThan(0);
         }
         expect(MOTION_QUICK_MS).toBeLessThan(MOTION_MS);
-        expect(CURSOR_APPROACH_RATE).toBeGreaterThan(0);
-        expect(CURSOR_APPROACH_RATE).toBeLessThan(1);
-        expect(HOVER_APPROACH_RATE).toBeGreaterThan(CURSOR_APPROACH_RATE);
+        expect(MOTION_MAX_STEP_MS).toBeGreaterThan(0);
     });
 });
 
-describe("rateForDuration", () => {
+describe("advanceToward", () => {
     it("snaps on non-positive durations", () => {
-        expect(rateForDuration(0)).toBe(1);
-        expect(rateForDuration(-50)).toBe(1);
+        expect(advanceToward(0, 10, 0, 16.67)).toBe(10);
+        expect(advanceToward(0, 10, -50, 16.67)).toBe(10);
     });
 
-    it("stays inside (0, 1) so the lerp converges instead of diverging", () => {
-        for (const ms of [10, 50, 100, 140, 200, 250, 1000]) {
-            const rate = rateForDuration(ms);
-            expect(rate).toBeGreaterThan(0);
-            expect(rate).toBeLessThan(1);
-        }
+    it("holds still on a frozen clock", () => {
+        expect(advanceToward(3, 10, 140, 0)).toBe(3);
+        expect(advanceToward(3, 10, 140, -5)).toBe(3);
+    });
+
+    it("moves toward the target without overshooting", () => {
+        expect(advanceToward(0, 10, 140, 16.67)).toBeGreaterThan(0);
+        expect(advanceToward(0, 10, 140, 16.67)).toBeLessThan(10);
+        expect(advanceToward(10, 0, 140, 16.67)).toBeLessThan(10);
+        expect(advanceToward(10, 0, 140, 16.67)).toBeGreaterThan(0);
     });
 
     it("runs hotter for shorter durations", () => {
-        expect(rateForDuration(100)).toBeGreaterThan(rateForDuration(140));
-        expect(rateForDuration(140)).toBeGreaterThan(rateForDuration(250));
+        expect(advanceToward(0, 10, 100, 16.67)).toBeGreaterThan(
+            advanceToward(0, 10, 140, 16.67),
+        );
     });
 
     it("covers ~99% of any gap within its duration", () => {
-        for (const ms of [100, 250]) {
+        for (const ms of [100, 250, 5000]) {
             let value = 0;
             const frames = Math.ceil(ms / (1000 / 60)) + 2;
             for (let i = 0; i < frames; i++) {
-                value = approach(value, 40, rateForDuration(ms));
+                value = advanceToward(value, 40, ms, 1000 / 60);
             }
             expect(Math.abs(40 - value) / 40).toBeLessThan(0.01);
         }
-    });
-});
-
-describe("approach", () => {
-    it("moves toward the target without overshooting", () => {
-        expect(approach(0, 10, 0.5)).toBe(5);
-        expect(approach(10, 0, 0.5)).toBe(5);
-        expect(approach(5, 5, 0.5)).toBe(5);
     });
 
     it("converges monotonically and settles", () => {
@@ -72,23 +68,13 @@ describe("approach", () => {
         // Strictly increasing while unsettled; float resolution would
         // plateau an unbounded strict loop, so stop at the snap point.
         while (!settled(value, 10, 0.01)) {
-            const next = approach(value, 10, CURSOR_APPROACH_RATE);
+            const next = advanceToward(value, 10, MOTION_MS, 1000 / 60);
             expect(next).toBeGreaterThan(value);
             value = next;
             steps++;
-            expect(steps).toBeLessThan(200);
+            expect(steps).toBeLessThan(100_000);
         }
         expect(value).toBeLessThanOrEqual(10);
-    });
-
-    it("settles a cursor-rate chase in a bounded number of frames", () => {
-        let value = 0;
-        let steps = 0;
-        while (!settled(value, 10, 0.01) && steps < 10_000) {
-            value = approach(value, 10, CURSOR_APPROACH_RATE);
-            steps++;
-        }
-        expect(settled(value, 10, 0.01)).toBe(true);
     });
 });
 

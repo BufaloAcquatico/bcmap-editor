@@ -125,11 +125,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const btnZoomReset = document.getElementById("btnZoomReset");
 
     btnZoomIn?.addEventListener("click", () => {
-        editor.setZoom(editor.zoom * 1.1);
+        editor.zoomBy(1.1);
     });
 
     btnZoomOut?.addEventListener("click", () => {
-        editor.setZoom(editor.zoom * 0.9);
+        editor.zoomBy(0.9);
     });
 
     btnZoomReset?.addEventListener("click", () => {

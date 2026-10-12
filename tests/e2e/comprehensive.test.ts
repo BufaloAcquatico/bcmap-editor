@@ -541,28 +541,25 @@ test("CSS motion durations match the canonical TS constants", async ({
     });
     expect(vars.cssMs).toBe(`${vars.tsMs}ms`);
     expect(vars.cssQuick).toBe(`${vars.tsQuick}ms`);
-    // Chase rates derive from the same durations (never hand-tuned).
-    const rates = await page.evaluate(() => {
+    // Behavioral: one zoom step with explicit timestamps must move
+    // exactly by the shared wall-clock helper, so a dropped wiring
+    // (export present, loop stale) fails loudly. No wall-clock timing
+    // involved: both timestamps are scripted.
+    const step = await page.evaluate(() => {
         const w = window as any;
-        const expected = (ms: number) => 1 - Math.pow(0.01, 1000 / 60 / ms);
+        const ed = w.editor;
+        ed.zoom = 1;
+        ed.zoomTarget = 2;
+        ed.zoomAnimating = false;
+        ed.lastZoomAt = 1000;
+        ed.animateZoomStep(1000 + 1000 / 60);
+        ed.zoomAnimating = false;
         return {
-            cursor: w.CURSOR_APPROACH_RATE as number,
-            hover: w.HOVER_APPROACH_RATE as number,
-            expCursor: expected(w.MOTION_MS),
-            expHover: expected(w.MOTION_QUICK_MS),
+            moved: ed.zoom - 1,
+            expected: w.advanceToward(1, 2, w.MOTION_QUICK_MS, 1000 / 60) - 1,
         };
     });
-    expect(Math.abs(rates.cursor - rates.expCursor)).toBeLessThan(1e-9);
-    expect(Math.abs(rates.hover - rates.expHover)).toBeLessThan(1e-9);
-    expect(rates.hover).toBeGreaterThan(rates.cursor);
-    const zoom = await page.evaluate(() => {
-        const w = window as any;
-        return {
-            rate: w.ZOOM_APPROACH_RATE as number,
-            expected: 1 - Math.pow(0.01, 1000 / 60 / w.MOTION_QUICK_MS),
-        };
-    });
-    expect(Math.abs(zoom.rate - zoom.expected)).toBeLessThan(1e-9);
+    expect(Math.abs(step.moved - step.expected)).toBeLessThan(1e-9);
 });
 
 test("hover outline follows the mouse while painting identical tiles", async ({
