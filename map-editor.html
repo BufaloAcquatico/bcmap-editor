@@ -22,9 +22,13 @@
        scoped to the picker pane; reduced motion snaps all of it. */
     #sidebarContent { scroll-behavior: smooth; }
     @media (prefers-reduced-motion: reduce) {
+      /* NOTE: intentionally `none`, not the common 0.01ms snippet:
+         sub-millisecond durations freeze outline-color transitions at
+         their start value in Chromium (verified), while nothing here
+         listens for CSS transition events that `none` would suppress. */
       *, *::before, *::after {
-        transition-duration: 0.01ms !important;
-        animation-duration: 0.01ms !important;
+        transition: none !important;
+        animation: none !important;
         scroll-behavior: auto !important;
       }
     }
@@ -315,6 +319,9 @@ window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.HOVER_APPROAC
 window.approach = approach;
 window.settled = settled;
 window.prefersReducedMotion = prefersReducedMotion;
+window.cancelEffects = cancelEffects;
+window.fadeIn = fadeIn;
+window.fadeOut = fadeOut;
 /** Standard transition: picker rings, fades, slides, help, prompt. */
 window.MOTION_MS = 140;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
@@ -346,6 +353,53 @@ function prefersReducedMotion() {
     return (typeof window !== "undefined" &&
         typeof window.matchMedia === "function" &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+/** Cancel in-flight WAAPI effects so a reversed gesture never queues. */
+function cancelEffects(el) {
+    try {
+        el
+            .getAnimations?.()
+            .forEach((effect) => effect.cancel());
+    }
+    catch {
+        // Mock DOM in unit tests may throw; instant paths do not need it.
+    }
+}
+/**
+ * Fade an element in over the standard token. Fire-and-forget: the
+ * element stays visible regardless. Instant under reduced motion.
+ */
+function fadeIn(el, durationMs = window.MOTION_MS) {
+    const node = el;
+    if (prefersReducedMotion() || typeof node.animate !== "function")
+        return;
+    cancelEffects(node);
+    node.animate([{ opacity: "0" }, { opacity: "1" }], {
+        duration: durationMs,
+        easing: "ease-out",
+    });
+}
+/**
+ * Fade an element out over the quick tier, then run `done` (usually
+ * hiding it). Instant under reduced motion. Reversing mid-fade cancels
+ * cleanly; a cancelled fade never calls `done`.
+ */
+function fadeOut(el, done, durationMs = window.MOTION_QUICK_MS) {
+    const node = el;
+    if (prefersReducedMotion() || typeof node.animate !== "function") {
+        done();
+        return;
+    }
+    cancelEffects(node);
+    const fade = node.animate([{ opacity: "1" }, { opacity: "0" }], {
+        duration: durationMs,
+        easing: "ease-out",
+        fill: "forwards",
+    });
+    if (fade)
+        fade.onfinish = () => done();
+    else
+        done();
 }
 
 "use strict";
@@ -2972,6 +3026,7 @@ function railroadVariantStyles() {
 // survive surface changes: off-map surfaces carry a reminder while a
 // region is open.
 window.createHelpRenderer = createHelpRenderer;
+const anim_1 = window;
 const MOUSE_HELP_ROWS = [
     ["Left click / drag", "Paint tile or object"],
     ["Right drag", "Pan"],
@@ -3074,8 +3129,15 @@ function createHelpRenderer(deps) {
     const setShowAll = (show) => {
         showAll = show;
         render();
+        (0, anim_1.fadeIn)(deps.card);
     };
-    return { render, setShowAll };
+    // The card breathes on every reslice; the toggle path above
+    // re-renders first, so wrapping render would double-fade it.
+    const renderAndBreathe = () => {
+        render();
+        (0, anim_1.fadeIn)(deps.card);
+    };
+    return { render: renderAndBreathe, setShowAll };
 }
 
 "use strict";
@@ -3298,6 +3360,7 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 window.MapPicker = void 0;
 const appSurface_1 = window;
+
 // Bundled eraser icon for Blank (delete-tool) picker items. Inline SVG on
 // purpose: the previous markup used the non-existent `bi-erase` class (only
 // `eraser`/`eraser-fill` exist), so the icon could never render, and font
@@ -3436,8 +3499,8 @@ class MapPicker {
             objectCategories.appendChild(header);
             objectCategories.appendChild(container);
         });
-        this.tileCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true));
-        this.objectCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true));
+        this.tileCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true, false));
+        this.objectCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true, false));
         this.updateVisibility();
     }
     /** Switch the visible layer, re-applying the stored search term. */
@@ -3462,11 +3525,17 @@ class MapPicker {
                 const match = lowered === "" ||
                     title.toLowerCase().includes(lowered) ||
                     txt.toLowerCase().includes(lowered);
+                const wasHidden = htmlEl.style.display === "none";
                 htmlEl.style.display = match ? "" : "none";
-                if (match)
+                if (match) {
                     matches++;
+                    // Newly revealed items fade in; hiding stays instant
+                    // so per-keystroke filtering never queues motion.
+                    if (wasHidden)
+                        (0, anim_1.fadeIn)(htmlEl);
+                }
             });
-            this.setCategoryCollapsed(entry, lowered === "" ? true : matches === 0);
+            this.setCategoryCollapsed(entry, lowered === "" ? true : matches === 0, false);
         });
     }
     syncSelection(selectedTileId, selectedObjectId) {
@@ -3714,10 +3783,12 @@ class MapPicker {
         if (this.layer === "tile") {
             tileCategories.style.display = "";
             objectCategories.style.display = "none";
+            (0, anim_1.fadeIn)(tileCategories);
         }
         else {
             tileCategories.style.display = "none";
             objectCategories.style.display = "";
+            (0, anim_1.fadeIn)(objectCategories);
         }
     }
     createCategoryHeader(name) {
@@ -3747,14 +3818,53 @@ class MapPicker {
         header.addEventListener("click", () => this.setCategoryCollapsed(entry, !entry.collapsed));
         return { header, entry };
     }
-    setCategoryCollapsed(entry, collapsed) {
+    setCategoryCollapsed(entry, collapsed, animate = true) {
         entry.collapsed = collapsed;
-        entry.content.style.display = collapsed ? "none" : "";
         entry.header.setAttribute?.("aria-expanded", collapsed ? "false" : "true");
         if (collapsed)
             entry.caret.classList?.remove("expanded");
         else
             entry.caret.classList?.add("expanded");
+        // State (collapsed flag, aria, caret) always applies instantly;
+        // only the content visibility animates: fade-slide in on expand,
+        // quick fade-out-then-hide on collapse. Bulk callers (initial
+        // paint, per-keystroke filter) pass animate=false.
+        const content = entry.content;
+        const animated = animate &&
+            !(0, anim_1.prefersReducedMotion)() &&
+            typeof content.animate === "function";
+        if (!collapsed) {
+            content.style.display = "";
+            if (animated) {
+                (0, anim_1.cancelEffects)(content);
+                content.animate([
+                    { opacity: "0", transform: "translateY(-4px)" },
+                    { opacity: "1", transform: "none" },
+                ], { duration: anim_1.MOTION_MS, easing: "ease-out" });
+            }
+            return;
+        }
+        if (!animated) {
+            content.style.display = "none";
+            return;
+        }
+        (0, anim_1.cancelEffects)(content);
+        const fade = content.animate([
+            { opacity: "1", transform: "none" },
+            { opacity: "0", transform: "translateY(-4px)" },
+        ], {
+            duration: anim_1.MOTION_QUICK_MS,
+            easing: "ease-out",
+            fill: "forwards",
+        });
+        if (fade) {
+            fade.onfinish = () => {
+                content.style.display = "none";
+            };
+        }
+        else {
+            content.style.display = "none";
+        }
     }
 }
 window.MapPicker = MapPicker;
@@ -4791,6 +4901,7 @@ const history_1 = window;
 const mapdata_1 = window;
 const picker_1 = window;
 
+
 const vimController_1 = window;
 const editSession_1 = window;
 const yank_1 = window;
@@ -4871,6 +4982,27 @@ class BCMapEditor {
             onSelectObject: (obj) => this.setSelectedObject(obj),
         });
         this.objectMarginTiles = 0;
+        /**
+         * Render-side cursor/region: fractional positions easing toward the
+         * logical vim state each frame. Presentation only — status, paint,
+         * yank and boot logic always read the raw cursor/region.
+         */
+        this.cursorRenderPos = null;
+        this.regionRender = null;
+        /**
+         * Hover render state: fractional cell chasing the raw hover plus a
+         * 0..1 scale that grows the outline from the tile middle on appear
+         * and shrinks it back on leave. Logic keeps reading hoveredTile.
+         */
+        this.hoverRenderPos = null;
+        this.hoverRenderScale = 0;
+        /**
+         * One-shot commit pulse: region + start timestamp. The render loop
+         * draws it decaying over the standard token, then clears it.
+         * Presentation only; skipped under reduced motion.
+         */
+        this.flashRegion = null;
+        this.flashStartedAt = 0;
         this.vim = new vimController_1.VimController({
             setCursor: (pos) => this.applyVimCursor(pos),
             bootCursor: () => this.vimBootPosition(),
@@ -5112,14 +5244,17 @@ class BCMapEditor {
      */
     paintRegion(region) {
         const cells = (0, motions_1.regionCells)(region);
+        let painted = false;
         this.applySessionEdit(() => {
-            let changed = false;
+            painted = false;
             for (const cell of cells) {
                 if (this.writeCell(cell))
-                    changed = true;
+                    painted = true;
             }
-            return changed;
+            return painted;
         });
+        if (painted)
+            this.flashCommit(region);
     }
     /** `y`: capture the region's content of both layers. */
     captureYankRegion(region) {
@@ -5158,19 +5293,37 @@ class BCMapEditor {
         }
         const width = region.to.X - region.from.X + 1;
         const height = region.to.Y - region.from.Y + 1;
+        let painted = false;
         this.applySessionEdit(() => {
-            let changed = false;
+            painted = false;
             for (let row = 0; row < height; row++) {
                 for (let col = 0; col < width; col++) {
                     const charIndex = (row % buffer.height) * buffer.width +
                         (col % buffer.width);
                     if (this.writeBothLayers(region.from.X + col, region.from.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
-                        changed = true;
+                        painted = true;
                     }
                 }
             }
-            return changed;
+            return painted;
         });
+        if (painted)
+            this.flashCommit(region);
+    }
+    /**
+     * Arm the one-shot commit pulse: the region flashes softly, then
+     * fades over the standard token. Presentation only; skipped under
+     * reduced motion.
+     */
+    flashCommit(region) {
+        if ((0, anim_1.prefersReducedMotion)())
+            return;
+        this.flashRegion = {
+            from: { ...region.from },
+            to: { ...region.to },
+        };
+        this.flashStartedAt = performance.now();
+        this.requestRender();
     }
     /** Write one cell of both layers explicitly (paste path). */
     writeBothLayers(x, y, tileChar, objectChar) {
@@ -5581,8 +5734,12 @@ class BCMapEditor {
                 ctx.stroke();
             }
         }
+        // Ease render positions toward the logical state first so the
+        // cursor and region below draw mid-flight; chain another frame
+        // while anything is still moving (stops dead at rest).
+        const moving = this.stepMotion();
         // Tint the visual-mode selection under the hover/cursor outlines
-        const visualRegion = this.vim.getRegion();
+        const visualRegion = this.regionRender;
         if (visualRegion) {
             const regionX = startX + visualRegion.from.X * tileSize;
             const regionY = startY + visualRegion.from.Y * tileSize;
@@ -5596,20 +5753,37 @@ class BCMapEditor {
             ctx.strokeRect(regionX, regionY, regionW, regionH);
             ctx.restore();
         }
-        // Highlight only the hovered tile with a light white outline
-        const hover = this.hoveredTile;
-        if (hover &&
-            hover.X >= 0 &&
-            hover.X < mapdata_1.MAP_WIDTH &&
-            hover.Y >= 0 &&
-            hover.Y < mapdata_1.MAP_HEIGHT) {
+        // One-shot commit pulse: region-tinted flash decaying over the
+        // standard token, then gone. Chains frames only while alive.
+        const flash = this.flashRegion;
+        if (flash) {
+            const age = performance.now() - this.flashStartedAt;
+            if (age >= anim_1.MOTION_MS) {
+                this.flashRegion = null;
+            }
+            else {
+                ctx.save();
+                ctx.globalAlpha = 1 - age / anim_1.MOTION_MS;
+                ctx.fillStyle = REGION_TINT_COLOR;
+                ctx.fillRect(startX + flash.from.X * tileSize, startY + flash.from.Y * tileSize, (flash.to.X - flash.from.X + 1) * tileSize, (flash.to.Y - flash.from.Y + 1) * tileSize);
+                ctx.restore();
+                this.requestRender();
+            }
+        }
+        // Hover outline: chases the raw cell and grows from the tile
+        // middle on appear, shrinking back on leave (presentation only).
+        const hoverDraw = this.hoverRenderPos;
+        if (hoverDraw && this.hoverRenderScale > anim_1.MOTION_EPSILON_SCALE) {
+            const hoverSize = tileSize * Math.min(1, this.hoverRenderScale);
+            const hoverCX = startX + (hoverDraw.X + 0.5) * tileSize;
+            const hoverCY = startY + (hoverDraw.Y + 0.5) * tileSize;
             ctx.strokeStyle = HOVER_OUTLINE_COLOR;
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
-            ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
+            ctx.strokeRect(hoverCX - hoverSize / 2, hoverCY - hoverSize / 2, hoverSize, hoverSize);
         }
         // Draw the vim keyboard cursor: white dashed while the tracked
         // surface is the map, dimmed white dotted everywhere else.
-        const vimCursor = this.vim.getCursor();
+        const vimCursor = this.cursorRenderPos;
         if (vimCursor &&
             vimCursor.X >= 0 &&
             vimCursor.X < mapdata_1.MAP_WIDTH &&
@@ -5625,6 +5799,126 @@ class BCMapEditor {
             ctx.strokeRect(startX + vimCursor.X * tileSize, startY + vimCursor.Y * tileSize, tileSize, tileSize);
             ctx.restore();
         }
+        if (moving)
+            this.requestRender();
+    }
+    /**
+     * Ease render positions toward the logical vim state. Open/close
+     * snaps (a fresh outline appears whole, a dismissed one vanishes);
+     * resizes glide. Returns true while anything is still moving.
+     */
+    stepMotion() {
+        if ((0, anim_1.prefersReducedMotion)()) {
+            const cursor = this.vim.getCursor();
+            this.cursorRenderPos = cursor ? { ...cursor } : null;
+            const region = this.vim.getRegion();
+            this.regionRender = region
+                ? { from: { ...region.from }, to: { ...region.to } }
+                : null;
+            const hover = this.hoveredTile;
+            const hoverVisible = !!hover && this.isTileOnMap(hover);
+            this.hoverRenderPos = hoverVisible ? { ...hover } : null;
+            this.hoverRenderScale = hoverVisible ? 1 : 0;
+            return false;
+        }
+        let moving = false;
+        const cursor = this.vim.getCursor();
+        if (!cursor) {
+            this.cursorRenderPos = null;
+        }
+        else if (!this.cursorRenderPos) {
+            this.cursorRenderPos = { ...cursor };
+        }
+        else {
+            const next = {
+                X: (0, anim_1.approach)(this.cursorRenderPos.X, cursor.X, anim_1.CURSOR_APPROACH_RATE),
+                Y: (0, anim_1.approach)(this.cursorRenderPos.Y, cursor.Y, anim_1.CURSOR_APPROACH_RATE),
+            };
+            if ((0, anim_1.settled)(next.X, cursor.X, anim_1.MOTION_EPSILON_TILES) &&
+                (0, anim_1.settled)(next.Y, cursor.Y, anim_1.MOTION_EPSILON_TILES)) {
+                this.cursorRenderPos = { ...cursor };
+            }
+            else {
+                this.cursorRenderPos = next;
+                moving = true;
+            }
+        }
+        const hover = this.hoveredTile;
+        const hoverCell = hover && this.isTileOnMap(hover) ? hover : null;
+        if (!hoverCell) {
+            // Tile left for void (or the canvas): shrink toward the
+            // middle, then hide. Re-entry mid-shrink reverses below.
+            if (this.hoverRenderPos &&
+                this.hoverRenderScale > anim_1.MOTION_EPSILON_SCALE) {
+                this.hoverRenderScale = (0, anim_1.approach)(this.hoverRenderScale, 0, anim_1.HOVER_APPROACH_RATE);
+                if (this.hoverRenderScale <= anim_1.MOTION_EPSILON_SCALE) {
+                    this.hoverRenderScale = 0;
+                    this.hoverRenderPos = null;
+                }
+                else {
+                    moving = true;
+                }
+            }
+            else {
+                this.hoverRenderScale = 0;
+                this.hoverRenderPos = null;
+            }
+        }
+        else {
+            if (!this.hoverRenderPos)
+                this.hoverRenderPos = { ...hoverCell };
+            else {
+                const next = {
+                    X: (0, anim_1.approach)(this.hoverRenderPos.X, hoverCell.X, anim_1.HOVER_APPROACH_RATE),
+                    Y: (0, anim_1.approach)(this.hoverRenderPos.Y, hoverCell.Y, anim_1.HOVER_APPROACH_RATE),
+                };
+                if ((0, anim_1.settled)(next.X, hoverCell.X, anim_1.MOTION_EPSILON_TILES) &&
+                    (0, anim_1.settled)(next.Y, hoverCell.Y, anim_1.MOTION_EPSILON_TILES)) {
+                    this.hoverRenderPos = { ...hoverCell };
+                }
+                else {
+                    this.hoverRenderPos = next;
+                    moving = true;
+                }
+            }
+            if (this.hoverRenderScale < 1) {
+                const nextScale = (0, anim_1.approach)(this.hoverRenderScale, 1, anim_1.HOVER_APPROACH_RATE);
+                this.hoverRenderScale = (0, anim_1.settled)(nextScale, 1, anim_1.MOTION_EPSILON_SCALE)
+                    ? 1
+                    : nextScale;
+                if (this.hoverRenderScale !== 1)
+                    moving = true;
+            }
+        }
+        const region = this.vim.getRegion();
+        if (!region) {
+            this.regionRender = null;
+        }
+        else if (!this.regionRender) {
+            this.regionRender = {
+                from: { ...region.from },
+                to: { ...region.to },
+            };
+        }
+        else {
+            const from = {
+                X: (0, anim_1.approach)(this.regionRender.from.X, region.from.X, anim_1.CURSOR_APPROACH_RATE),
+                Y: (0, anim_1.approach)(this.regionRender.from.Y, region.from.Y, anim_1.CURSOR_APPROACH_RATE),
+            };
+            const to = {
+                X: (0, anim_1.approach)(this.regionRender.to.X, region.to.X, anim_1.CURSOR_APPROACH_RATE),
+                Y: (0, anim_1.approach)(this.regionRender.to.Y, region.to.Y, anim_1.CURSOR_APPROACH_RATE),
+            };
+            const done = (0, anim_1.settled)(from.X, region.from.X, anim_1.MOTION_EPSILON_TILES) &&
+                (0, anim_1.settled)(from.Y, region.from.Y, anim_1.MOTION_EPSILON_TILES) &&
+                (0, anim_1.settled)(to.X, region.to.X, anim_1.MOTION_EPSILON_TILES) &&
+                (0, anim_1.settled)(to.Y, region.to.Y, anim_1.MOTION_EPSILON_TILES);
+            this.regionRender = done
+                ? { from: { ...region.from }, to: { ...region.to } }
+                : { from, to };
+            moving = moving || !done;
+        }
+        return moving;
     }
     requestRender() {
         if (this.renderRequested)
@@ -5640,6 +5934,10 @@ class BCMapEditor {
             this.renderRequested = false;
             this.render();
         }
+    }
+    /** True for cells inside the 40x40 map (hover can stray outside). */
+    isTileOnMap(pos) {
+        return (pos.X >= 0 && pos.X < mapdata_1.MAP_WIDTH && pos.Y >= 0 && pos.Y < mapdata_1.MAP_HEIGHT);
     }
     /**
      * Where the cursor starts when the first vim key arrives. A mouse
@@ -5830,6 +6128,8 @@ class BCMapEditor {
             this.history.clearRedo();
             this.vim.clearCursor();
             this.resetView();
+            // Wholesale content swap reads as a transition, not a glitch.
+            (0, anim_1.fadeIn)(this.canvas);
         }
         catch (e) {
             throw new Error("Failed to import map: " + e);
@@ -5847,6 +6147,8 @@ class BCMapEditor {
         this.syncPickerSelection();
         this.vim.clearCursor();
         this.resetView();
+        // Wholesale content swap reads as a transition, not a glitch.
+        (0, anim_1.fadeIn)(this.canvas);
     }
     resetView() {
         this.zoom = 1.0;
@@ -5958,6 +6260,7 @@ window.BCMapEditor = BCMapEditor;
 const keybinds_1 = window;
 
 const helpCard_1 = window;
+
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
@@ -6113,10 +6416,21 @@ document.addEventListener("DOMContentLoaded", () => {
         modeSlot?.classList.toggle("d-none", open);
         if (open) {
             commandPrompt.value = "";
+            commandPromptWrap?.classList.remove("d-none");
+            modeSlot?.classList.add("d-none");
             commandPrompt.focus();
             appSurface_1.appSurface.set("command");
+            if (commandPromptWrap)
+                (0, anim_1.fadeIn)(commandPromptWrap);
         }
         else {
+            // Dismissal fades the mode slot back in while keyboard flow
+            // (focus) moves immediately underneath — no layout overlap,
+            // since only one of the two is ever laid out at a time.
+            commandPromptWrap?.classList.add("d-none");
+            modeSlot?.classList.remove("d-none");
+            if (modeSlot)
+                (0, anim_1.fadeIn)(modeSlot);
             // Closing returns to the map so keyboard flow continues;
             // a modal opened by the command re-focuses via the backstop.
             focusMapSurface();
@@ -6173,6 +6487,8 @@ document.addEventListener("DOMContentLoaded", () => {
         commandPrompt.value = "";
         commandPromptWrap?.classList.add("d-none");
         modeSlot?.classList.remove("d-none");
+        if (modeSlot)
+            (0, anim_1.fadeIn)(modeSlot);
     });
     // :w / :write reuses the export path; :e reuses the import modal.
     editor.onWriteMapRequest = (name) => {
