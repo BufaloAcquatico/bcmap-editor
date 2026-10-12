@@ -5,9 +5,17 @@ import {
 } from "./vim/keybinds";
 import { appSurface, surfaceForTarget } from "./appSurface";
 import { createHelpRenderer } from "./helpCard";
-import { fadeIn } from "./anim";
+import { fadeIn, MOTION_MS, MOTION_QUICK_MS } from "./anim";
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Motion durations are canonical in src/anim.ts; mirror them into
+    // CSS so stylesheet, app code and tests share one source of truth.
+    // (The :root values below are pre-JS fallbacks only.)
+    document.documentElement.style.setProperty("--motion-ms", `${MOTION_MS}ms`);
+    document.documentElement.style.setProperty(
+        "--motion-quick-ms",
+        `${MOTION_QUICK_MS}ms`,
+    );
     const editor = new (window as any).BCMapEditor("mapCanvas");
 
     // Store editor globally

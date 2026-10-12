@@ -498,3 +498,72 @@ test("grid toggles via button and G keybind", async ({
     expect(await gridVisible()).toBe(true);
     await expect(page.locator("#searchInput")).toHaveValue("g");
 });
+
+test("redundant fold keypress does not replay the expand animation", async ({
+    page,
+}) => {
+    await page.goto("http://localhost:8080/map-editor.html");
+    await page.waitForSelector("#tileCategories .category-header");
+    const firstHeader = page
+        .locator("#tileCategories .category-header")
+        .first();
+    await firstHeader.click(); // expand + animate
+    await page.waitForTimeout(400); // let the expand fade finish
+    await page.keyboard.press("ArrowRight"); // already open: must stay silent
+    const running = await page.evaluate(() => {
+        const header = document.querySelector(
+            "#tileCategories .category-header",
+        );
+        const content = header?.nextElementSibling as HTMLElement | null;
+        return content ? content.getAnimations().length : -99;
+    });
+    expect(running).toBe(0);
+});
+
+test("CSS motion durations match the canonical TS constants", async ({
+    page,
+}) => {
+    await page.goto("http://localhost:8080/map-editor.html");
+    await page.waitForSelector("#mapCanvas");
+    await page.waitForFunction(() => (window as any).editor !== undefined);
+    const vars = await page.evaluate(() => {
+        const css = getComputedStyle(document.documentElement);
+        return {
+            cssMs: css.getPropertyValue("--motion-ms").trim(),
+            cssQuick: css.getPropertyValue("--motion-quick-ms").trim(),
+            tsMs: (window as any).MOTION_MS,
+            tsQuick: (window as any).MOTION_QUICK_MS,
+        };
+    });
+    expect(vars.cssMs).toBe(`${vars.tsMs}ms`);
+    expect(vars.cssQuick).toBe(`${vars.tsQuick}ms`);
+});
+
+test("hover outline follows the mouse while painting identical tiles", async ({
+    page,
+}) => {
+    await page.goto("http://localhost:8080/map-editor.html");
+    await page.waitForSelector("#mapCanvas");
+    await page.waitForFunction(() => (window as any).editor !== undefined);
+    const canvas = page.locator("#mapCanvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("no canvas box");
+    // Default grass brush over grass: every paint is a no-op.
+    // Pre-focus the canvas and settle first: any render scheduled during
+    // the drag below can then only come from the paint path itself.
+    await page.locator("#mapCanvas").click();
+    await page.waitForTimeout(400);
+    const startX = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down({ button: "left" });
+    await page.mouse.move(startX + 30, startY, { steps: 5 });
+    await page.mouse.up({ button: "left" });
+    await page.waitForTimeout(500);
+    const state = await page.evaluate(() => {
+        const ed = (window as any).editor;
+        return { hover: ed.hoveredTile, render: ed.hoverRenderPos };
+    });
+    expect(state.hover).not.toBeNull();
+    expect(state.render).toEqual(state.hover);
+});

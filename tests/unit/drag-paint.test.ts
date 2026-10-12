@@ -206,6 +206,25 @@ describe("Drag-to-Paint", () => {
         expect((editor as any).history.undoStack.length).toBe(0);
     });
 
+    it("should keep rendering while painting identical tiles on drag", () => {
+        // Grass brush over a grass map: every paint no-ops, but the
+        // hover outline must still follow the mouse to the next cell.
+        editor.setSelectedTile({
+            ID: 210,
+            Type: "FloorExterior",
+            Style: "Grass",
+        });
+        editor.onCanvasMouseDown(
+            createMouseEvent({ button: 0, clientX: 107, clientY: 7 }),
+        );
+        mockCtx.fillRect.mockClear();
+        editor.onCanvasMouseMove(
+            createMouseEvent({ button: 0, clientX: 122, clientY: 7 }),
+        );
+        expect(mockCtx.fillRect).toHaveBeenCalled();
+        editor.onCanvasMouseUp();
+    });
+
     it("should suppress the browser context menu on the canvas", () => {
         const listeners = (
             mockCanvas.addEventListener as any

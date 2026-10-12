@@ -540,6 +540,9 @@ export class MapPicker {
         collapsed: boolean,
         animate = true,
     ): void {
+        // Redundant folds (Right on an open group) sync state without
+        // replaying the animation: only an actual flip animates.
+        const changed = entry.collapsed !== collapsed;
         entry.collapsed = collapsed;
         entry.header.setAttribute?.(
             "aria-expanded",
@@ -554,6 +557,7 @@ export class MapPicker {
         const content = entry.content;
         const animated =
             animate &&
+            changed &&
             !prefersReducedMotion() &&
             typeof content.animate === "function";
         if (!collapsed) {

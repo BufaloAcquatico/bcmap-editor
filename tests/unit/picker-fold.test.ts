@@ -143,4 +143,28 @@ describe("Foldable pickers", () => {
             expect(item.innerHTML).not.toContain("bi-erase");
         }
     });
+
+    it("does not replay the expand animation on a redundant fold", () => {
+        editor.populatePickers();
+        const picker = (editor as any).picker;
+        const entry = picker.tileCategoryEls[0];
+        let lastAnim: any = null;
+        entry.content.animate = vi.fn(() => (lastAnim = { onfinish: null }));
+        entry.content.getAnimations = vi.fn(() => []);
+        picker.setCategoryCollapsed(entry, false);
+        expect(entry.content.animate).toHaveBeenCalledTimes(1);
+        // Already open: state syncs, animation does not replay.
+        picker.setCategoryCollapsed(entry, false);
+        expect(entry.content.animate).toHaveBeenCalledTimes(1);
+        expect(entry.collapsed).toBe(false);
+        expect(entry.content.style.display).toBe("");
+        // Collapse arms the fade; firing it hides, and a redundant
+        // collapse stays silent afterwards.
+        picker.setCategoryCollapsed(entry, true);
+        expect(entry.content.animate).toHaveBeenCalledTimes(2);
+        lastAnim.onfinish();
+        expect(entry.content.style.display).toBe("none");
+        picker.setCategoryCollapsed(entry, true);
+        expect(entry.content.animate).toHaveBeenCalledTimes(2);
+    });
 });

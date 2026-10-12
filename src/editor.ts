@@ -680,6 +680,11 @@ export class BCMapEditor {
                 this.requestRender();
             } else if (this.isPainting) {
                 this.paintAt(pos);
+                // Repaint on cell change even when the paint is a no-op
+                // (same tile as the brush): no-op writes schedule no
+                // render themselves, but the hover outline must keep
+                // following the mouse. Coalesced, so scrubbing is free.
+                if (hoverChanged) this.requestRender();
             }
         } else if (hoverChanged) {
             this.render();

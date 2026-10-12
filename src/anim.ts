@@ -7,9 +7,9 @@
 // loop) can never corrupt map data or selection.
 
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-export const MOTION_MS = 140;
+export const MOTION_MS = 250;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-export const MOTION_QUICK_MS = 100;
+export const MOTION_QUICK_MS = 200;
 
 /**
  * Canvas approach rates per frame at ~60fps. Cursor/region settle in

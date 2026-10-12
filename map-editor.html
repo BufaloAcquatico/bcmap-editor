@@ -14,8 +14,8 @@
       --bs-body-color: #eaeaea;
       --bs-primary: #0d6efd;
       --bs-secondary: #6c757d;
-      --motion-ms: 140ms;
-      --motion-quick-ms: 100ms;
+      --motion-ms: 140ms; /* fallback; init.ts overwrites from src/anim.ts */
+      --motion-quick-ms: 100ms; /* fallback; init.ts overwrites from src/anim.ts */
     }
     /* Motion tokens: one duration family for DOM transitions (canvas
        loops mirror the rhythm in src/anim.ts). Smooth scroll stays
@@ -323,9 +323,9 @@ window.cancelEffects = cancelEffects;
 window.fadeIn = fadeIn;
 window.fadeOut = fadeOut;
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-window.MOTION_MS = 140;
+window.MOTION_MS = 250;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-window.MOTION_QUICK_MS = 100;
+window.MOTION_QUICK_MS = 200;
 /**
  * Canvas approach rates per frame at ~60fps. Cursor/region settle in
  * roughly the standard token; hover runs hotter so a flicked pointer
@@ -3819,6 +3819,9 @@ class MapPicker {
         return { header, entry };
     }
     setCategoryCollapsed(entry, collapsed, animate = true) {
+        // Redundant folds (Right on an open group) sync state without
+        // replaying the animation: only an actual flip animates.
+        const changed = entry.collapsed !== collapsed;
         entry.collapsed = collapsed;
         entry.header.setAttribute?.("aria-expanded", collapsed ? "false" : "true");
         if (collapsed)
@@ -3831,6 +3834,7 @@ class MapPicker {
         // paint, per-keystroke filter) pass animate=false.
         const content = entry.content;
         const animated = animate &&
+            changed &&
             !(0, anim_1.prefersReducedMotion)() &&
             typeof content.animate === "function";
         if (!collapsed) {
@@ -5456,6 +5460,12 @@ class BCMapEditor {
             }
             else if (this.isPainting) {
                 this.paintAt(pos);
+                // Repaint on cell change even when the paint is a no-op
+                // (same tile as the brush): no-op writes schedule no
+                // render themselves, but the hover outline must keep
+                // following the mouse. Coalesced, so scrubbing is free.
+                if (hoverChanged)
+                    this.requestRender();
             }
         }
         else if (hoverChanged) {
@@ -6262,6 +6272,11 @@ const keybinds_1 = window;
 const helpCard_1 = window;
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Motion durations are canonical in src/anim.ts; mirror them into
+    // CSS so stylesheet, app code and tests share one source of truth.
+    // (The :root values below are pre-JS fallbacks only.)
+    document.documentElement.style.setProperty("--motion-ms", `${anim_1.MOTION_MS}ms`);
+    document.documentElement.style.setProperty("--motion-quick-ms", `${anim_1.MOTION_QUICK_MS}ms`);
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
     window.editor = editor;
