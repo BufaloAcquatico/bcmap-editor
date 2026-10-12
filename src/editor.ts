@@ -21,6 +21,7 @@ import {
     serializeMap,
 } from "./mapdata";
 import { MapPicker } from "./picker";
+import { appSurface } from "./appSurface";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
 import { captureRegion, type YankBuffer } from "./vim/yank";
@@ -63,6 +64,11 @@ const HOVER_OUTLINE_WIDTH = 2;
 const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
+// Off-map cursor: same position, dim grey dotted — context kept,
+// paint-ready signal unambiguous. Drawn when the tracked surface is
+// anything but the map.
+const CURSOR_INACTIVE_COLOR = "rgba(160, 160, 175, 0.8)";
+const CURSOR_INACTIVE_DASH_PATTERN = [2, 3];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
 const REGION_BORDER_WIDTH = 2;
@@ -106,7 +112,6 @@ export class BCMapEditor {
         markDirty: () => this.history.markDirty(),
         end: () => this.history.endStroke(),
     });
-    private sessionVerb: "paint" | "erase" | null = null;
     /** Copy buffer from `y`, holding both layers; `p` pastes it. */
     private yankBuffer: YankBuffer | null = null;
     /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
@@ -123,10 +128,10 @@ export class BCMapEditor {
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
         paintAt: (at) => this.vimPaintAt(at),
-        eraseAt: (at) => this.vimEraseAt(at),
+        paintRegion: (region) => this.paintRegion(region),
         yankRegion: (region) => this.captureYankRegion(region),
-        deleteRegion: (region) => this.deleteRegion(region),
         pasteYank: (at) => this.pasteYank(at),
+        pasteYankTiled: (region) => this.pasteYankTiled(region),
         flushEdits: () => this.session.flush(),
         undo: () => this.undo(),
     });
@@ -150,6 +155,9 @@ export class BCMapEditor {
         this.preloadImages();
         this.vim.onStateChange = () => this.updateVimMode();
         this.updateVimMode();
+        // Surface changes restyle the cursor: repaint once per change
+        // (focus transitions are rare; this is outside hot key paths).
+        appSurface.subscribe(() => this.requestRender());
     }
 
     private preloadImages(): void {
@@ -330,36 +338,27 @@ export class BCMapEditor {
     }
 
     /**
-     * Route an edit into the coalesced session. A verb change closes the
-     * open burst so consecutive different verbs get separate undo entries;
-     * repeats of the same verb share one entry until the quiet window ends.
+     * Route an edit into the coalesced session. Repeats share one undo
+     * entry until the quiet window ends; a flush (gesture/mode change,
+     * region gesture) starts a new entry.
      */
-    private applySessionEdit(
-        verb: "paint" | "erase",
-        mutate: () => boolean,
-    ): void {
-        if (this.sessionVerb !== verb) {
-            this.session.flush();
-            this.sessionVerb = verb;
-        }
+    private applySessionEdit(mutate: () => boolean): void {
         this.session.runEdit(mutate);
     }
 
     /**
-     * Write one cell of the active layer. `eraseChar` erases (grass / blank
-     * object); otherwise the current picker selection is painted. Returns
-     * whether the map changed, so no-op edits cost no undo entry.
+     * Write one cell of the active layer with the current picker selection
+     * (Grass tile / Blank object are ordinary brushes: erasing is painting).
+     * Returns whether the map changed, so no-op edits cost no undo entry.
      */
-    private writeCell(pos: Point, eraseChar?: string): boolean {
+    private writeCell(pos: Point): boolean {
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * MAP_WIDTH;
         if (this.currentLayer === "object") {
-            const ch =
-                eraseChar ??
-                (this.selectedObject
-                    ? String.fromCharCode(this.selectedObject.ID)
-                    : null);
+            const ch = this.selectedObject
+                ? String.fromCharCode(this.selectedObject.ID)
+                : null;
             if (ch === null) return false;
             if (this.mapData.Objects[index] === ch) return false;
             this.mapData.Objects =
@@ -369,11 +368,9 @@ export class BCMapEditor {
             this.requestRender();
             return true;
         }
-        const ch =
-            eraseChar ??
-            (this.selectedTile
-                ? String.fromCharCode(this.selectedTile.ID)
-                : null);
+        const ch = this.selectedTile
+            ? String.fromCharCode(this.selectedTile.ID)
+            : null;
         if (ch === null) return false;
         if (this.mapData.Tiles[index] === ch) return false;
         this.mapData.Tiles =
@@ -385,24 +382,27 @@ export class BCMapEditor {
     }
 
     private paintAt(pos: Point): void {
-        this.applySessionEdit("paint", () => this.writeCell(pos));
+        this.applySessionEdit(() => this.writeCell(pos));
     }
 
     private vimPaintAt(at: Point): void {
-        this.applySessionEdit("paint", () => this.writeCell(at));
+        this.applySessionEdit(() => this.writeCell(at));
     }
 
-    private vimEraseAt(at: Point): void {
-        this.applySessionEdit("erase", () =>
-            this.writeCell(at, this.eraseCharForLayer()),
-        );
-    }
-
-    /** Erase character for the active layer: grass tile / blank object. */
-    private eraseCharForLayer(): string {
-        return this.currentLayer === "object"
-            ? String.fromCharCode(BLANK_OBJECT_ID)
-            : String.fromCharCode(GRASS_TILE_ID);
+    /**
+     * `Space`/`Enter` in visual mode: fill the region with the current
+     * brush on the active layer as one undo entry. (Erasing is painting
+     * with the Grass / Blank brush.) A missing brush paints nothing.
+     */
+    private paintRegion(region: Region): void {
+        const cells = regionCells(region);
+        this.applySessionEdit(() => {
+            let changed = false;
+            for (const cell of cells) {
+                if (this.writeCell(cell)) changed = true;
+            }
+            return changed;
+        });
     }
 
     /** `y`: capture the region's content of both layers. */
@@ -416,19 +416,6 @@ export class BCMapEditor {
         );
     }
 
-    /** `d`: erase every cell of the region as one undo entry. */
-    private deleteRegion(region: Region): void {
-        const cells = regionCells(region);
-        const eraseChar = this.eraseCharForLayer();
-        this.applySessionEdit("erase", () => {
-            let changed = false;
-            for (const cell of cells) {
-                if (this.writeCell(cell, eraseChar)) changed = true;
-            }
-            return changed;
-        });
-    }
-
     /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
     private pasteYank(at: Point): void {
         const buffer = this.yankBuffer;
@@ -436,7 +423,7 @@ export class BCMapEditor {
             this.showVimFeedback("E353: Nothing in register");
             return;
         }
-        this.applySessionEdit("paint", () => {
+        this.applySessionEdit(() => {
             let changed = false;
             for (let row = 0; row < buffer.height; row++) {
                 for (let col = 0; col < buffer.width; col++) {
@@ -445,6 +432,42 @@ export class BCMapEditor {
                         this.writeBothLayers(
                             at.X + col,
                             at.Y + row,
+                            buffer.tiles[charIndex],
+                            buffer.objects[charIndex],
+                        )
+                    ) {
+                        changed = true;
+                    }
+                }
+            }
+            return changed;
+        });
+    }
+
+    /**
+     * `p` in visual mode: tile the yank buffer over the region from its
+     * top-left, repeating and trimming to fit, both layers exactly as
+     * stored. One undo entry. A region smaller than the buffer trims.
+     */
+    private pasteYankTiled(region: Region): void {
+        const buffer = this.yankBuffer;
+        if (!buffer) {
+            this.showVimFeedback("E353: Nothing in register");
+            return;
+        }
+        const width = region.to.X - region.from.X + 1;
+        const height = region.to.Y - region.from.Y + 1;
+        this.applySessionEdit(() => {
+            let changed = false;
+            for (let row = 0; row < height; row++) {
+                for (let col = 0; col < width; col++) {
+                    const charIndex =
+                        (row % buffer.height) * buffer.width +
+                        (col % buffer.width);
+                    if (
+                        this.writeBothLayers(
+                            region.from.X + col,
+                            region.from.Y + row,
                             buffer.tiles[charIndex],
                             buffer.objects[charIndex],
                         )
@@ -573,7 +596,6 @@ export class BCMapEditor {
         };
         if (this.isPainting) {
             this.session.flush();
-            this.sessionVerb = "paint";
             this.session.hold();
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
@@ -1002,7 +1024,8 @@ export class BCMapEditor {
             );
         }
 
-        // Draw the vim keyboard cursor as a dashed gold outline
+        // Draw the vim keyboard cursor: dashed gold while the tracked
+        // surface is the map, dim grey dotted everywhere else.
         const vimCursor = this.vim.getCursor();
         if (
             vimCursor &&
@@ -1011,9 +1034,14 @@ export class BCMapEditor {
             vimCursor.Y >= 0 &&
             vimCursor.Y < MAP_HEIGHT
         ) {
+            const onMap = appSurface.get() === "map";
             ctx.save();
-            ctx.setLineDash(CURSOR_DASH_PATTERN);
-            ctx.strokeStyle = CURSOR_OUTLINE_COLOR;
+            ctx.setLineDash(
+                onMap ? CURSOR_DASH_PATTERN : CURSOR_INACTIVE_DASH_PATTERN,
+            );
+            ctx.strokeStyle = onMap
+                ? CURSOR_OUTLINE_COLOR
+                : CURSOR_INACTIVE_COLOR;
             ctx.lineWidth = CURSOR_OUTLINE_WIDTH;
             ctx.strokeRect(
                 startX + vimCursor.X * tileSize,
@@ -1039,9 +1067,18 @@ export class BCMapEditor {
         }
     }
 
-    /** Where the cursor starts when the first vim key arrives. */
+    /**
+     * Where the cursor starts when the first vim key arrives. A mouse
+     * hover outside the map yields out-of-bounds cells, so clamp each
+     * axis exactly like keyboard motions do: the last valid position.
+     */
     private vimBootPosition(): Point {
-        if (this.hoveredTile) return { ...this.hoveredTile };
+        if (this.hoveredTile) {
+            return {
+                X: Math.max(0, Math.min(MAP_WIDTH - 1, this.hoveredTile.X)),
+                Y: Math.max(0, Math.min(MAP_HEIGHT - 1, this.hoveredTile.Y)),
+            };
+        }
         return { X: Math.floor(MAP_WIDTH / 2), Y: Math.floor(MAP_HEIGHT / 2) };
     }
 
@@ -1121,7 +1158,7 @@ export class BCMapEditor {
     /** `:line` — paint a Bresenham line on the active layer, one entry. */
     public drawLine(x1: number, y1: number, x2: number, y2: number): void {
         const cells = lineCells({ X: x1, Y: y1 }, { X: x2, Y: y2 });
-        this.applySessionEdit("paint", () => {
+        this.applySessionEdit(() => {
             let changed = false;
             for (const cell of cells) {
                 if (this.writeCell(cell)) changed = true;
@@ -1304,6 +1341,11 @@ export class BCMapEditor {
 
     public getHelpVisible(): boolean {
         return this.showHelp;
+    }
+
+    /** Whether a visual-mode region is currently open (context help note). */
+    public isVisualActive(): boolean {
+        return this.vim.getMode() === "visual";
     }
 
     private syncPickerSelection(): void {

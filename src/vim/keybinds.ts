@@ -49,14 +49,16 @@ export const KEYBIND_HELP: {
     },
     {
         keys: "Space / Enter",
-        description: "Paint selection at cursor",
+        description: "Paint selection (fills region in visual)",
         scope: "map",
     },
-    { keys: "x", description: "Erase cursor cell", scope: "map" },
     { keys: "v", description: "Visual mode (select region)", scope: "map" },
     { keys: "y / Y", description: "Yank region (both layers)", scope: "map" },
-    { keys: "d", description: "Delete visual region", scope: "map" },
-    { keys: "p", description: "Paste yank at cursor", scope: "map" },
+    {
+        keys: "p",
+        description: "Paste yank (tiles over region in visual)",
+        scope: "map",
+    },
     { keys: "u", description: "Undo (vim alias)", scope: "map" },
     {
         keys: "Esc",
@@ -66,12 +68,22 @@ export const KEYBIND_HELP: {
     {
         keys: ":",
         description: "Command line (w/e/help/grid/line)",
-        scope: "map",
+        scope: "global",
     },
     { keys: "/", description: "Focus the picker search", scope: "map" },
     {
         keys: "arrows",
-        description: "Navigate picker (groups: collapse/expand)",
+        description: "Navigate picker grid (headers: collapse/expand)",
+        scope: "sidebar",
+    },
+    {
+        keys: "Tab",
+        description: "Move between map and picker",
+        scope: "global",
+    },
+    {
+        keys: "Enter",
+        description: "Search: go to first match / Picker: select and return",
         scope: "sidebar",
     },
     { keys: "G", description: "Toggle grid", scope: "map" },
@@ -110,6 +122,12 @@ export interface EditorKeybindActions {
     openCommandPrompt: () => void;
     /** Focus the picker search box (`/`). */
     focusSearch: () => void;
+    /** Focus the picker resume spot (`Tab` from the map). */
+    focusPicker: () => void;
+    /** Return focus to the map canvas (`Tab`/`Esc` from picker/search). */
+    focusMap: () => void;
+    /** Focus the first matching sprite (`Enter` in search). */
+    focusFirstMatch: () => void;
     /**
      * Sidebar key router: navigate/collapse with arrows, printable keys to
      * the search box, Esc back to the map surface. Returns false for keys it
@@ -151,18 +169,80 @@ export function installEditorKeybinds(
     return [
         {
             keys: "arrows",
-            description: "Navigate picker (groups: collapse/expand)",
+            description: "Navigate picker grid (headers: collapse/expand)",
             scope: "sidebar",
             applies: (e) =>
                 isSidebarSurface(e) && !e.ctrlKey && !e.metaKey && !e.altKey,
             run: (e) => actions.handleSidebarKey(e),
         },
         {
+            keys: "Enter",
+            description:
+                "Search: go to first match / Picker: select and return",
+            scope: "sidebar",
+            applies: (e) => {
+                if (e.ctrlKey || e.metaKey || e.altKey) return false;
+                if (e.key !== "Enter") return false;
+                const target = e.target as HTMLElement | null;
+                return (
+                    target?.tagName === "INPUT" &&
+                    (target as HTMLInputElement).id === "searchInput"
+                );
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.focusFirstMatch();
+                return true;
+            },
+        },
+        {
+            keys: "Tab",
+            description: "Move between map and picker",
+            scope: "global",
+            applies: (e) => {
+                if (e.ctrlKey || e.metaKey || e.altKey) return false;
+                if (e.key !== "Tab") return false;
+                const target = e.target as HTMLElement | null;
+                // Search-box Tab → map (Enter → picker is the binding above).
+                if (
+                    target?.tagName === "INPUT" &&
+                    (target as HTMLInputElement).id === "searchInput"
+                )
+                    return true;
+                // Map-surface Tab → picker resume spot. Sidebar-surface Tab
+                // is owned by the sidebar router (Tab → map, no commit).
+                return !isEditableTarget(e) && !isSidebarSurface(e);
+            },
+            run: (e) => {
+                e.preventDefault();
+                const target = e.target as HTMLElement | null;
+                // Search-box Tab → map; map-surface Tab → picker resume.
+                // Sidebar-surface Tab never reaches here (sidebar router owns
+                // it: Tab → map, no commit).
+                if (
+                    target?.tagName === "INPUT" &&
+                    (target as HTMLInputElement).id === "searchInput"
+                ) {
+                    actions.focusMap();
+                    return true;
+                }
+                actions.focusPicker();
+                return true;
+            },
+        },
+        {
             keys: "G",
             description: "Toggle grid",
             scope: "map",
+            // Text fields own their keys: without this guard, typing a
+            // capital G in search (or a modal) would toggle the grid and
+            // swallow the character.
             applies: (e) =>
-                e.key === "G" && !e.ctrlKey && !e.metaKey && !e.altKey,
+                e.key === "G" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
@@ -239,19 +319,8 @@ export function installEditorKeybinds(
             },
         },
         {
-            keys: "x",
-            description: "Erase cursor cell",
-            scope: "map",
-            applies: (e) => isCharKey(e, "x") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.handleVimKey(e);
-                return true;
-            },
-        },
-        {
             keys: "Space / Enter",
-            description: "Paint selection at cursor",
+            description: "Paint selection (fills region in visual)",
             scope: "map",
             applies: (e) =>
                 (e.key === " " || e.key === "Enter") &&
@@ -302,19 +371,8 @@ export function installEditorKeybinds(
             },
         },
         {
-            keys: "d",
-            description: "Delete visual region",
-            scope: "map",
-            applies: (e) => isCharKey(e, "d") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.handleVimKey(e);
-                return true;
-            },
-        },
-        {
             keys: "p",
-            description: "Paste yank at cursor",
+            description: "Paste yank (tiles over region in visual)",
             scope: "map",
             applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
             run: (e) => {
@@ -337,7 +395,7 @@ export function installEditorKeybinds(
         {
             keys: ":",
             description: "Command line (w/e/help/grid/line)",
-            scope: "map",
+            scope: "global",
             applies: (e) =>
                 e.key === ":" &&
                 !e.ctrlKey &&

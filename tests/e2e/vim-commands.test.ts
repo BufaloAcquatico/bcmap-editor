@@ -111,3 +111,92 @@ test("/ focuses the picker search box", async ({ page }: { page: Page }) => {
     await expect(page.locator("#searchInput")).toBeFocused();
     await page.keyboard.press("Escape");
 });
+
+test("command line opens seamlessly without moving the status bar", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const bar = page.locator(".status-bar");
+    const heightBefore = (await bar.boundingBox())?.height;
+    await page.keyboard.press(":");
+    const prompt = page.locator("#commandPrompt");
+    await expect(prompt).toBeVisible();
+    await expect(prompt).toBeFocused();
+    await expect(page.locator("#commandPromptPrefix")).toBeVisible();
+    await expect(page.locator("#commandPromptPrefix")).toHaveText(":");
+    // No box chrome: transparent, borderless status typography.
+    expect(
+        await prompt.evaluate((el) => getComputedStyle(el).backgroundColor),
+    ).toBe("rgba(0, 0, 0, 0)");
+    expect(
+        await prompt.evaluate((el) => getComputedStyle(el).borderTopWidth),
+    ).toBe("0px");
+    // Zero layout shift while open and after running a command.
+    expect((await bar.boundingBox())?.height).toBe(heightBefore);
+    await page.keyboard.type("grid");
+    await page.keyboard.press("Enter");
+    await expect(prompt).toBeHidden();
+    expect((await bar.boundingBox())?.height).toBe(heightBefore);
+});
+
+test("canvas focus ring stays off however focus arrives", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const canvas = page.locator("#mapCanvas");
+    const outlineStyle = () =>
+        canvas.evaluate((el) => getComputedStyle(el).outlineStyle);
+    // Mouse-click focus, command-open blur, programmatic focus on close:
+    // the gold cursor already signals focus, so no browser ring may pop.
+    await canvas.click();
+    expect(await outlineStyle()).toBe("none");
+    await page.keyboard.press(":");
+    expect(await outlineStyle()).toBe("none");
+    await page.keyboard.press("Escape");
+    await expect(canvas).toBeFocused();
+    expect(await outlineStyle()).toBe("none");
+});
+
+test("clicking away cancels the command prompt and restores the mode", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press(":");
+    await expect(page.locator("#commandPrompt")).toBeVisible();
+    await page.locator("#mapCanvas").click();
+    await expect(page.locator("#commandPrompt")).toBeHidden();
+    await expect(page.locator("#statusVimMode")).toBeVisible();
+});
+
+test("Tab out of the prompt cancels it and restores the mode", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press(":");
+    await expect(page.locator("#commandPrompt")).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#commandPrompt")).toBeHidden();
+    await expect(page.locator("#statusVimMode")).toBeVisible();
+});
+
+test("Esc after click-away keeps the mode visible", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press(":");
+    await page.locator("#mapCanvas").click();
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#commandPrompt")).toBeHidden();
+    await expect(page.locator("#statusVimMode")).toBeVisible();
+    expect(await modeText(page)).toBe("-- NORMAL --");
+});

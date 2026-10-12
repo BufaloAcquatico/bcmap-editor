@@ -27,7 +27,8 @@
     .sidebar { background-color: #16213e; border-right: 1px solid #2a2a4a; }
     .map-panel { background-color: #0f0f23; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     .btn-toolbar .btn { border-radius: 0.375rem; }
-    .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; }
+    .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #2a2a4a; }
+    .category-content + .category-header { margin-top: -1px; }
     .category-header:hover { background-color: #2a2a4a; }
     /* Picker nodes are real <button>s (F3): strip UA button chrome so the
        existing div-era styling above still applies unchanged. */
@@ -59,6 +60,19 @@
     }
     .sprite-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.5); }
     .sprite-item:hover { border-color: #6c757d; }
+    /* Keyboard focus must always be visible: one ring in the picker grid. */
+    button.sprite-item:focus-visible,
+    button.sprite-item:focus {
+      outline: 2px solid #ffd700;
+      outline-offset: 1px;
+      border-color: #ffd700;
+    }
+    button.category-header:focus-visible,
+    button.category-header:focus {
+      outline: 2px solid #ffd700;
+      outline-offset: -2px;
+      background-color: #2a2a4a;
+    }
 
     #mapCanvas { 
       display: block; 
@@ -69,8 +83,32 @@
       height: 100%;
       flex: 1;
     }
+    /* The gold vim cursor already signals canvas focus (it draws exactly
+       while the tracked surface is the map), so the browser default ring
+       would only add a flicker: absent on mouse-click focus, popping in
+       on programmatic focus after keyboard use. Keep it off, both ways. */
+    #mapCanvas:focus,
+    #mapCanvas:focus-visible {
+      outline: none;
+    }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
     .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
+    /* Vim-style command line: a `:` glyph plus typed text in status-bar
+       typography, so opening it shifts no pixels and shows no box chrome.
+       (`d-none` still hides the wrap; this rule only lays it out shown.) */
+    #commandPromptWrap { display: flex; align-items: center; min-width: 0; }
+    #commandPromptPrefix { flex: none; }
+    #commandPrompt {
+      flex: 1;
+      min-width: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+      font: inherit;
+      color: inherit;
+    }
+    #commandPrompt:focus { outline: none; box-shadow: none; }
     .modal-content { background-color: #1a1a2e; color: #eaeaea; border: 1px solid #2a2a4a; }
     .modal-header, .modal-footer { border-color: #2a2a4a; }
     .form-control, .form-select { background-color: #0f0f23; border-color: #2a2a4a; color: #eaeaea; }
@@ -141,7 +179,7 @@
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
-          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects..." aria-label="Search tiles and objects">
+          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects... (/ · Enter → results · Tab → map)" aria-label="Search tiles and objects">
         </div>
       </div>
       <div class="flex-1 overflow-auto" id="sidebarContent">
@@ -166,10 +204,9 @@
   <div class="status-bar p-2 d-flex justify-content-between align-items-center gap-2">
     <div class="flex-1" style="min-width: 0;">
       <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
-      <input id="commandPrompt" class="d-none form-control form-control-sm bg-dark border-secondary text-light w-100" type="text" placeholder=":command" aria-label="Command prompt" autocomplete="off" spellcheck="false">
+      <span id="commandPromptWrap" class="d-none w-100"><span id="commandPromptPrefix" aria-hidden="true">:</span><input id="commandPrompt" type="text" aria-label="Command prompt" autocomplete="off" spellcheck="false"></span>
     </div>
     <div id="statusSelection">No selection</div>
-    <div id="statusMapSize">Map: 40x40</div>
     <div id="statusPosition">Position: (-, -)</div>
   </div>
 
@@ -248,6 +285,63 @@
   <script src="assets/vendor/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   <script src="assets/vendor/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
   <script>(function() {
+"use strict";
+// BCMap Editor - explicit app-surface tracking.
+//
+// The editor's context (map / search / picker / command / chrome) lives in
+// one store instead of per-keypress DOM inspection, so help, cursor and
+// future features can ask "where is the user?" under mixed mouse/keyboard
+// use. Vim mode (normal/visual) stays orthogonal in the controller:
+// visual selections always live on the map surface.
+window.appSurface = window.AppSurfaceStore = void 0;
+window.surfaceForTarget = surfaceForTarget;
+/**
+ * Map a focus target to its surface. Id checks come first: the search
+ * input lives inside #sidebar and must not read as picker.
+ */
+function surfaceForTarget(target) {
+    if (!target)
+        return "chrome";
+    if (target.id === "mapCanvas")
+        return "map";
+    if (target.id === "searchInput")
+        return "search";
+    if (target.id === "commandPrompt")
+        return "command";
+    if (target.closest?.("#sidebar"))
+        return "picker";
+    return "chrome";
+}
+class AppSurfaceStore {
+    constructor() {
+        this.surface = "map";
+        this.listeners = new Set();
+    }
+    get() {
+        return this.surface;
+    }
+    /** Record a surface; subscribers run only on actual change. */
+    set(surface) {
+        if (surface === this.surface)
+            return;
+        this.surface = surface;
+        this.listeners.forEach((fn) => fn(surface));
+    }
+    /** Subscribe; returns an unsubscribe function. */
+    subscribe(fn) {
+        this.listeners.add(fn);
+        return () => {
+            this.listeners.delete(fn);
+        };
+    }
+}
+window.AppSurfaceStore = AppSurfaceStore;
+/**
+ * The shared store. Keyboard transitions set it synchronously; a focus
+ * listener corrects it for mouse, touch and Tab-order moves.
+ */
+window.appSurface = new AppSurfaceStore();
+
 "use strict";
 // BCMap Editor - Tile and object catalog
 //
@@ -2804,6 +2898,124 @@ function railroadVariantStyles() {
 }
 
 "use strict";
+// BCMap Editor - context-sensitive help card.
+//
+// Renders the help overlay from the keybind registry: only the current
+// surface's slice, plus mouse rows, with a toggle for the full list.
+// Rows still derive from the registry so card, README and dispatcher
+// cannot drift; per-surface selection is by registry key, never
+// hand-maintained text. Command/chrome surfaces have no dispatcher
+// bindings, so their rows are tiny static lists. Visual selections
+// survive surface changes: off-map surfaces carry a reminder while a
+// region is open.
+window.createHelpRenderer = createHelpRenderer;
+const MOUSE_HELP_ROWS = [
+    ["Left click / drag", "Paint tile or object"],
+    ["Right drag", "Pan"],
+    ["Wheel", "Zoom"],
+];
+const SURFACE_HELP_KEYS = {
+    map: [
+        "hjkl / arrows",
+        "Space / Enter",
+        "v",
+        "y / Y",
+        "p",
+        "u",
+        "/",
+        ":",
+        "Tab",
+        "?",
+        "Esc",
+    ],
+    picker: ["arrows", "Enter", "Tab", "/", "Esc", "?"],
+    search: ["Enter", "Tab", "Esc", "?"],
+    command: [],
+    chrome: [],
+};
+const COMMAND_HELP_ROWS = [
+    ["Enter", "Run the command"],
+    ["Esc", "Cancel, back to the map"],
+    ["Up / Down", "Recall command history"],
+];
+function createHelpRenderer(deps) {
+    const entryByKeys = new Map(deps.registry.map((entry) => [entry.keys, entry]));
+    let showAll = false;
+    let nodes = [];
+    const clearRows = () => {
+        nodes.forEach((node) => node.remove());
+        nodes = [];
+    };
+    const addRow = (keys, description) => {
+        const row = deps.createElement("div");
+        const kbds = keys
+            .split("/")
+            .map((k) => k.trim())
+            .filter((k) => k.length > 0)
+            .map((k) => `<kbd>${k}</kbd>`)
+            .join(" / ");
+        row.innerHTML = `${kbds} &mdash; ${description}`;
+        deps.card.appendChild(row);
+        nodes.push(row);
+    };
+    const render = () => {
+        clearRows();
+        addRow("Left click / drag", "Paint tile or object");
+        addRow("Right drag", "Pan");
+        addRow("Wheel", "Zoom");
+        const surface = deps.getSurface();
+        if (showAll) {
+            deps.registry.forEach((entry) => addRow(entry.keys, entry.description));
+        }
+        else if (surface === "command") {
+            COMMAND_HELP_ROWS.forEach(([keys, text]) => addRow(keys, text));
+        }
+        else if (surface === "chrome") {
+            addRow("Esc", "Close the dialog, back to the map");
+        }
+        else {
+            SURFACE_HELP_KEYS[surface].forEach((keys) => {
+                const entry = entryByKeys.get(keys);
+                if (entry)
+                    addRow(entry.keys, entry.description);
+            });
+        }
+        if (surface !== "map" && deps.isVisualActive()) {
+            const note = deps.createElement("div");
+            note.textContent =
+                "Visual selection kept — return to the map to use it";
+            note.style.color = "#ffd479";
+            deps.card.appendChild(note);
+            nodes.push(note);
+        }
+        // The card itself is pointer-transparent so it never blocks the
+        // canvas; only this toggle accepts pointer input.
+        const toggle = deps.createElement("button");
+        toggle.type = "button";
+        toggle.textContent = showAll
+            ? "Show contextual keys"
+            : `Show all keys (${deps.registry.length})`;
+        toggle.style.pointerEvents = "auto";
+        toggle.style.cursor = "pointer";
+        toggle.style.background = "none";
+        toggle.style.border = "none";
+        toggle.style.padding = "0";
+        toggle.style.font = "inherit";
+        toggle.style.fontSize = "inherit";
+        toggle.style.color = "#8ea2ff";
+        toggle.style.textDecoration = "underline";
+        toggle.addEventListener("click", () => setShowAll(!showAll));
+        deps.card.appendChild(toggle);
+        nodes.push(toggle);
+    };
+    const setShowAll = (show) => {
+        showAll = show;
+        render();
+    };
+    return { render, setShowAll };
+}
+
+"use strict";
 // BCMap Editor - stroke-coalesced undo/redo over whole-map snapshots.
 //
 // A snapshot is the [Tiles, Objects] pair. A whole press/drag stroke shares
@@ -3022,6 +3234,7 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
 //
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 window.MapPicker = void 0;
+const appSurface_1 = window;
 // Bundled eraser icon for Blank (delete-tool) picker items. Inline SVG on
 // purpose: the previous markup used the non-existent `bi-erase` class (only
 // `eraser`/`eraser-fill` exist), so the icon could never render, and font
@@ -3032,6 +3245,8 @@ const BLANK_ERASER_ICON = '<span style="display:flex;align-items:center;justify-
     '<svg class="picker-eraser-icon" width="30" height="30" viewBox="0 0 16 16" fill="#adb5bd" aria-hidden="true">' +
     '<path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/>' +
     "</svg></span>";
+/** Row-grouping tolerance: sub-pixel rounding across zoom/DPR stays ~1px. */
+const ROW_TOP_TOLERANCE_PX = 2;
 class MapPicker {
     constructor(delegate) {
         this.delegate = delegate;
@@ -3074,8 +3289,14 @@ class MapPicker {
                     "url(assets/tiles/" + key + ".png)";
                 item.title = tile.Style;
                 item.setAttribute?.("aria-label", `Select tile ${tile.Style}`);
-                item.addEventListener("click", () => {
+                item.addEventListener("click", (e) => {
                     this.delegate.onSelectTile(tile);
+                    // Keyboard activation (Enter/Space) commits and returns
+                    // to the map; pointer clicks stay for multi-pick browse.
+                    if (e.detail === 0) {
+                        document.getElementById("mapCanvas")?.focus?.();
+                        appSurface_1.appSurface.set("map");
+                    }
                 });
                 container.appendChild(item);
                 this.tilePickerItemById.set(tile.ID, item);
@@ -3137,8 +3358,14 @@ class MapPicker {
                     item.title = "Blank (Erase)";
                     item.setAttribute?.("aria-label", "Blank (erase objects)");
                 }
-                item.addEventListener("click", () => {
+                item.addEventListener("click", (e) => {
                     this.delegate.onSelectObject(obj);
+                    // Keyboard activation (Enter/Space) commits and returns
+                    // to the map; pointer clicks stay for multi-pick browse.
+                    if (e.detail === 0) {
+                        document.getElementById("mapCanvas")?.focus?.();
+                        appSurface_1.appSurface.set("map");
+                    }
                 });
                 container.appendChild(item);
                 this.objectPickerItemById.set(obj.ID, item);
@@ -3190,53 +3417,221 @@ class MapPicker {
         });
     }
     /**
-     * Move focus along the visible picker: category headers and sprite
-     * buttons of the active layer, in DOM order (D2). Folded categories
-     * contribute only their header; filtered-out items are skipped.
+     * Focus the first visible sprite of the active layer (search-commit
+     * target). Skips headers. Returns false when there is no match.
      */
-    focusMove(direction) {
-        const nodes = this.visibleNavNodes();
-        if (nodes.length === 0)
-            return;
-        const active = document.activeElement;
-        const index = active ? nodes.indexOf(active) : -1;
-        const nextIndex = index < 0
-            ? 0
-            : direction === "next"
-                ? Math.min(nodes.length - 1, index + 1)
-                : Math.max(0, index - 1);
-        const node = nodes[nextIndex];
-        node?.focus();
-        node?.scrollIntoView?.({ block: "nearest" });
-    }
-    /**
-     * Collapse (delta -1) or expand (delta +1) the category that owns the
-     * focused node (header or one of its sprites). Returns false when focus
-     * is elsewhere so the key can fall through.
-     */
-    foldFocused(delta) {
-        const active = document.activeElement;
-        const entry = this.entryForNode(active);
-        if (!entry)
+    focusFirstMatch() {
+        const sprite = this.firstVisibleSprite();
+        if (!sprite)
             return false;
-        this.setCategoryCollapsed(entry, delta === -1);
+        sprite.focus();
+        sprite.scrollIntoView?.({ block: "nearest" });
         return true;
     }
-    /** Visible focusable nodes of the active layer, header-then-items. */
-    visibleNavNodes() {
+    /**
+     * Resume spot for Tab-into-picker: current selection if visible,
+     * else its category header, else first header. Always lands on a
+     * visible node with a focus ring.
+     */
+    focusResume(selectedTileId, selectedObjectId) {
+        const selectedId = this.layer === "tile" ? selectedTileId : selectedObjectId;
+        const byId = this.layer === "tile"
+            ? this.tilePickerItemById
+            : this.objectPickerItemById;
+        if (selectedId !== null && selectedId !== undefined) {
+            const el = byId.get(selectedId);
+            const entry = el ? this.entryForNode(el) : null;
+            if (el && entry) {
+                // The sprite itself when visible; otherwise its header
+                // (a filtered-out sprite has no visible row to land on).
+                const target = el.style.display !== "none" && !entry.collapsed
+                    ? el
+                    : entry.header;
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+                return true;
+            }
+        }
         const entries = this.activeEntries();
-        const nodes = [];
-        entries.forEach((entry) => {
-            nodes.push(entry.header);
+        if (entries.length === 0)
+            return false;
+        // Prefer the first expanded category's first sprite so Tab lands
+        // in content when possible; otherwise its header.
+        for (const entry of entries) {
+            if (!entry.collapsed) {
+                const first = this.visibleSpritesOf(entry)[0];
+                if (first) {
+                    first.focus();
+                    first.scrollIntoView?.({ block: "nearest" });
+                    return true;
+                }
+            }
+        }
+        entries[0].header.focus();
+        entries[0].header.scrollIntoView?.({ block: "nearest" });
+        return true;
+    }
+    /**
+     * Visual-grid move. Left/Right walk the row and pin at edges (no-op,
+     * no wrap, no fold). Up/Down walk the same column across rows, with
+     * header handoffs: Up from first row → its header, Down from header →
+     * first sprite, Down from last row → next header, Up from header →
+     * last row of previous open category. Returns false when focus is
+     * outside the picker.
+     */
+    focusGrid(direction) {
+        const active = document.activeElement;
+        const entries = this.activeEntries();
+        if (!active || entries.length === 0)
+            return false;
+        const entryIndex = entries.findIndex((entry) => entry.header === active || entry.content.contains(active));
+        if (entryIndex < 0)
+            return false;
+        const entry = entries[entryIndex];
+        // Header row: Up/Down move across headers/content, Left/Right fold.
+        if (active === entry.header) {
+            if (direction === "left" || direction === "right") {
+                this.setCategoryCollapsed(entry, direction === "left");
+                return true;
+            }
+            if (direction === "down") {
+                if (!entry.collapsed) {
+                    const first = this.visibleSpritesOf(entry)[0];
+                    if (first) {
+                        first.focus();
+                        first.scrollIntoView?.({ block: "nearest" });
+                        return true;
+                    }
+                }
+                const nextHeader = this.nextHeader(entryIndex);
+                if (nextHeader) {
+                    nextHeader.focus();
+                    nextHeader.scrollIntoView?.({ block: "nearest" });
+                }
+                return true;
+            }
+            // up from a header → last row of previous open category,
+            // else previous header; first header pins.
+            const target = this.headerUpTarget(entryIndex);
+            if (target) {
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+            }
+            return true;
+        }
+        // Sprite: resolve its row, then move spatially.
+        const row = this.spriteRow(entry, active);
+        if (!row)
+            return false;
+        if (direction === "left" || direction === "right") {
+            const i = row.indexOf(active);
+            const next = direction === "left" ? i - 1 : i + 1;
+            if (next < 0 || next >= row.length)
+                return true; // pinned edge
+            row[next].focus();
+            row[next].scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        const rows = this.spriteRows(entry);
+        const rowIndex = rows.findIndex((r) => r.includes(active));
+        const col = row.indexOf(active);
+        if (direction === "up") {
+            if (rowIndex > 0) {
+                const above = rows[rowIndex - 1];
+                const target = above[Math.min(col, above.length - 1)];
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+                return true;
+            }
+            entry.header.focus();
+            entry.header.scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        // down
+        if (rowIndex < rows.length - 1) {
+            const below = rows[rowIndex + 1];
+            const target = below[Math.min(col, below.length - 1)];
+            target.focus();
+            target.scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        const nextHeader = this.nextHeader(entryIndex);
+        if (nextHeader) {
+            nextHeader.focus();
+            nextHeader.scrollIntoView?.({ block: "nearest" });
+        }
+        return true;
+    }
+    firstVisibleSprite() {
+        for (const entry of this.activeEntries()) {
             if (entry.collapsed)
-                return;
-            entry.content.querySelectorAll(".sprite-item").forEach((el) => {
-                const htmlEl = el;
-                if (htmlEl.style.display !== "none")
-                    nodes.push(htmlEl);
-            });
+                continue;
+            const sprites = this.visibleSpritesOf(entry);
+            if (sprites.length > 0)
+                return sprites[0];
+        }
+        return null;
+    }
+    visibleSpritesOf(entry) {
+        const out = [];
+        entry.content.querySelectorAll(".sprite-item").forEach((el) => {
+            const htmlEl = el;
+            if (htmlEl.style.display !== "none")
+                out.push(htmlEl);
         });
-        return nodes.filter((el) => !!el.closest?.("#sidebar"));
+        return out;
+    }
+    nextHeader(fromIndex) {
+        return this.activeEntries()[fromIndex + 1]?.header ?? null;
+    }
+    headerUpTarget(headerIndex) {
+        const prev = this.activeEntries()[headerIndex - 1];
+        if (!prev || prev.collapsed)
+            return prev?.header ?? null;
+        const rows = this.spriteRows(prev);
+        if (rows.length === 0)
+            return prev.header;
+        const last = rows[rows.length - 1];
+        return last[last.length - 1];
+    }
+    spriteRows(entry) {
+        const sprites = this.visibleSpritesOf(entry);
+        const rows = [];
+        let current = [];
+        let currentTop = null;
+        for (const sprite of sprites) {
+            const top = this.rowTop(sprite);
+            if (currentTop === null || !this.sameRow(currentTop, top)) {
+                if (current.length > 0)
+                    rows.push(current);
+                current = [sprite];
+                currentTop = top;
+            }
+            else {
+                current.push(sprite);
+            }
+        }
+        if (current.length > 0)
+            rows.push(current);
+        return rows;
+    }
+    spriteRow(entry, sprite) {
+        const rows = this.spriteRows(entry);
+        return rows.find((r) => r.includes(sprite)) ?? null;
+    }
+    rowTop(el) {
+        try {
+            const rect = el.getBoundingClientRect?.();
+            if (rect)
+                return Math.round(rect.top);
+        }
+        catch {
+            // fall through to offsetTop
+        }
+        return el.offsetTop ?? 0;
+    }
+    sameRow(a, b) {
+        return Math.abs(a - b) <= ROW_TOP_TOLERANCE_PX;
     }
     activeEntries() {
         return this.layer === "tile"
@@ -3268,7 +3663,7 @@ class MapPicker {
         header.tabIndex = -1;
         header.setAttribute?.("aria-expanded", "false");
         header.className =
-            "category-header p-2 border-bottom border-secondary d-flex align-items-center gap-2";
+            "category-header p-2 d-flex align-items-center gap-2";
         const caret = document.createElement("i");
         caret.className = "bi bi-caret-right-fill category-caret";
         caret.setAttribute?.("aria-hidden", "true");
@@ -3663,13 +4058,6 @@ class VimController {
             this.notify();
             return true;
         }
-        if (key === "x") {
-            const at = this.ensureCursorForVerb();
-            this.intents.eraseAt(at);
-            this.resetPending();
-            this.notify();
-            return true;
-        }
         if (key === "v") {
             if (this.mode === "visual") {
                 this.exitVisual();
@@ -3693,19 +4081,19 @@ class VimController {
             this.notify();
             return true;
         }
-        if (key === "d" && this.mode === "visual") {
+        if (key === "p") {
             const region = this.getRegion();
             if (region) {
-                this.intents.deleteRegion(region);
+                // Region gesture: close any open burst so the tiled paste
+                // is exactly one undo entry, then paste and leave visual.
+                this.intents.flushEdits();
+                this.intents.pasteYankTiled(region);
                 this.exitVisual();
             }
-            this.resetPending();
-            this.notify();
-            return true;
-        }
-        if (key === "p") {
-            const at = this.ensureCursorForVerb();
-            this.intents.pasteYank(at);
+            else {
+                const at = this.ensureCursorForVerb();
+                this.intents.pasteYank(at);
+            }
             this.resetPending();
             this.notify();
             return true;
@@ -3719,8 +4107,18 @@ class VimController {
             return true;
         }
         if (key === " " || key === "Enter") {
-            const at = this.ensureCursorForVerb();
-            this.intents.paintAt(at);
+            const region = this.getRegion();
+            if (region) {
+                // Region gesture: close any open burst so the fill is
+                // exactly one undo entry, then paint and leave visual mode.
+                this.intents.flushEdits();
+                this.intents.paintRegion(region);
+                this.exitVisual();
+            }
+            else {
+                const at = this.ensureCursorForVerb();
+                this.intents.paintAt(at);
+            }
             this.resetPending();
             this.notify();
             return true;
@@ -3820,9 +4218,10 @@ window.EditSession = EditSession;
 "use strict";
 // BCMap Editor - yank buffer for copy/paste over both map layers.
 //
-// A yank always stores both layers of a rectangular region (D3/D11):
+// A yank always stores both layers of a rectangular region (D11):
 // copy/y stores the visible content, paste/p restores exactly those
-// layers regardless of which layer is active at paste time.
+// layers regardless of which layer is active at paste time. In visual
+// mode the yank tiles over the selected region, trimmed to fit.
 window.captureRegion = captureRegion;
 window.normalizeYankSize = normalizeYankSize;
 /** Extract the region's cells from both layer strings, row-major. */
@@ -3990,14 +4389,16 @@ window.KEYBIND_HELP = [
     },
     {
         keys: "Space / Enter",
-        description: "Paint selection at cursor",
+        description: "Paint selection (fills region in visual)",
         scope: "map",
     },
-    { keys: "x", description: "Erase cursor cell", scope: "map" },
     { keys: "v", description: "Visual mode (select region)", scope: "map" },
     { keys: "y / Y", description: "Yank region (both layers)", scope: "map" },
-    { keys: "d", description: "Delete visual region", scope: "map" },
-    { keys: "p", description: "Paste yank at cursor", scope: "map" },
+    {
+        keys: "p",
+        description: "Paste yank (tiles over region in visual)",
+        scope: "map",
+    },
     { keys: "u", description: "Undo (vim alias)", scope: "map" },
     {
         keys: "Esc",
@@ -4007,12 +4408,22 @@ window.KEYBIND_HELP = [
     {
         keys: ":",
         description: "Command line (w/e/help/grid/line)",
-        scope: "map",
+        scope: "global",
     },
     { keys: "/", description: "Focus the picker search", scope: "map" },
     {
         keys: "arrows",
-        description: "Navigate picker (groups: collapse/expand)",
+        description: "Navigate picker grid (headers: collapse/expand)",
+        scope: "sidebar",
+    },
+    {
+        keys: "Tab",
+        description: "Move between map and picker",
+        scope: "global",
+    },
+    {
+        keys: "Enter",
+        description: "Search: go to first match / Picker: select and return",
         scope: "sidebar",
     },
     { keys: "G", description: "Toggle grid", scope: "map" },
@@ -4064,16 +4475,75 @@ function installEditorKeybinds(actions) {
     return [
         {
             keys: "arrows",
-            description: "Navigate picker (groups: collapse/expand)",
+            description: "Navigate picker grid (headers: collapse/expand)",
             scope: "sidebar",
             applies: (e) => isSidebarSurface(e) && !e.ctrlKey && !e.metaKey && !e.altKey,
             run: (e) => actions.handleSidebarKey(e),
         },
         {
+            keys: "Enter",
+            description: "Search: go to first match / Picker: select and return",
+            scope: "sidebar",
+            applies: (e) => {
+                if (e.ctrlKey || e.metaKey || e.altKey)
+                    return false;
+                if (e.key !== "Enter")
+                    return false;
+                const target = e.target;
+                return (target?.tagName === "INPUT" &&
+                    target.id === "searchInput");
+            },
+            run: (e) => {
+                e.preventDefault();
+                actions.focusFirstMatch();
+                return true;
+            },
+        },
+        {
+            keys: "Tab",
+            description: "Move between map and picker",
+            scope: "global",
+            applies: (e) => {
+                if (e.ctrlKey || e.metaKey || e.altKey)
+                    return false;
+                if (e.key !== "Tab")
+                    return false;
+                const target = e.target;
+                // Search-box Tab → map (Enter → picker is the binding above).
+                if (target?.tagName === "INPUT" &&
+                    target.id === "searchInput")
+                    return true;
+                // Map-surface Tab → picker resume spot. Sidebar-surface Tab
+                // is owned by the sidebar router (Tab → map, no commit).
+                return !isEditableTarget(e) && !isSidebarSurface(e);
+            },
+            run: (e) => {
+                e.preventDefault();
+                const target = e.target;
+                // Search-box Tab → map; map-surface Tab → picker resume.
+                // Sidebar-surface Tab never reaches here (sidebar router owns
+                // it: Tab → map, no commit).
+                if (target?.tagName === "INPUT" &&
+                    target.id === "searchInput") {
+                    actions.focusMap();
+                    return true;
+                }
+                actions.focusPicker();
+                return true;
+            },
+        },
+        {
             keys: "G",
             description: "Toggle grid",
             scope: "map",
-            applies: (e) => e.key === "G" && !e.ctrlKey && !e.metaKey && !e.altKey,
+            // Text fields own their keys: without this guard, typing a
+            // capital G in search (or a modal) would toggle the grid and
+            // swallow the character.
+            applies: (e) => e.key === "G" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
@@ -4145,19 +4615,8 @@ function installEditorKeybinds(actions) {
             },
         },
         {
-            keys: "x",
-            description: "Erase cursor cell",
-            scope: "map",
-            applies: (e) => isCharKey(e, "x") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.handleVimKey(e);
-                return true;
-            },
-        },
-        {
             keys: "Space / Enter",
-            description: "Paint selection at cursor",
+            description: "Paint selection (fills region in visual)",
             scope: "map",
             applies: (e) => (e.key === " " || e.key === "Enter") &&
                 !e.ctrlKey &&
@@ -4206,19 +4665,8 @@ function installEditorKeybinds(actions) {
             },
         },
         {
-            keys: "d",
-            description: "Delete visual region",
-            scope: "map",
-            applies: (e) => isCharKey(e, "d") && !isEditableTarget(e),
-            run: (e) => {
-                e.preventDefault();
-                actions.handleVimKey(e);
-                return true;
-            },
-        },
-        {
             keys: "p",
-            description: "Paste yank at cursor",
+            description: "Paste yank (tiles over region in visual)",
             scope: "map",
             applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
             run: (e) => {
@@ -4241,7 +4689,7 @@ function installEditorKeybinds(actions) {
         {
             keys: ":",
             description: "Command line (w/e/help/grid/line)",
-            scope: "map",
+            scope: "global",
             applies: (e) => e.key === ":" &&
                 !e.ctrlKey &&
                 !e.metaKey &&
@@ -4279,6 +4727,7 @@ window.BCMapEditor = void 0;
 const history_1 = window;
 const mapdata_1 = window;
 const picker_1 = window;
+
 const vimController_1 = window;
 const editSession_1 = window;
 const yank_1 = window;
@@ -4300,6 +4749,11 @@ const HOVER_OUTLINE_WIDTH = 2;
 const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
+// Off-map cursor: same position, dim grey dotted — context kept,
+// paint-ready signal unambiguous. Drawn when the tracked surface is
+// anything but the map.
+const CURSOR_INACTIVE_COLOR = "rgba(160, 160, 175, 0.8)";
+const CURSOR_INACTIVE_DASH_PATTERN = [2, 3];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
 const REGION_BORDER_WIDTH = 2;
@@ -4339,7 +4793,6 @@ class BCMapEditor {
             markDirty: () => this.history.markDirty(),
             end: () => this.history.endStroke(),
         });
-        this.sessionVerb = null;
         /** Copy buffer from `y`, holding both layers; `p` pastes it. */
         this.yankBuffer = null;
         /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
@@ -4356,10 +4809,10 @@ class BCMapEditor {
             setCursor: (pos) => this.applyVimCursor(pos),
             bootCursor: () => this.vimBootPosition(),
             paintAt: (at) => this.vimPaintAt(at),
-            eraseAt: (at) => this.vimEraseAt(at),
+            paintRegion: (region) => this.paintRegion(region),
             yankRegion: (region) => this.captureYankRegion(region),
-            deleteRegion: (region) => this.deleteRegion(region),
             pasteYank: (at) => this.pasteYank(at),
+            pasteYankTiled: (region) => this.pasteYankTiled(region),
             flushEdits: () => this.session.flush(),
             undo: () => this.undo(),
         });
@@ -4383,6 +4836,9 @@ class BCMapEditor {
         this.preloadImages();
         this.vim.onStateChange = () => this.updateVimMode();
         this.updateVimMode();
+        // Surface changes restyle the cursor: repaint once per change
+        // (focus transitions are rare; this is outside hot key paths).
+        appSurface_1.appSurface.subscribe(() => this.requestRender());
     }
     preloadImages() {
         this.tileCatalog.forEach((tile) => {
@@ -4532,31 +4988,26 @@ class BCMapEditor {
         return this.history.canRedo();
     }
     /**
-     * Route an edit into the coalesced session. A verb change closes the
-     * open burst so consecutive different verbs get separate undo entries;
-     * repeats of the same verb share one entry until the quiet window ends.
+     * Route an edit into the coalesced session. Repeats share one undo
+     * entry until the quiet window ends; a flush (gesture/mode change,
+     * region gesture) starts a new entry.
      */
-    applySessionEdit(verb, mutate) {
-        if (this.sessionVerb !== verb) {
-            this.session.flush();
-            this.sessionVerb = verb;
-        }
+    applySessionEdit(mutate) {
         this.session.runEdit(mutate);
     }
     /**
-     * Write one cell of the active layer. `eraseChar` erases (grass / blank
-     * object); otherwise the current picker selection is painted. Returns
-     * whether the map changed, so no-op edits cost no undo entry.
+     * Write one cell of the active layer with the current picker selection
+     * (Grass tile / Blank object are ordinary brushes: erasing is painting).
+     * Returns whether the map changed, so no-op edits cost no undo entry.
      */
-    writeCell(pos, eraseChar) {
+    writeCell(pos) {
         if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
         if (this.currentLayer === "object") {
-            const ch = eraseChar ??
-                (this.selectedObject
-                    ? String.fromCharCode(this.selectedObject.ID)
-                    : null);
+            const ch = this.selectedObject
+                ? String.fromCharCode(this.selectedObject.ID)
+                : null;
             if (ch === null)
                 return false;
             if (this.mapData.Objects[index] === ch)
@@ -4568,10 +5019,9 @@ class BCMapEditor {
             this.requestRender();
             return true;
         }
-        const ch = eraseChar ??
-            (this.selectedTile
-                ? String.fromCharCode(this.selectedTile.ID)
-                : null);
+        const ch = this.selectedTile
+            ? String.fromCharCode(this.selectedTile.ID)
+            : null;
         if (ch === null)
             return false;
         if (this.mapData.Tiles[index] === ch)
@@ -4584,36 +5034,30 @@ class BCMapEditor {
         return true;
     }
     paintAt(pos) {
-        this.applySessionEdit("paint", () => this.writeCell(pos));
+        this.applySessionEdit(() => this.writeCell(pos));
     }
     vimPaintAt(at) {
-        this.applySessionEdit("paint", () => this.writeCell(at));
+        this.applySessionEdit(() => this.writeCell(at));
     }
-    vimEraseAt(at) {
-        this.applySessionEdit("erase", () => this.writeCell(at, this.eraseCharForLayer()));
-    }
-    /** Erase character for the active layer: grass tile / blank object. */
-    eraseCharForLayer() {
-        return this.currentLayer === "object"
-            ? String.fromCharCode(catalog_1.BLANK_OBJECT_ID)
-            : String.fromCharCode(mapdata_1.GRASS_TILE_ID);
-    }
-    /** `y`: capture the region's content of both layers. */
-    captureYankRegion(region) {
-        this.yankBuffer = (0, yank_1.captureRegion)(this.mapData.Tiles, this.mapData.Objects, region, mapdata_1.MAP_WIDTH, mapdata_1.MAP_HEIGHT);
-    }
-    /** `d`: erase every cell of the region as one undo entry. */
-    deleteRegion(region) {
+    /**
+     * `Space`/`Enter` in visual mode: fill the region with the current
+     * brush on the active layer as one undo entry. (Erasing is painting
+     * with the Grass / Blank brush.) A missing brush paints nothing.
+     */
+    paintRegion(region) {
         const cells = (0, motions_1.regionCells)(region);
-        const eraseChar = this.eraseCharForLayer();
-        this.applySessionEdit("erase", () => {
+        this.applySessionEdit(() => {
             let changed = false;
             for (const cell of cells) {
-                if (this.writeCell(cell, eraseChar))
+                if (this.writeCell(cell))
                     changed = true;
             }
             return changed;
         });
+    }
+    /** `y`: capture the region's content of both layers. */
+    captureYankRegion(region) {
+        this.yankBuffer = (0, yank_1.captureRegion)(this.mapData.Tiles, this.mapData.Objects, region, mapdata_1.MAP_WIDTH, mapdata_1.MAP_HEIGHT);
     }
     /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
     pasteYank(at) {
@@ -4622,12 +5066,39 @@ class BCMapEditor {
             this.showVimFeedback("E353: Nothing in register");
             return;
         }
-        this.applySessionEdit("paint", () => {
+        this.applySessionEdit(() => {
             let changed = false;
             for (let row = 0; row < buffer.height; row++) {
                 for (let col = 0; col < buffer.width; col++) {
                     const charIndex = row * buffer.width + col;
                     if (this.writeBothLayers(at.X + col, at.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
+                        changed = true;
+                    }
+                }
+            }
+            return changed;
+        });
+    }
+    /**
+     * `p` in visual mode: tile the yank buffer over the region from its
+     * top-left, repeating and trimming to fit, both layers exactly as
+     * stored. One undo entry. A region smaller than the buffer trims.
+     */
+    pasteYankTiled(region) {
+        const buffer = this.yankBuffer;
+        if (!buffer) {
+            this.showVimFeedback("E353: Nothing in register");
+            return;
+        }
+        const width = region.to.X - region.from.X + 1;
+        const height = region.to.Y - region.from.Y + 1;
+        this.applySessionEdit(() => {
+            let changed = false;
+            for (let row = 0; row < height; row++) {
+                for (let col = 0; col < width; col++) {
+                    const charIndex = (row % buffer.height) * buffer.width +
+                        (col % buffer.width);
+                    if (this.writeBothLayers(region.from.X + col, region.from.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
                         changed = true;
                     }
                 }
@@ -4738,7 +5209,6 @@ class BCMapEditor {
         };
         if (this.isPainting) {
             this.session.flush();
-            this.sessionVerb = "paint";
             this.session.hold();
             const pos = this.getTilePosFromMouse(e);
             this.paintAt(pos);
@@ -5071,16 +5541,20 @@ class BCMapEditor {
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
-        // Draw the vim keyboard cursor as a dashed gold outline
+        // Draw the vim keyboard cursor: dashed gold while the tracked
+        // surface is the map, dim grey dotted everywhere else.
         const vimCursor = this.vim.getCursor();
         if (vimCursor &&
             vimCursor.X >= 0 &&
             vimCursor.X < mapdata_1.MAP_WIDTH &&
             vimCursor.Y >= 0 &&
             vimCursor.Y < mapdata_1.MAP_HEIGHT) {
+            const onMap = appSurface_1.appSurface.get() === "map";
             ctx.save();
-            ctx.setLineDash(CURSOR_DASH_PATTERN);
-            ctx.strokeStyle = CURSOR_OUTLINE_COLOR;
+            ctx.setLineDash(onMap ? CURSOR_DASH_PATTERN : CURSOR_INACTIVE_DASH_PATTERN);
+            ctx.strokeStyle = onMap
+                ? CURSOR_OUTLINE_COLOR
+                : CURSOR_INACTIVE_COLOR;
             ctx.lineWidth = CURSOR_OUTLINE_WIDTH;
             ctx.strokeRect(startX + vimCursor.X * tileSize, startY + vimCursor.Y * tileSize, tileSize, tileSize);
             ctx.restore();
@@ -5101,10 +5575,18 @@ class BCMapEditor {
             this.render();
         }
     }
-    /** Where the cursor starts when the first vim key arrives. */
+    /**
+     * Where the cursor starts when the first vim key arrives. A mouse
+     * hover outside the map yields out-of-bounds cells, so clamp each
+     * axis exactly like keyboard motions do: the last valid position.
+     */
     vimBootPosition() {
-        if (this.hoveredTile)
-            return { ...this.hoveredTile };
+        if (this.hoveredTile) {
+            return {
+                X: Math.max(0, Math.min(mapdata_1.MAP_WIDTH - 1, this.hoveredTile.X)),
+                Y: Math.max(0, Math.min(mapdata_1.MAP_HEIGHT - 1, this.hoveredTile.Y)),
+            };
+        }
         return { X: Math.floor(mapdata_1.MAP_WIDTH / 2), Y: Math.floor(mapdata_1.MAP_HEIGHT / 2) };
     }
     /** Apply a vim cursor move: reveal if needed, refresh position, redraw. */
@@ -5185,7 +5667,7 @@ class BCMapEditor {
     /** `:line` — paint a Bresenham line on the active layer, one entry. */
     drawLine(x1, y1, x2, y2) {
         const cells = (0, line_1.lineCells)({ X: x1, Y: y1 }, { X: x2, Y: y2 });
-        this.applySessionEdit("paint", () => {
+        this.applySessionEdit(() => {
             let changed = false;
             for (const cell of cells) {
                 if (this.writeCell(cell))
@@ -5361,6 +5843,10 @@ class BCMapEditor {
     getHelpVisible() {
         return this.showHelp;
     }
+    /** Whether a visual-mode region is currently open (context help note). */
+    isVisualActive() {
+        return this.vim.getMode() === "visual";
+    }
     syncPickerSelection() {
         this.picker.syncSelection(this.selectedTile?.ID ?? null, this.selectedObject?.ID ?? null);
     }
@@ -5404,10 +5890,14 @@ window.BCMapEditor = BCMapEditor;
 
 "use strict";
 const keybinds_1 = window;
+
+const helpCard_1 = window;
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
     window.editor = editor;
+    // Shared surface store, exposed for end-to-end probing.
+    window.appSurface = appSurface_1.appSurface;
     editor.populatePickers();
     // Layer toggle
     const layerRadios = document.querySelectorAll('input[name="layer"]');
@@ -5502,6 +5992,23 @@ document.addEventListener("DOMContentLoaded", () => {
     searchInput?.addEventListener("input", () => {
         editor.filterPickers(searchInput.value);
     });
+    const focusMapSurface = () => {
+        document.activeElement?.blur?.();
+        document.getElementById("mapCanvas")?.focus?.();
+        appSurface_1.appSurface.set("map");
+    };
+    const focusSearchSelect = () => {
+        searchInput?.focus();
+        try {
+            searchInput?.select?.();
+        }
+        catch {
+            // select() can throw when the input is not visible; focus is enough.
+        }
+        appSurface_1.appSurface.set("search");
+    };
+    // Search exits (Enter → first match, Tab/Esc → map) are owned by the
+    // keybind dispatcher so help text and behavior share one source.
     // Grid toggle (button + G keybind)
     const btnToggleGrid = document.getElementById("btnToggleGrid");
     const syncGridButton = () => {
@@ -5531,13 +6038,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // Vim command line (`:` in the status bar): prompt replaces the mode
     // slot, Enter runs a command, Escape cancels, Up/Down recalls history.
     const commandPrompt = document.getElementById("commandPrompt");
+    const commandPromptWrap = document.getElementById("commandPromptWrap");
     const modeSlot = document.getElementById("statusVimMode");
     const setCommandPromptOpen = (open) => {
-        commandPrompt?.classList.toggle("d-none", !open);
+        // The wrap (vim `:` glyph + seamless input) swaps with the mode
+        // slot; the input itself keeps its id, focus and key handling.
+        commandPromptWrap?.classList.toggle("d-none", !open);
         modeSlot?.classList.toggle("d-none", open);
         if (open) {
             commandPrompt.value = "";
             commandPrompt.focus();
+            appSurface_1.appSurface.set("command");
+        }
+        else {
+            // Closing returns to the map so keyboard flow continues;
+            // a modal opened by the command re-focuses via the backstop.
+            focusMapSurface();
         }
     };
     const commandHistory = [];
@@ -5578,6 +6094,20 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+    // Leaving the prompt any other way (click-away, Tab out) cancels it
+    // and restores the mode slot. Without this, focus departure orphans
+    // the prompt open with the mode hidden: a later Escape lands
+    // elsewhere and nothing ever brings the mode back. Deliberately does
+    // NOT refocus: focus already sits where the user put it, and the
+    // focus backstop records that surface. Idempotent with Enter/Escape,
+    // whose close path hides the wrap before refocusing (guard below).
+    commandPrompt?.addEventListener("blur", () => {
+        if (commandPromptWrap?.classList.contains("d-none"))
+            return;
+        commandPrompt.value = "";
+        commandPromptWrap?.classList.add("d-none");
+        modeSlot?.classList.remove("d-none");
+    });
     // :w / :write reuses the export path; :e reuses the import modal.
     editor.onWriteMapRequest = (name) => {
         const mapName = name || "my-map";
@@ -5597,6 +6127,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
     editor.onImportRequest = () => importModal.show();
+    // Arrow key → visual-grid direction (the router pre-filters to these).
+    const GRID_DIRECTION_BY_ARROW_KEY = {
+        ArrowDown: "down",
+        ArrowUp: "up",
+        ArrowLeft: "left",
+        ArrowRight: "right",
+    };
     const keybindRegistry = (0, keybinds_1.installEditorKeybinds)({
         toggleGrid: () => {
             editor.toggleGrid();
@@ -5607,70 +6144,107 @@ document.addEventListener("DOMContentLoaded", () => {
         redo: () => editor.redo(),
         handleVimKey: (e) => editor.handleVimKey(e),
         openCommandPrompt: () => setCommandPromptOpen(true),
-        focusSearch: () => searchInput?.focus(),
+        focusSearch: () => focusSearchSelect(),
+        focusPicker: () => {
+            if (editor
+                .getPicker()
+                ?.focusResume(editor.getSelectedTile()?.ID ?? null, editor.getSelectedObject()?.ID ?? null)) {
+                appSurface_1.appSurface.set("picker");
+            }
+        },
+        focusMap: () => focusMapSurface(),
+        focusFirstMatch: () => {
+            if (editor.getPicker()?.focusFirstMatch()) {
+                appSurface_1.appSurface.set("picker");
+            }
+        },
         handleSidebarKey: (e) => {
             // Esc always returns to the map surface (also from the search
             // box inside the sidebar). The command prompt has its own Esc
             // and lives outside the sidebar.
             if (e.key === "Escape") {
                 e.preventDefault();
-                document.activeElement?.blur?.();
-                document.getElementById("mapCanvas")?.focus?.();
+                focusMapSurface();
                 return true;
             }
-            // Other keys inside text fields belong to the field.
+            // Tab from picker headers/sprites returns to the map (no commit;
+            // Enter/Space commits via keyboard click → focus returns there).
+            if (e.key === "Tab") {
+                const target = e.target;
+                if (target?.tagName === "INPUT" ||
+                    target?.tagName === "TEXTAREA") {
+                    return false;
+                }
+                e.preventDefault();
+                focusMapSurface();
+                return true;
+            }
+            // Other keys inside text fields belong to the field (search
+            // Enter/Tab are owned by dispatcher bindings, not here).
             const target = e.target;
             if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
                 return false;
             }
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            // Visual-grid arrows: Up/Down/Left/Right walk what the eye sees,
+            // pin at edges, fold only on headers (picker owns the rule).
+            if (e.key === "ArrowDown" ||
+                e.key === "ArrowUp" ||
+                e.key === "ArrowLeft" ||
+                e.key === "ArrowRight") {
                 e.preventDefault();
                 editor
                     .getPicker()
-                    ?.focusMove(e.key === "ArrowDown" ? "next" : "prev");
+                    ?.focusGrid(GRID_DIRECTION_BY_ARROW_KEY[e.key]);
                 return true;
             }
-            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            // `/` summons search from picker headers/sprites (select-all).
+            if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
-                editor.getPicker()?.foldFocused(e.key === "ArrowLeft" ? -1 : 1);
+                focusSearchSelect();
                 return true;
             }
-            if (e.key === "Escape") {
-                e.preventDefault();
-                document.activeElement?.blur?.();
-                document.getElementById("mapCanvas")?.focus?.();
-                return true;
+            // `:` opens the command line even from the picker (it can never
+            // match a tile/style name, so search would only swallow it).
+            // Decline so the `:` binding opens the prompt instead.
+            if (e.key === ":" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                return false;
             }
-            // Any printable character jumps into the search box (D9).
+            // Any other printable character jumps into the search box (D9).
             if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
-                searchInput?.focus();
+                focusSearchSelect();
                 return true;
             }
             return false;
         },
     });
     window.addEventListener("keydown", (0, keybinds_1.createKeybindDispatcher)(keybindRegistry));
-    // Help card rows render from the keybind registry so the card, the
-    // README table and the dispatcher can never drift (D13). Mouse-only
-    // controls have no keybind entry and are prepended here.
+    // Backstop: any focus move the keyboard paths above did not make
+    // themselves (mouse, touch, Tab order, modals) corrects the store.
+    // Programmatic moves already set it synchronously; sets are idempotent.
+    // Focus inside the help card itself is ignored: re-rendering help on
+    // its own toggle's focus would destroy the toggle mid-click (focus
+    // lands before click fires), so the toggle could never activate.
+    document.addEventListener("focusin", (e) => {
+        const target = e.target;
+        if (target?.closest?.("#controlsHelp"))
+            return;
+        appSurface_1.appSurface.set((0, appSurface_1.surfaceForTarget)(target));
+    });
+    // Context-sensitive help lives in its own module (unit-tested);
+    // here it is only constructed, re-rendered on surface change, and
+    // rendered once for the initial paint.
     const helpCard = document.getElementById("controlsHelp");
     if (helpCard) {
-        const addRow = (keys, description) => {
-            const row = document.createElement("div");
-            const kbds = keys
-                .split("/")
-                .map((k) => k.trim())
-                .filter((k) => k.length > 0)
-                .map((k) => `<kbd>${k}</kbd>`)
-                .join(" / ");
-            row.innerHTML = `${kbds} &mdash; ${description}`;
-            helpCard.appendChild(row);
-        };
-        addRow("Left click / drag", "Paint tile or object");
-        addRow("Right drag", "Pan");
-        addRow("Wheel", "Zoom");
-        keybinds_1.KEYBIND_HELP.forEach((entry) => addRow(entry.keys, entry.description));
+        const helpRenderer = (0, helpCard_1.createHelpRenderer)({
+            card: helpCard,
+            registry: keybinds_1.KEYBIND_HELP,
+            getSurface: () => appSurface_1.appSurface.get(),
+            isVisualActive: () => editor.isVisualActive(),
+            createElement: (tag) => document.createElement(tag),
+        });
+        appSurface_1.appSurface.subscribe(() => helpRenderer.render());
+        helpRenderer.render();
     }
 });
 

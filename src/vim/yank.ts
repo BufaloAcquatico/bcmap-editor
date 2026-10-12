@@ -1,8 +1,9 @@
 // BCMap Editor - yank buffer for copy/paste over both map layers.
 //
-// A yank always stores both layers of a rectangular region (D3/D11):
+// A yank always stores both layers of a rectangular region (D11):
 // copy/y stores the visible content, paste/p restores exactly those
-// layers regardless of which layer is active at paste time.
+// layers regardless of which layer is active at paste time. In visual
+// mode the yank tiles over the selected region, trimmed to fit.
 
 import type { Region } from "./motions";
 

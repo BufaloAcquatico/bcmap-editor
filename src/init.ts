@@ -3,12 +3,16 @@ import {
     installEditorKeybinds,
     KEYBIND_HELP,
 } from "./vim/keybinds";
+import { appSurface, surfaceForTarget } from "./appSurface";
+import { createHelpRenderer } from "./helpCard";
 
 document.addEventListener("DOMContentLoaded", () => {
     const editor = new (window as any).BCMapEditor("mapCanvas");
 
     // Store editor globally
     (window as any).editor = editor;
+    // Shared surface store, exposed for end-to-end probing.
+    (window as any).appSurface = appSurface;
     editor.populatePickers();
 
     // Layer toggle
@@ -130,6 +134,22 @@ document.addEventListener("DOMContentLoaded", () => {
     searchInput?.addEventListener("input", () => {
         editor.filterPickers(searchInput.value);
     });
+    const focusMapSurface = () => {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        document.getElementById("mapCanvas")?.focus?.();
+        appSurface.set("map");
+    };
+    const focusSearchSelect = () => {
+        searchInput?.focus();
+        try {
+            searchInput?.select?.();
+        } catch {
+            // select() can throw when the input is not visible; focus is enough.
+        }
+        appSurface.set("search");
+    };
+    // Search exits (Enter → first match, Tab/Esc → map) are owned by the
+    // keybind dispatcher so help text and behavior share one source.
 
     // Grid toggle (button + G keybind)
     const btnToggleGrid = document.getElementById("btnToggleGrid");
@@ -166,13 +186,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const commandPrompt = document.getElementById(
         "commandPrompt",
     ) as HTMLInputElement;
+    const commandPromptWrap = document.getElementById("commandPromptWrap");
     const modeSlot = document.getElementById("statusVimMode");
     const setCommandPromptOpen = (open: boolean) => {
-        commandPrompt?.classList.toggle("d-none", !open);
+        // The wrap (vim `:` glyph + seamless input) swaps with the mode
+        // slot; the input itself keeps its id, focus and key handling.
+        commandPromptWrap?.classList.toggle("d-none", !open);
         modeSlot?.classList.toggle("d-none", open);
         if (open) {
             commandPrompt.value = "";
             commandPrompt.focus();
+            appSurface.set("command");
+        } else {
+            // Closing returns to the map so keyboard flow continues;
+            // a modal opened by the command re-focuses via the backstop.
+            focusMapSurface();
         }
     };
     const commandHistory: string[] = [];
@@ -209,6 +237,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+    // Leaving the prompt any other way (click-away, Tab out) cancels it
+    // and restores the mode slot. Without this, focus departure orphans
+    // the prompt open with the mode hidden: a later Escape lands
+    // elsewhere and nothing ever brings the mode back. Deliberately does
+    // NOT refocus: focus already sits where the user put it, and the
+    // focus backstop records that surface. Idempotent with Enter/Escape,
+    // whose close path hides the wrap before refocusing (guard below).
+    commandPrompt?.addEventListener("blur", () => {
+        if (commandPromptWrap?.classList.contains("d-none")) return;
+        commandPrompt.value = "";
+        commandPromptWrap?.classList.add("d-none");
+        modeSlot?.classList.remove("d-none");
+    });
 
     // :w / :write reuses the export path; :e reuses the import modal.
     editor.onWriteMapRequest = (name?: string) => {
@@ -229,6 +270,17 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     editor.onImportRequest = () => importModal.show();
 
+    // Arrow key → visual-grid direction (the router pre-filters to these).
+    const GRID_DIRECTION_BY_ARROW_KEY: Record<
+        string,
+        "up" | "down" | "left" | "right"
+    > = {
+        ArrowDown: "down",
+        ArrowUp: "up",
+        ArrowLeft: "left",
+        ArrowRight: "right",
+    };
+
     const keybindRegistry = installEditorKeybinds({
         toggleGrid: () => {
             editor.toggleGrid();
@@ -239,44 +291,84 @@ document.addEventListener("DOMContentLoaded", () => {
         redo: () => editor.redo(),
         handleVimKey: (e: KeyboardEvent) => editor.handleVimKey(e),
         openCommandPrompt: () => setCommandPromptOpen(true),
-        focusSearch: () => searchInput?.focus(),
+        focusSearch: () => focusSearchSelect(),
+        focusPicker: () => {
+            if (
+                editor
+                    .getPicker()
+                    ?.focusResume(
+                        editor.getSelectedTile()?.ID ?? null,
+                        editor.getSelectedObject()?.ID ?? null,
+                    )
+            ) {
+                appSurface.set("picker");
+            }
+        },
+        focusMap: () => focusMapSurface(),
+        focusFirstMatch: () => {
+            if (editor.getPicker()?.focusFirstMatch()) {
+                appSurface.set("picker");
+            }
+        },
         handleSidebarKey: (e: KeyboardEvent): boolean => {
             // Esc always returns to the map surface (also from the search
             // box inside the sidebar). The command prompt has its own Esc
             // and lives outside the sidebar.
             if (e.key === "Escape") {
                 e.preventDefault();
-                (document.activeElement as HTMLElement | null)?.blur?.();
-                document.getElementById("mapCanvas")?.focus?.();
+                focusMapSurface();
                 return true;
             }
-            // Other keys inside text fields belong to the field.
+            // Tab from picker headers/sprites returns to the map (no commit;
+            // Enter/Space commits via keyboard click → focus returns there).
+            if (e.key === "Tab") {
+                const target = e.target as HTMLElement | null;
+                if (
+                    target?.tagName === "INPUT" ||
+                    target?.tagName === "TEXTAREA"
+                ) {
+                    return false;
+                }
+                e.preventDefault();
+                focusMapSurface();
+                return true;
+            }
+            // Other keys inside text fields belong to the field (search
+            // Enter/Tab are owned by dispatcher bindings, not here).
             const target = e.target as HTMLElement | null;
             if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA") {
                 return false;
             }
-            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            // Visual-grid arrows: Up/Down/Left/Right walk what the eye sees,
+            // pin at edges, fold only on headers (picker owns the rule).
+            if (
+                e.key === "ArrowDown" ||
+                e.key === "ArrowUp" ||
+                e.key === "ArrowLeft" ||
+                e.key === "ArrowRight"
+            ) {
                 e.preventDefault();
                 editor
                     .getPicker()
-                    ?.focusMove(e.key === "ArrowDown" ? "next" : "prev");
+                    ?.focusGrid(GRID_DIRECTION_BY_ARROW_KEY[e.key]);
                 return true;
             }
-            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            // `/` summons search from picker headers/sprites (select-all).
+            if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
-                editor.getPicker()?.foldFocused(e.key === "ArrowLeft" ? -1 : 1);
+                focusSearchSelect();
                 return true;
             }
-            if (e.key === "Escape") {
-                e.preventDefault();
-                (document.activeElement as HTMLElement | null)?.blur?.();
-                document.getElementById("mapCanvas")?.focus?.();
-                return true;
+            // `:` opens the command line even from the picker (it can never
+            // match a tile/style name, so search would only swallow it).
+            // Decline so the `:` binding opens the prompt instead.
+            if (e.key === ":" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                return false;
             }
-            // Any printable character jumps into the search box (D9).
+            // Any other printable character jumps into the search box (D9).
             if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
-                searchInput?.focus();
+                focusSearchSelect();
                 return true;
             }
             return false;
@@ -287,25 +379,31 @@ document.addEventListener("DOMContentLoaded", () => {
         createKeybindDispatcher(keybindRegistry),
     );
 
-    // Help card rows render from the keybind registry so the card, the
-    // README table and the dispatcher can never drift (D13). Mouse-only
-    // controls have no keybind entry and are prepended here.
+    // Backstop: any focus move the keyboard paths above did not make
+    // themselves (mouse, touch, Tab order, modals) corrects the store.
+    // Programmatic moves already set it synchronously; sets are idempotent.
+    // Focus inside the help card itself is ignored: re-rendering help on
+    // its own toggle's focus would destroy the toggle mid-click (focus
+    // lands before click fires), so the toggle could never activate.
+    document.addEventListener("focusin", (e) => {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest?.("#controlsHelp")) return;
+        appSurface.set(surfaceForTarget(target));
+    });
+
+    // Context-sensitive help lives in its own module (unit-tested);
+    // here it is only constructed, re-rendered on surface change, and
+    // rendered once for the initial paint.
     const helpCard = document.getElementById("controlsHelp");
     if (helpCard) {
-        const addRow = (keys: string, description: string) => {
-            const row = document.createElement("div");
-            const kbds = keys
-                .split("/")
-                .map((k) => k.trim())
-                .filter((k) => k.length > 0)
-                .map((k) => `<kbd>${k}</kbd>`)
-                .join(" / ");
-            row.innerHTML = `${kbds} &mdash; ${description}`;
-            helpCard.appendChild(row);
-        };
-        addRow("Left click / drag", "Paint tile or object");
-        addRow("Right drag", "Pan");
-        addRow("Wheel", "Zoom");
-        KEYBIND_HELP.forEach((entry) => addRow(entry.keys, entry.description));
+        const helpRenderer = createHelpRenderer({
+            card: helpCard,
+            registry: KEYBIND_HELP,
+            getSurface: () => appSurface.get(),
+            isVisualActive: () => editor.isVisualActive(),
+            createElement: (tag) => document.createElement(tag),
+        });
+        appSurface.subscribe(() => helpRenderer.render());
+        helpRenderer.render();
     }
 });

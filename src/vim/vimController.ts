@@ -24,14 +24,14 @@ export interface VimIntents {
     bootCursor: () => GridPos;
     /** Paint the current selection at the given cell. */
     paintAt: (at: GridPos) => void;
-    /** Erase the given cell (grass on tiles, blank object on objects). */
-    eraseAt: (at: GridPos) => void;
+    /** Paint the current selection over every cell of the region. */
+    paintRegion: (region: Region) => void;
     /** Capture the region into the yank buffer (both layers). */
     yankRegion: (region: Region) => void;
-    /** Erase every cell of the region as one undo entry. */
-    deleteRegion: (region: Region) => void;
     /** Paste the yank buffer at the given anchor cell (clipped by editor). */
     pasteYank: (at: GridPos) => void;
+    /** Tile the yank buffer over the region from its top-left, trimmed. */
+    pasteYankTiled: (region: Region) => void;
     /** Close the open edit burst before an undo/mode change. */
     flushEdits: () => void;
     undo: () => void;
@@ -182,14 +182,6 @@ export class VimController {
             return true;
         }
 
-        if (key === "x") {
-            const at = this.ensureCursorForVerb();
-            this.intents.eraseAt(at);
-            this.resetPending();
-            this.notify();
-            return true;
-        }
-
         if (key === "v") {
             if (this.mode === "visual") {
                 this.exitVisual();
@@ -214,20 +206,18 @@ export class VimController {
             return true;
         }
 
-        if (key === "d" && this.mode === "visual") {
+        if (key === "p") {
             const region = this.getRegion();
             if (region) {
-                this.intents.deleteRegion(region);
+                // Region gesture: close any open burst so the tiled paste
+                // is exactly one undo entry, then paste and leave visual.
+                this.intents.flushEdits();
+                this.intents.pasteYankTiled(region);
                 this.exitVisual();
+            } else {
+                const at = this.ensureCursorForVerb();
+                this.intents.pasteYank(at);
             }
-            this.resetPending();
-            this.notify();
-            return true;
-        }
-
-        if (key === "p") {
-            const at = this.ensureCursorForVerb();
-            this.intents.pasteYank(at);
             this.resetPending();
             this.notify();
             return true;
@@ -243,8 +233,17 @@ export class VimController {
         }
 
         if (key === " " || key === "Enter") {
-            const at = this.ensureCursorForVerb();
-            this.intents.paintAt(at);
+            const region = this.getRegion();
+            if (region) {
+                // Region gesture: close any open burst so the fill is
+                // exactly one undo entry, then paint and leave visual mode.
+                this.intents.flushEdits();
+                this.intents.paintRegion(region);
+                this.exitVisual();
+            } else {
+                const at = this.ensureCursorForVerb();
+                this.intents.paintAt(at);
+            }
             this.resetPending();
             this.notify();
             return true;

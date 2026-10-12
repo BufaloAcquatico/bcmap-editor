@@ -10,10 +10,10 @@ function makeController(boot: GridPos = { X: 20, Y: 20 }) {
         },
         bootCursor: () => boot,
         paintAt: vi.fn(),
-        eraseAt: vi.fn(),
+        paintRegion: vi.fn(),
         yankRegion: vi.fn(),
-        deleteRegion: vi.fn(),
         pasteYank: vi.fn(),
+        pasteYankTiled: vi.fn(),
         flushEdits: vi.fn(),
         undo: vi.fn(),
     };
@@ -135,18 +135,17 @@ describe("VimController status text", () => {
 });
 
 describe("VimController verbs (normal mode)", () => {
-    it("erases at the cursor on x", () => {
+    it("x is retired: not consumed and erases nothing", () => {
         const { controller, intents } = makeController();
         controller.handleKey("j");
-        intents.eraseAt.mockClear();
-        expect(controller.handleKey("x")).toBe(true);
-        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 21 });
+        expect(controller.handleKey("x")).toBe(false);
+        expect(intents.paintAt).not.toHaveBeenCalled();
     });
 
     it("boots the cursor when a verb arrives as the first key", () => {
         const { controller, intents } = makeController();
-        controller.handleKey("x");
-        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
+        controller.handleKey(" ");
+        expect(intents.paintAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
     });
 
     it("paints at the cursor on Space and Enter", () => {
@@ -171,9 +170,9 @@ describe("VimController verbs (normal mode)", () => {
     it("counts do not leak into verb behavior", () => {
         const { controller, intents } = makeController();
         controller.handleKey("2");
-        intents.eraseAt.mockClear();
-        controller.handleKey("x");
-        expect(intents.eraseAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
+        intents.paintAt.mockClear();
+        controller.handleKey(" ");
+        expect(intents.paintAt).toHaveBeenCalledWith({ X: 20, Y: 20 });
     });
 });
 
@@ -256,23 +255,62 @@ describe("VimController visual mode", () => {
         });
     });
 
-    it("d deletes the region and exits visual", () => {
+    it("d is retired: not consumed, visual mode kept", () => {
         ctx.controller.handleKey("v");
         ctx.controller.handleKey("2");
         ctx.controller.handleKey("j");
-        ctx.controller.handleKey("d");
-        expect(ctx.intents.deleteRegion).toHaveBeenCalledWith({
+        expect(ctx.controller.handleKey("d")).toBe(false);
+        expect(mode()).toBe("visual");
+        expect(region()).toEqual({
             from: { X: 20, Y: 20 },
             to: { X: 20, Y: 22 },
         });
+    });
+
+    it("Space fills the region and exits visual", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("2");
+        ctx.controller.handleKey("l");
+        expect(ctx.controller.handleKey(" ")).toBe(true);
+        expect(ctx.intents.paintRegion).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 22, Y: 20 },
+        });
+        expect(ctx.intents.paintAt).not.toHaveBeenCalled();
         expect(mode()).toBe("normal");
         expect(region()).toBeNull();
+    });
+
+    it("Enter fills the region just like Space", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("j");
+        expect(ctx.controller.handleKey("Enter")).toBe(true);
+        expect(ctx.intents.paintRegion).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 20, Y: 21 },
+        });
+        expect(mode()).toBe("normal");
     });
 
     it("p pastes at the cursor in normal mode", () => {
         ctx.controller.handleKey("l");
         expect(ctx.controller.handleKey("p")).toBe(true);
         expect(ctx.intents.pasteYank).toHaveBeenCalledWith({ X: 21, Y: 20 });
+        expect(ctx.intents.pasteYankTiled).not.toHaveBeenCalled();
+    });
+
+    it("p tiles the yank over the region and exits visual", () => {
+        ctx.controller.handleKey("v");
+        ctx.controller.handleKey("2");
+        ctx.controller.handleKey("l");
+        expect(ctx.controller.handleKey("p")).toBe(true);
+        expect(ctx.intents.pasteYankTiled).toHaveBeenCalledWith({
+            from: { X: 20, Y: 20 },
+            to: { X: 22, Y: 20 },
+        });
+        expect(ctx.intents.pasteYank).not.toHaveBeenCalled();
+        expect(mode()).toBe("normal");
+        expect(region()).toBeNull();
     });
 
     it("region is null in normal mode", () => {

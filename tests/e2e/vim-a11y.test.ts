@@ -29,6 +29,32 @@ test("picker items are real buttons with accessible names", async ({
     await expect(header).toHaveAttribute("aria-expanded", /true|false/);
 });
 
+test("category headers wear the thin theme border on all sides", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const header = page.locator("#tileCategories .category-header").first();
+    const border = await header.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return {
+            top: s.borderTopWidth,
+            right: s.borderRightWidth,
+            bottom: s.borderBottomWidth,
+            left: s.borderLeftWidth,
+            color: s.borderTopColor,
+        };
+    });
+    expect(border).toEqual({
+        top: "1px",
+        right: "1px",
+        bottom: "1px",
+        left: "1px",
+        color: "rgb(42, 42, 74)",
+    });
+});
+
 test("selecting a sprite marks it pressed", async ({
     page,
 }: {
@@ -41,7 +67,7 @@ test("selecting a sprite marks it pressed", async ({
     await expect(item).toHaveAttribute("aria-pressed", "true");
 });
 
-test("arrow keys walk headers then sprites (D2)", async ({
+test("visual grid: Right walks the row, Up from first row lands on header", async ({
     page,
 }: {
     page: Page;
@@ -52,8 +78,8 @@ test("arrow keys walk headers then sprites (D2)", async ({
     // click a sprite to put focus inside the sidebar
     const firstSprite = page.locator("#tileCategories .sprite-item").first();
     await firstSprite.click();
-    // Down moves to the next sprite
-    await page.keyboard.press("ArrowDown");
+    // Right moves to the next sprite in the row
+    await page.keyboard.press("ArrowRight");
     expect(
         await page.evaluate(() =>
             document.activeElement?.isSameNode(
@@ -61,13 +87,38 @@ test("arrow keys walk headers then sprites (D2)", async ({
             ),
         ),
     ).toBe(true);
-    // Up from the first sprite lands on the category header
-    await page.keyboard.press("ArrowUp");
+    // Left returns to the first sprite; Left at the first column pins
+    await page.keyboard.press("ArrowLeft");
+    expect(
+        await page.evaluate(() =>
+            document.activeElement?.isSameNode(
+                document.querySelectorAll("#tileCategories .sprite-item")[0],
+            ),
+        ),
+    ).toBe(true);
+    await page.keyboard.press("ArrowLeft");
+    expect(
+        await page.evaluate(() =>
+            document.activeElement?.isSameNode(
+                document.querySelectorAll("#tileCategories .sprite-item")[0],
+            ),
+        ),
+    ).toBe(true);
+    // Up from the first row lands on the category header
     await page.keyboard.press("ArrowUp");
     const focusedIsHeader = await page.evaluate(() =>
         document.activeElement?.classList.contains("category-header"),
     );
     expect(focusedIsHeader).toBe(true);
+    // Down from the header returns to the first sprite
+    await page.keyboard.press("ArrowDown");
+    expect(
+        await page.evaluate(() =>
+            document.activeElement?.isSameNode(
+                document.querySelectorAll("#tileCategories .sprite-item")[0],
+            ),
+        ),
+    ).toBe(true);
 });
 
 test("left/right collapse and expand the focused category", async ({
@@ -115,16 +166,170 @@ test("modals expose dialog roles", async ({ page }: { page: Page }) => {
     );
 });
 
-test("help card renders from the keybind registry", async ({
+test("help card shows the tracked surface slice", async ({
     page,
 }: {
     page: Page;
 }) => {
     await openEditor(page);
     const help = page.locator("#controlsHelp");
+    const surface = () => page.evaluate(() => (window as any).appSurface.get());
+    // Map surface: paint keys, no picker grid row.
+    await page.locator("#mapCanvas").click();
+    expect(await surface()).toBe("map");
     await expect(help).toContainText("Move cursor (counts, 0, $, gg)");
     await expect(help).toContainText("Command line (w/e/help/grid/line)");
-    await expect(help).toContainText(
-        "Navigate picker (groups: collapse/expand)",
+    await expect(help).not.toContainText("Navigate picker grid");
+    // Picker surface via keyboard: grid row appears, map row hides.
+    await page.keyboard.press("Tab");
+    expect(await surface()).toBe("picker");
+    await expect(help).toContainText("Navigate picker grid");
+    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    // Picker surface via mouse: clicking a sprite tracks too.
+    await page.locator("#tileCategories .category-header").first().click();
+    await page.locator("#tileCategories .sprite-item").first().click();
+    expect(await surface()).toBe("picker");
+    await expect(help).toContainText("Navigate picker grid");
+    // Search surface via mouse: first-match row, no map row.
+    await page.locator("#searchInput").click();
+    expect(await surface()).toBe("search");
+    await expect(help).toContainText("Search: go to first match");
+    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    // Show-all toggle restores the full registry list.
+    await help.getByRole("button", { name: /show all keys/i }).click();
+    await expect(help).toContainText("Move cursor (counts, 0, $, gg)");
+    await expect(help).toContainText("Navigate picker grid");
+});
+
+test("help keeps a note while a visual region leaves the map", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const help = page.locator("#controlsHelp");
+    await page.locator("#mapCanvas").click();
+    await page.keyboard.press("v");
+    await page.keyboard.press("Tab");
+    await expect(help).toContainText("Visual selection kept");
+    await expect(page.locator("#mapCanvas")).not.toBeFocused();
+});
+
+test("modal focus tracks as chrome with dialog help", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const help = page.locator("#controlsHelp");
+    await page.locator("#btnImport").click();
+    await page.locator("#importCode").click();
+    expect(await page.evaluate(() => (window as any).appSurface.get())).toBe(
+        "chrome",
     );
+    await expect(help).toContainText("Close the dialog");
+    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+});
+
+test("search Enter goes to first match, Tab returns to map", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press("/");
+    await expect(page.locator("#searchInput")).toBeFocused();
+    await page.locator("#searchInput").fill("Grass");
+    await page.keyboard.press("Enter");
+    const focusedIsSprite = await page.evaluate(() =>
+        document.activeElement?.classList.contains("sprite-item"),
+    );
+    expect(focusedIsSprite).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#mapCanvas")).toBeFocused();
+    // Tab from search returns to the map, keeping the query
+    await page.keyboard.press("/");
+    await page.locator("#searchInput").fill("Grass");
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#mapCanvas")).toBeFocused();
+    await expect(page.locator("#searchInput")).toHaveValue("Grass");
+});
+
+test("Enter with no matches stays in search", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press("/");
+    await page.locator("#searchInput").fill("zzz-no-such-tile");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#searchInput")).toBeFocused();
+    await expect(page.locator("#searchInput")).toHaveValue("zzz-no-such-tile");
+});
+
+test("command surface help lists command rows", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const help = page.locator("#controlsHelp");
+    await page.locator("#mapCanvas").click();
+    await page.keyboard.press(":");
+    await expect(page.locator("#commandPrompt")).toBeFocused();
+    await expect(help).toContainText("Run the command");
+    await expect(help).toContainText("Recall command history");
+    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    await page.keyboard.press("Escape");
+});
+
+test("Tab toggles map and picker, Enter on sprite selects and returns", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").click();
+    await page.keyboard.press("Tab");
+    const inPicker = await page.evaluate(
+        () =>
+            document.activeElement?.classList.contains("sprite-item") ||
+            document.activeElement?.classList.contains("category-header"),
+    );
+    expect(inPicker).toBe(true);
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#mapCanvas")).toBeFocused();
+    // Enter on a sprite commits the selection and returns to the map.
+    // Resume may land on a collapsed header: Enter expands, Down reaches
+    // the first sprite, Enter commits. If already on a sprite the first
+    // Enter commits and the extras paint harmlessly on the map.
+    await page.keyboard.press("Tab");
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#mapCanvas")).toBeFocused();
+    await expect(page.locator("#statusSelection")).not.toHaveText(
+        "No selection",
+    );
+});
+
+test("colon in picker opens the command line, not search", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").click();
+    await page.keyboard.press("Tab");
+    const inPicker = await page.evaluate(
+        () =>
+            document.activeElement?.classList.contains("sprite-item") ||
+            document.activeElement?.classList.contains("category-header"),
+    );
+    expect(inPicker).toBe(true);
+    await page.keyboard.press(":");
+    await expect(page.locator("#commandPrompt")).toBeVisible();
+    await expect(page.locator("#commandPrompt")).toBeFocused();
+    await expect(page.locator("#searchInput")).not.toBeFocused();
 });

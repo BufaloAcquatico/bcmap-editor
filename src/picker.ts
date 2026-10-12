@@ -8,6 +8,7 @@
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 
 import type { ObjectDef, TileDef } from "./catalog";
+import { appSurface } from "./appSurface";
 
 export type PickerLayer = "tile" | "object";
 
@@ -34,6 +35,9 @@ const BLANK_ERASER_ICON =
     '<svg class="picker-eraser-icon" width="30" height="30" viewBox="0 0 16 16" fill="#adb5bd" aria-hidden="true">' +
     '<path d="M8.086 2.207a2 2 0 0 1 2.828 0l3.879 3.879a2 2 0 0 1 0 2.828l-5.5 5.5A2 2 0 0 1 7.879 15H5.12a2 2 0 0 1-1.414-.586l-2.5-2.5a2 2 0 0 1 0-2.828l6.879-6.879zm2.121.707a1 1 0 0 0-1.414 0L4.16 7.547l5.293 5.293 4.633-4.633a1 1 0 0 0 0-1.414l-3.879-3.879zM8.746 13.547 3.453 8.254 1.914 9.793a1 1 0 0 0 0 1.414l2.5 2.5a1 1 0 0 0 .707.293H7.88a1 1 0 0 0 .707-.293l.16-.16z"/>' +
     "</svg></span>";
+
+/** Row-grouping tolerance: sub-pixel rounding across zoom/DPR stays ~1px. */
+const ROW_TOP_TOLERANCE_PX = 2;
 
 export class MapPicker {
     private layer: PickerLayer = "tile";
@@ -77,8 +81,14 @@ export class MapPicker {
                     "url(assets/tiles/" + key + ".png)";
                 item.title = tile.Style;
                 item.setAttribute?.("aria-label", `Select tile ${tile.Style}`);
-                item.addEventListener("click", () => {
+                item.addEventListener("click", (e: MouseEvent) => {
                     this.delegate.onSelectTile(tile);
+                    // Keyboard activation (Enter/Space) commits and returns
+                    // to the map; pointer clicks stay for multi-pick browse.
+                    if (e.detail === 0) {
+                        document.getElementById("mapCanvas")?.focus?.();
+                        appSurface.set("map");
+                    }
                 });
                 container.appendChild(item);
                 this.tilePickerItemById.set(tile.ID, item);
@@ -141,8 +151,14 @@ export class MapPicker {
                     item.title = "Blank (Erase)";
                     item.setAttribute?.("aria-label", "Blank (erase objects)");
                 }
-                item.addEventListener("click", () => {
+                item.addEventListener("click", (e: MouseEvent) => {
                     this.delegate.onSelectObject(obj);
+                    // Keyboard activation (Enter/Space) commits and returns
+                    // to the map; pointer clicks stay for multi-pick browse.
+                    if (e.detail === 0) {
+                        document.getElementById("mapCanvas")?.focus?.();
+                        appSurface.set("map");
+                    }
                 });
                 container.appendChild(item);
                 this.objectPickerItemById.set(obj.ID, item);
@@ -216,52 +232,229 @@ export class MapPicker {
     }
 
     /**
-     * Move focus along the visible picker: category headers and sprite
-     * buttons of the active layer, in DOM order (D2). Folded categories
-     * contribute only their header; filtered-out items are skipped.
+     * Focus the first visible sprite of the active layer (search-commit
+     * target). Skips headers. Returns false when there is no match.
      */
-    focusMove(direction: "next" | "prev"): void {
-        const nodes = this.visibleNavNodes();
-        if (nodes.length === 0) return;
-        const active = document.activeElement as HTMLElement | null;
-        const index = active ? nodes.indexOf(active) : -1;
-        const nextIndex =
-            index < 0
-                ? 0
-                : direction === "next"
-                  ? Math.min(nodes.length - 1, index + 1)
-                  : Math.max(0, index - 1);
-        const node = nodes[nextIndex];
-        node?.focus();
-        node?.scrollIntoView?.({ block: "nearest" });
-    }
-
-    /**
-     * Collapse (delta -1) or expand (delta +1) the category that owns the
-     * focused node (header or one of its sprites). Returns false when focus
-     * is elsewhere so the key can fall through.
-     */
-    foldFocused(delta: 1 | -1): boolean {
-        const active = document.activeElement as HTMLElement | null;
-        const entry = this.entryForNode(active);
-        if (!entry) return false;
-        this.setCategoryCollapsed(entry, delta === -1);
+    focusFirstMatch(): boolean {
+        const sprite = this.firstVisibleSprite();
+        if (!sprite) return false;
+        sprite.focus();
+        sprite.scrollIntoView?.({ block: "nearest" });
         return true;
     }
 
-    /** Visible focusable nodes of the active layer, header-then-items. */
-    private visibleNavNodes(): HTMLElement[] {
+    /**
+     * Resume spot for Tab-into-picker: current selection if visible,
+     * else its category header, else first header. Always lands on a
+     * visible node with a focus ring.
+     */
+    focusResume(
+        selectedTileId: number | null,
+        selectedObjectId: number | null,
+    ): boolean {
+        const selectedId =
+            this.layer === "tile" ? selectedTileId : selectedObjectId;
+        const byId =
+            this.layer === "tile"
+                ? this.tilePickerItemById
+                : this.objectPickerItemById;
+        if (selectedId !== null && selectedId !== undefined) {
+            const el = byId.get(selectedId);
+            const entry = el ? this.entryForNode(el) : null;
+            if (el && entry) {
+                // The sprite itself when visible; otherwise its header
+                // (a filtered-out sprite has no visible row to land on).
+                const target =
+                    el.style.display !== "none" && !entry.collapsed
+                        ? el
+                        : entry.header;
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+                return true;
+            }
+        }
         const entries = this.activeEntries();
-        const nodes: HTMLElement[] = [];
-        entries.forEach((entry) => {
-            nodes.push(entry.header);
-            if (entry.collapsed) return;
-            entry.content.querySelectorAll(".sprite-item").forEach((el) => {
-                const htmlEl = el as HTMLElement;
-                if (htmlEl.style.display !== "none") nodes.push(htmlEl);
-            });
+        if (entries.length === 0) return false;
+        // Prefer the first expanded category's first sprite so Tab lands
+        // in content when possible; otherwise its header.
+        for (const entry of entries) {
+            if (!entry.collapsed) {
+                const first = this.visibleSpritesOf(entry)[0];
+                if (first) {
+                    first.focus();
+                    first.scrollIntoView?.({ block: "nearest" });
+                    return true;
+                }
+            }
+        }
+        entries[0].header.focus();
+        entries[0].header.scrollIntoView?.({ block: "nearest" });
+        return true;
+    }
+
+    /**
+     * Visual-grid move. Left/Right walk the row and pin at edges (no-op,
+     * no wrap, no fold). Up/Down walk the same column across rows, with
+     * header handoffs: Up from first row → its header, Down from header →
+     * first sprite, Down from last row → next header, Up from header →
+     * last row of previous open category. Returns false when focus is
+     * outside the picker.
+     */
+    focusGrid(direction: "up" | "down" | "left" | "right"): boolean {
+        const active = document.activeElement as HTMLElement | null;
+        const entries = this.activeEntries();
+        if (!active || entries.length === 0) return false;
+        const entryIndex = entries.findIndex(
+            (entry) =>
+                entry.header === active || entry.content.contains(active),
+        );
+        if (entryIndex < 0) return false;
+        const entry = entries[entryIndex];
+
+        // Header row: Up/Down move across headers/content, Left/Right fold.
+        if (active === entry.header) {
+            if (direction === "left" || direction === "right") {
+                this.setCategoryCollapsed(entry, direction === "left");
+                return true;
+            }
+            if (direction === "down") {
+                if (!entry.collapsed) {
+                    const first = this.visibleSpritesOf(entry)[0];
+                    if (first) {
+                        first.focus();
+                        first.scrollIntoView?.({ block: "nearest" });
+                        return true;
+                    }
+                }
+                const nextHeader = this.nextHeader(entryIndex);
+                if (nextHeader) {
+                    nextHeader.focus();
+                    nextHeader.scrollIntoView?.({ block: "nearest" });
+                }
+                return true;
+            }
+            // up from a header → last row of previous open category,
+            // else previous header; first header pins.
+            const target = this.headerUpTarget(entryIndex);
+            if (target) {
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+            }
+            return true;
+        }
+
+        // Sprite: resolve its row, then move spatially.
+        const row = this.spriteRow(entry, active);
+        if (!row) return false;
+        if (direction === "left" || direction === "right") {
+            const i = row.indexOf(active);
+            const next = direction === "left" ? i - 1 : i + 1;
+            if (next < 0 || next >= row.length) return true; // pinned edge
+            row[next].focus();
+            row[next].scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        const rows = this.spriteRows(entry);
+        const rowIndex = rows.findIndex((r) => r.includes(active));
+        const col = row.indexOf(active);
+        if (direction === "up") {
+            if (rowIndex > 0) {
+                const above = rows[rowIndex - 1];
+                const target = above[Math.min(col, above.length - 1)];
+                target.focus();
+                target.scrollIntoView?.({ block: "nearest" });
+                return true;
+            }
+            entry.header.focus();
+            entry.header.scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        // down
+        if (rowIndex < rows.length - 1) {
+            const below = rows[rowIndex + 1];
+            const target = below[Math.min(col, below.length - 1)];
+            target.focus();
+            target.scrollIntoView?.({ block: "nearest" });
+            return true;
+        }
+        const nextHeader = this.nextHeader(entryIndex);
+        if (nextHeader) {
+            nextHeader.focus();
+            nextHeader.scrollIntoView?.({ block: "nearest" });
+        }
+        return true;
+    }
+
+    private firstVisibleSprite(): HTMLElement | null {
+        for (const entry of this.activeEntries()) {
+            if (entry.collapsed) continue;
+            const sprites = this.visibleSpritesOf(entry);
+            if (sprites.length > 0) return sprites[0];
+        }
+        return null;
+    }
+
+    private visibleSpritesOf(entry: CategoryEntry): HTMLElement[] {
+        const out: HTMLElement[] = [];
+        entry.content.querySelectorAll(".sprite-item").forEach((el) => {
+            const htmlEl = el as HTMLElement;
+            if (htmlEl.style.display !== "none") out.push(htmlEl);
         });
-        return nodes.filter((el) => !!el.closest?.("#sidebar"));
+        return out;
+    }
+
+    private nextHeader(fromIndex: number): HTMLElement | null {
+        return this.activeEntries()[fromIndex + 1]?.header ?? null;
+    }
+
+    private headerUpTarget(headerIndex: number): HTMLElement | null {
+        const prev = this.activeEntries()[headerIndex - 1];
+        if (!prev || prev.collapsed) return prev?.header ?? null;
+        const rows = this.spriteRows(prev);
+        if (rows.length === 0) return prev.header;
+        const last = rows[rows.length - 1];
+        return last[last.length - 1];
+    }
+
+    private spriteRows(entry: CategoryEntry): HTMLElement[][] {
+        const sprites = this.visibleSpritesOf(entry);
+        const rows: HTMLElement[][] = [];
+        let current: HTMLElement[] = [];
+        let currentTop: number | null = null;
+        for (const sprite of sprites) {
+            const top = this.rowTop(sprite);
+            if (currentTop === null || !this.sameRow(currentTop, top)) {
+                if (current.length > 0) rows.push(current);
+                current = [sprite];
+                currentTop = top;
+            } else {
+                current.push(sprite);
+            }
+        }
+        if (current.length > 0) rows.push(current);
+        return rows;
+    }
+
+    private spriteRow(
+        entry: CategoryEntry,
+        sprite: HTMLElement,
+    ): HTMLElement[] | null {
+        const rows = this.spriteRows(entry);
+        return rows.find((r) => r.includes(sprite)) ?? null;
+    }
+
+    private rowTop(el: HTMLElement): number {
+        try {
+            const rect = el.getBoundingClientRect?.();
+            if (rect) return Math.round(rect.top);
+        } catch {
+            // fall through to offsetTop
+        }
+        return (el as HTMLElement & { offsetTop?: number }).offsetTop ?? 0;
+    }
+
+    private sameRow(a: number, b: number): boolean {
+        return Math.abs(a - b) <= ROW_TOP_TOLERANCE_PX;
     }
 
     private activeEntries(): CategoryEntry[] {
@@ -302,7 +495,7 @@ export class MapPicker {
         header.tabIndex = -1;
         header.setAttribute?.("aria-expanded", "false");
         header.className =
-            "category-header p-2 border-bottom border-secondary d-flex align-items-center gap-2";
+            "category-header p-2 d-flex align-items-center gap-2";
         const caret = document.createElement("i");
         caret.className = "bi bi-caret-right-fill category-caret";
         caret.setAttribute?.("aria-hidden", "true");

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../../src/editor";
+import { appSurface } from "../../../src/appSurface";
 
 const mockCtx = {
     clearRect: vi.fn(),
@@ -92,6 +93,17 @@ describe("Editor vim cursor integration", () => {
         expect(mockElements["statusPosition"].textContent).toBe(
             "Position: (20, 21)",
         );
+    });
+
+    it("clamps an out-of-bounds mouse hover to the last valid position", () => {
+        (editor as any).hoveredTile = { X: -5, Y: 99 };
+        editor.handleVimKey(keyEvent("v"));
+        expect((editor as any).vim.getCursor()).toEqual({ X: 0, Y: 39 });
+        expect((editor as any).vim.getRegion()).toEqual({
+            from: { X: 0, Y: 39 },
+            to: { X: 0, Y: 39 },
+        });
+        expect((editor as any).vim.getMode()).toBe("visual");
     });
 
     it("boots at the last hovered cell when the mouse visited first", () => {
@@ -194,14 +206,24 @@ describe("Editor vim verb + edit-session integration", () => {
         expect(tileAt(20, 20)).toBe(210); // grass restored
     });
 
-    it("x erases back to grass", () => {
+    it("painting with the grass brush erases back to grass", () => {
         editor.handleVimKey(keyEvent(" "));
-        editor.handleVimKey(keyEvent("x"));
+        editor.setSelectedTile({
+            ID: 210,
+            Type: "FloorExterior",
+            Style: "Grass",
+        });
+        editor.handleVimKey(keyEvent(" "));
         expect(tileAt(20, 20)).toBe(210);
     });
 
-    it("x over unchanged content costs no undo entry", () => {
-        editor.handleVimKey(keyEvent("x"));
+    it("painting unchanged content costs no undo entry", () => {
+        editor.setSelectedTile({
+            ID: 210,
+            Type: "FloorExterior",
+            Style: "Grass",
+        });
+        editor.handleVimKey(keyEvent(" "));
         expect(tileAt(20, 20)).toBe(210);
         editor.handleVimKey(keyEvent("u")); // flush the empty burst, then undo
         expect(tileAt(20, 20)).toBe(210);
@@ -213,39 +235,18 @@ describe("Editor vim verb + edit-session integration", () => {
         editor.handleVimKey(keyEvent("l")); // move off the painted cell
         editor.handleVimKey(keyEvent("l"));
         editor.handleVimKey(keyEvent("h"));
-        // burst: erase 3 cells under one held x
-        editor.handleVimKey(keyEvent(" ")); // paint current
-        editor.handleVimKey(keyEvent(" ")); // hold x below
-        // erase three distinct cells with x (same verb, one burst)
+        // burst: paint 3 distinct cells with held Space (one burst)
         const before = editor.getMapData().Tiles;
-        editor.handleVimKey(keyEvent("x"));
+        editor.handleVimKey(keyEvent(" "));
         editor.handleVimKey(keyEvent("h"));
-        editor.handleVimKey(keyEvent("x"));
+        editor.handleVimKey(keyEvent(" "));
         editor.handleVimKey(keyEvent("h"));
-        editor.handleVimKey(keyEvent("x"));
+        editor.handleVimKey(keyEvent(" "));
         expect(editor.getMapData().Tiles).not.toBe(before);
         expect(editor.canUndo()).toBe(true);
         editor.undo();
         // one undo reverts the entire burst
         expect(editor.getMapData().Tiles).toBe(before);
-    });
-
-    it("switching verb closes the burst into separate entries", () => {
-        editor.handleVimKey(keyEvent(" ")); // paint 215
-        editor.handleVimKey(keyEvent("x")); // erase  -> 210
-        editor.handleVimKey(keyEvent(" ")); // paint  -> 215
-        editor.handleVimKey(keyEvent("x")); // erase  -> 210
-        expect(tileAt(20, 20)).toBe(210);
-        expect(editor.canUndo()).toBe(true);
-        editor.undo(); // reverts the last erase
-        expect(tileAt(20, 20)).toBe(215);
-        editor.undo(); // reverts that paint
-        expect(tileAt(20, 20)).toBe(210);
-        editor.undo(); // reverts the first erase
-        expect(tileAt(20, 20)).toBe(215);
-        editor.undo(); // reverts the first paint
-        expect(tileAt(20, 20)).toBe(210);
-        expect(editor.canUndo()).toBe(false);
     });
 
     it("u undoes the last burst", () => {
@@ -368,28 +369,65 @@ describe("Editor visual mode + yank/paste", () => {
         expect(tileAt(2, 0)).toBe(215);
     });
 
-    it("d deletes the whole visual region as one undo entry", () => {
-        paintCells([5, 5], [6, 5], [7, 5]);
+    it("Space fills the whole visual region as one undo entry", () => {
+        paintCells([5, 5], [7, 5]);
         editor.handleVimKey(keyEvent("g"));
         editor.handleVimKey(keyEvent("g"));
         for (let i = 0; i < 5; i++) editor.handleVimKey(keyEvent("j"));
-        editor.handleVimKey(keyEvent("l"));
-        editor.handleVimKey(keyEvent("l"));
-        editor.handleVimKey(keyEvent("l"));
-        editor.handleVimKey(keyEvent("l"));
-        editor.handleVimKey(keyEvent("l"));
+        for (let i = 0; i < 5; i++) editor.handleVimKey(keyEvent("l"));
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("2"));
         editor.handleVimKey(keyEvent("l"));
-        editor.handleVimKey(keyEvent("d"));
-        expect(tileAt(5, 5)).toBe(210);
-        expect(tileAt(6, 5)).toBe(210);
-        expect(tileAt(7, 5)).toBe(210);
-        expect(editor.canUndo()).toBe(true);
-        editor.undo();
+        editor.handleVimKey(keyEvent(" "));
         expect(tileAt(5, 5)).toBe(215);
         expect(tileAt(6, 5)).toBe(215);
         expect(tileAt(7, 5)).toBe(215);
+        expect((editor as any).vim.getMode()).toBe("normal");
+        expect(editor.canUndo()).toBe(true);
+        editor.undo(); // reverts the fill only
+        expect(tileAt(5, 5)).toBe(215);
+        expect(tileAt(6, 5)).toBe(210);
+        expect(tileAt(7, 5)).toBe(215);
+        editor.undo(); // reverts the painted pair
+        expect(tileAt(5, 5)).toBe(210);
+        expect(tileAt(7, 5)).toBe(210);
+    });
+
+    it("p tiles the yank over the visual region", () => {
+        paintCells([0, 0]); // (0,0) = 215, (1,0) stays grass
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("y")); // buffer 2x1: [215, grass]
+        editor.handleVimKey(keyEvent("g"));
+        editor.handleVimKey(keyEvent("g"));
+        for (let i = 0; i < 5; i++) editor.handleVimKey(keyEvent("j"));
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("p")); // tile [215, grass] over 4x1
+        expect(tileAt(0, 5)).toBe(215);
+        expect(tileAt(1, 5)).toBe(210);
+        expect(tileAt(2, 5)).toBe(215);
+        expect(tileAt(3, 5)).toBe(210);
+        expect((editor as any).vim.getMode()).toBe("normal");
+        editor.undo(); // one undo reverts the whole tiling
+        expect(tileAt(0, 5)).toBe(210);
+        expect(tileAt(2, 5)).toBe(210);
+        expect(tileAt(0, 0)).toBe(215); // source cells untouched
+    });
+
+    it("tiled paste with an empty buffer shows E353 and records nothing", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("p"));
+        expect(mockElements["statusVimMode"].textContent).toBe(
+            "E353: Nothing in register",
+        );
+        expect(editor.canUndo()).toBe(false);
+        expect((editor as any).vim.getMode()).toBe("normal");
     });
 
     it("paste is empty-safe (no buffer = no-op)", () => {
@@ -487,5 +525,35 @@ describe("Editor command line (VB5)", () => {
         editor.handleVimCommand("line 3,4");
         expect(mockElements["statusVimMode"].textContent).toMatch(/E486/);
         expect(tileAt(3, 4)).toBe(210);
+    });
+});
+
+describe("Off-map cursor restyle", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        appSurface.set("map");
+        editor = new BCMapEditor("testCanvas");
+        editor.handleVimKey(keyEvent("j")); // boot the cursor at (20, 21)
+    });
+
+    it("draws gold dashed on the map surface", () => {
+        mockCtx.setLineDash.mockClear();
+        mockCtx.strokeStyle = "";
+        (editor as any).render();
+        expect(mockCtx.setLineDash).toHaveBeenCalledWith([4, 4]);
+        expect(mockCtx.strokeStyle).toBe("rgba(255, 215, 0, 0.95)");
+        appSurface.set("map");
+    });
+
+    it("draws dim grey dotted off the map and repaints on change", () => {
+        mockCtx.setLineDash.mockClear();
+        mockCtx.fillRect.mockClear();
+        appSurface.set("picker"); // subscriber repaints synchronously here
+        expect(mockCtx.fillRect).toHaveBeenCalled();
+        expect(mockCtx.setLineDash).toHaveBeenCalledWith([2, 3]);
+        expect(mockCtx.strokeStyle).toBe("rgba(160, 160, 175, 0.8)");
+        appSurface.set("map");
     });
 });

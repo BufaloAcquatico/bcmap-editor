@@ -114,6 +114,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const bindings = installEditorKeybinds(actions);
@@ -148,6 +151,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -156,6 +162,7 @@ describe("installEditorKeybinds", () => {
         const input = { tagName: "INPUT" } as unknown;
 
         dispatch(keyEvent("g", {}, input));
+        dispatch(keyEvent("G", {}, input));
         dispatch(keyEvent("?", {}, input));
         expect(actions.toggleGrid).not.toHaveBeenCalled();
         expect(actions.toggleHelp).not.toHaveBeenCalled();
@@ -175,6 +182,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -199,6 +209,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -221,21 +234,22 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
             installEditorKeybinds(actions),
         );
-        dispatch(keyEvent("x"));
         dispatch(keyEvent(" "));
         dispatch(keyEvent("u"));
         dispatch(keyEvent("v"));
         dispatch(keyEvent("y"));
         dispatch(keyEvent("Y"));
-        dispatch(keyEvent("d"));
         dispatch(keyEvent("p"));
         dispatch(keyEvent("Escape"));
-        expect(actions.handleVimKey).toHaveBeenCalledTimes(9);
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(7);
     });
 
     it("does not route unbound letter keys to the vim controller", () => {
@@ -247,6 +261,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -254,6 +271,8 @@ describe("installEditorKeybinds", () => {
         );
         dispatch(keyEvent("z"));
         dispatch(keyEvent("q"));
+        dispatch(keyEvent("x"));
+        dispatch(keyEvent("d"));
         expect(actions.handleVimKey).not.toHaveBeenCalled();
     });
 
@@ -266,6 +285,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -286,6 +308,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -306,6 +331,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         };
         const dispatch = createKeybindDispatcher(
@@ -324,6 +352,9 @@ describe("installEditorKeybinds", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey: vi.fn(() => true),
         });
         for (const binding of bindings) {
@@ -345,6 +376,9 @@ describe("Keybind registry (D13)", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey,
         });
 
@@ -397,6 +431,9 @@ describe("Sidebar surface routing (D9/D10)", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey,
         };
         const dispatch = createKeybindDispatcher(
@@ -417,6 +454,9 @@ describe("Sidebar surface routing (D9/D10)", () => {
             handleVimKey: vi.fn(() => true),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
             handleSidebarKey,
         };
         const dispatch = createKeybindDispatcher(
@@ -425,5 +465,90 @@ describe("Sidebar surface routing (D9/D10)", () => {
         dispatch(keyEvent("G", {}, sidebar()));
         expect(handleSidebarKey).toHaveBeenCalledTimes(1);
         expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
+    });
+
+    it("routes Tab on the map to the picker and Tab in search to the map", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            handleSidebarKey: vi.fn(() => false),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("Tab", {}, map()));
+        expect(actions.focusPicker).toHaveBeenCalledTimes(1);
+        expect(actions.focusMap).not.toHaveBeenCalled();
+
+        const searchInput = {
+            tagName: "INPUT",
+            id: "searchInput",
+            closest: (sel: string) => (sel === "#sidebar" ? {} : null),
+        } as unknown;
+        dispatch(keyEvent("Tab", {}, searchInput));
+        expect(actions.focusMap).toHaveBeenCalledTimes(1);
+    });
+
+    it("routes Enter in search to the first match", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            handleSidebarKey: vi.fn(() => false),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        const searchInput = {
+            tagName: "INPUT",
+            id: "searchInput",
+            closest: (sel: string) => (sel === "#sidebar" ? {} : null),
+        } as unknown;
+        dispatch(keyEvent("Enter", {}, searchInput));
+        expect(actions.focusFirstMatch).toHaveBeenCalledTimes(1);
+        expect(actions.handleVimKey).not.toHaveBeenCalled();
+    });
+
+    it("treats Shift+Tab exactly like Tab (no reverse navigation)", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            handleSidebarKey: vi.fn(() => false),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+        dispatch(keyEvent("Tab", { shiftKey: true }, map()));
+        expect(actions.focusPicker).toHaveBeenCalledTimes(1);
+        const searchInput = {
+            tagName: "INPUT",
+            id: "searchInput",
+            closest: (sel: string) => (sel === "#sidebar" ? {} : null),
+        } as unknown;
+        dispatch(keyEvent("Tab", { shiftKey: true }, searchInput));
+        expect(actions.focusMap).toHaveBeenCalledTimes(1);
     });
 });

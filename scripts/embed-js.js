@@ -5,8 +5,10 @@ const distDir = path.join(__dirname, "..", "dist");
 const htmlFile = path.join(__dirname, "..", "map-editor.html");
 
 const files = [
+    "appSurface.js",
     "catalog.js",
     "constants.js",
+    "helpCard.js",
     "history.js",
     "line.js",
     "mapdata.js",

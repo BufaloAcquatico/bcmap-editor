@@ -45,17 +45,17 @@ docker compose up -d
 | Pan | Right drag |
 | Zoom | Mouse wheel |
 | Move cursor (counts, 0, $, gg) | `hjkl` / `arrows` |
-| Paint selection at cursor | `Space` / `Enter` |
-| Erase cursor cell | `x` |
+| Paint selection (fills region in visual) | `Space` / `Enter` |
 | Visual mode (select region) | `v` |
 | Yank region (both layers) | `y` / `Y` |
-| Delete visual region | `d` |
-| Paste yank at cursor | `p` |
+| Paste yank (tiles over region in visual) | `p` |
 | Undo (vim alias) | `u` |
 | Cancel selection / pending state | `Esc` |
 | Command line (w/e/help/grid/line) | `:` |
 | Focus the picker search | `/` |
-| Navigate picker (groups: collapse/expand) | `arrows` |
+| Navigate picker grid (headers: collapse/expand) | `arrows` |
+| Move between map and picker | `Tab` |
+| Search: go to first match / Picker: select and return | `Enter` |
 | Toggle grid | `G` |
 | Toggle help overlay | `?` |
 | Undo | `Ctrl+Z` |
