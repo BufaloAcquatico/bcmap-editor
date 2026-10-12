@@ -27,6 +27,7 @@ import {
     settled,
     prefersReducedMotion,
     fadeIn,
+    marchOffset,
     FRAME_MS,
     MOTION_EPSILON_TILES,
     MOTION_EPSILON_SCALE,
@@ -147,6 +148,13 @@ export class BCMapEditor {
      */
     private cursorRenderPos: Point | null = null;
     private regionRender: Region | null = null;
+    /**
+     * Cursor march state: wall-clock elapsed driving the marching
+     * dashes (frozen once settled). Presentation only, like the
+     * positions above.
+     */
+    private cursorMarchElapsed = 0;
+    private cursorDashOffset = 0;
     /**
      * Hover render state: fractional cell chasing the raw hover plus a
      * 0..1 scale that grows the outline from the tile middle on appear
@@ -1189,6 +1197,7 @@ export class BCMapEditor {
             ctx.setLineDash(
                 onMap ? CURSOR_DASH_PATTERN : CURSOR_INACTIVE_DASH_PATTERN,
             );
+            ctx.lineDashOffset = this.cursorDashOffset;
             ctx.strokeStyle = onMap
                 ? CURSOR_OUTLINE_COLOR
                 : CURSOR_INACTIVE_COLOR;
@@ -1216,6 +1225,8 @@ export class BCMapEditor {
         if (prefersReducedMotion()) {
             const cursor = this.vim.getCursor();
             this.cursorRenderPos = cursor ? { ...cursor } : null;
+            this.cursorMarchElapsed = 0;
+            this.cursorDashOffset = 0;
             const region = this.vim.getRegion();
             this.regionRender = region
                 ? { from: { ...region.from }, to: { ...region.to } }
@@ -1241,7 +1252,10 @@ export class BCMapEditor {
         if (!cursor) {
             this.cursorRenderPos = null;
         } else if (!this.cursorRenderPos) {
+            // Fresh outline appears whole: no glide, no march.
             this.cursorRenderPos = { ...cursor };
+            this.cursorMarchElapsed = 0;
+            this.cursorDashOffset = 0;
         } else {
             const next = {
                 X: advanceToward(
@@ -1264,6 +1278,15 @@ export class BCMapEditor {
                 this.cursorRenderPos = { ...cursor };
             } else {
                 this.cursorRenderPos = next;
+                this.cursorMarchElapsed += dt;
+                const dashPattern =
+                    appSurface.get() === "map"
+                        ? CURSOR_DASH_PATTERN
+                        : CURSOR_INACTIVE_DASH_PATTERN;
+                this.cursorDashOffset = marchOffset(
+                    this.cursorMarchElapsed,
+                    dashPattern.reduce((a, b) => a + b, 0),
+                );
                 moving = dt > 0;
             }
         }

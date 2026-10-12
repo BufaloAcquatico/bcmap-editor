@@ -630,6 +630,27 @@ describe("Canvas cursor glide", () => {
         expect((editor as any).cursorRenderPos).toEqual({ X: 21, Y: 21 });
     });
 
+    it("marches the dashes while gliding and freezes them once settled", () => {
+        editor.handleVimKey(keyEvent("j"));
+        settleFrames(); // snap: march clock reset, offset frozen at 0
+        expect((editor as any).cursorDashOffset).toBe(0);
+        editor.handleVimKey(keyEvent("l")); // logical (21, 21)
+        stepFrame(1000 / 60);
+        const mid = (editor as any).cursorDashOffset;
+        expect(mid).not.toBe(0);
+        expect((mockCtx as any).lineDashOffset).toBe(mid);
+        stepFrame(1000 / 60);
+        // Still gliding: the offset keeps crawling.
+        expect((editor as any).cursorDashOffset).not.toBe(mid);
+        settleFrames();
+        const frozen = (editor as any).cursorDashOffset;
+        renderAt(1000 / 60);
+        renderAt(1000 / 60);
+        // Settled: extra frames leave the frozen offset untouched.
+        expect((editor as any).cursorDashOffset).toBe(frozen);
+        expect((mockCtx as any).lineDashOffset).toBe(frozen);
+    });
+
     it("eases an open region and snaps a fresh one", () => {
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("l"));

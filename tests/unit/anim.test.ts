@@ -6,6 +6,8 @@ import {
     fadeIn,
     fadeOut,
     cancelEffects,
+    marchOffset,
+    CURSOR_MARCH_PX_PER_SEC,
     MOTION_MS,
     MOTION_QUICK_MS,
     MOTION_MAX_STEP_MS,
@@ -185,5 +187,31 @@ describe("cancelEffects", () => {
         expect(first.cancel).toHaveBeenCalledTimes(1);
         expect(second.cancel).toHaveBeenCalledTimes(1);
         expect(() => cancelEffects({} as HTMLElement)).not.toThrow();
+    });
+});
+
+describe("marchOffset", () => {
+    it("holds at zero before motion or for degenerate inputs", () => {
+        expect(marchOffset(0, 8)).toBe(0);
+        expect(marchOffset(-5, 8)).toBe(0);
+        expect(marchOffset(100, 0)).toBe(0);
+        expect(marchOffset(100, -8)).toBe(0);
+        expect(marchOffset(100, 8, 0)).toBe(0);
+    });
+
+    it("crawls linearly within one period", () => {
+        // Default march: 24px/s, so 500ms covers 12px = 1.5 cycles of 8px.
+        expect(marchOffset(500, 8)).toBe(-4);
+        expect(marchOffset(250, 8)).toBe(-6);
+        expect(marchOffset(250, 8)).toBeLessThan(marchOffset(125, 8));
+    });
+
+    it("repeats seamlessly every period", () => {
+        const cycleMs = (8 / CURSOR_MARCH_PX_PER_SEC) * 1000;
+        expect(marchOffset(1000, 8)).toBe(0);
+        expect(marchOffset(100 + cycleMs, 8)).toBeCloseTo(
+            marchOffset(100, 8),
+            10,
+        );
     });
 });

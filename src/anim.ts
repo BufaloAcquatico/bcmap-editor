@@ -47,6 +47,9 @@ export const MOTION_EPSILON_TILES = 0.01;
 /** Snap threshold for unitless 0..1 scales. */
 export const MOTION_EPSILON_SCALE = 0.01;
 
+/** Marching-ants speed for the keyboard cursor outline, px per second. */
+export const CURSOR_MARCH_PX_PER_SEC = 24;
+
 /** True when a value has settled close enough to snap to target. */
 export function settled(
     current: number,
@@ -54,6 +57,21 @@ export function settled(
     epsilon: number,
 ): boolean {
     return Math.abs(current - target) <= epsilon;
+}
+
+/**
+ * Marching-ants dash offset after elapsedMs of gliding: linear in
+ * wall-clock time so the outline crawls at pxPerSec px/s and repeats
+ * every periodPx. Callers advance the elapsed clock only while moving
+ * and freeze the offset once settled; degenerate inputs hold at 0.
+ */
+export function marchOffset(
+    elapsedMs: number,
+    periodPx: number,
+    pxPerSec: number = CURSOR_MARCH_PX_PER_SEC,
+): number {
+    if (!(elapsedMs > 0) || !(periodPx > 0) || !(pxPerSec > 0)) return 0;
+    return -(((elapsedMs * pxPerSec) / 1000) % periodPx) + 0;
 }
 
 /**
