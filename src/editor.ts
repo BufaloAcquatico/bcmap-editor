@@ -61,13 +61,16 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
-const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
+// The vim cursor shares the hover white exactly: one white-ish color for
+// every outline (hover, cursor, picker focus, selection). Only the dash
+// pattern tells keyboard and mouse apart.
+const CURSOR_OUTLINE_COLOR = HOVER_OUTLINE_COLOR;
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
-// Off-map cursor: same position, dim grey dotted — context kept,
+// Off-map cursor: same position and hue, dimmed dotted — context kept,
 // paint-ready signal unambiguous. Drawn when the tracked surface is
 // anything but the map.
-const CURSOR_INACTIVE_COLOR = "rgba(160, 160, 175, 0.8)";
+const CURSOR_INACTIVE_COLOR = "rgba(255, 255, 255, 0.35)";
 const CURSOR_INACTIVE_DASH_PATTERN = [2, 3];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
@@ -1024,8 +1027,8 @@ export class BCMapEditor {
             );
         }
 
-        // Draw the vim keyboard cursor: dashed gold while the tracked
-        // surface is the map, dim grey dotted everywhere else.
+        // Draw the vim keyboard cursor: white dashed while the tracked
+        // surface is the map, dimmed white dotted everywhere else.
         const vimCursor = this.vim.getCursor();
         if (
             vimCursor &&

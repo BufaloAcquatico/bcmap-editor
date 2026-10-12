@@ -55,6 +55,40 @@ test("category headers wear the thin theme border on all sides", async ({
     });
 });
 
+test("all outlines share the hover white; glow marks selection", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const white = "rgba(255, 255, 255, 0.9)";
+    // Focused header ring is the white.
+    const header = page.locator("#tileCategories .category-header").first();
+    await header.click();
+    await expect(header).toBeFocused();
+    expect(
+        await header.evaluate((el) => getComputedStyle(el).outlineColor),
+    ).toBe(white);
+    // Selected sprite: white border plus white glow.
+    const sprite = page.locator("#tileCategories .sprite-item").first();
+    await sprite.click();
+    const selected = await sprite.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { border: s.borderTopColor, shadow: s.boxShadow };
+    });
+    expect(selected.border).toBe(white);
+    expect(selected.shadow).toContain("rgba(255, 255, 255, 0.5)");
+    // Focus leaves for the map: selection keeps white border and glow.
+    await page.keyboard.press("Tab");
+    await expect(page.locator("#mapCanvas")).toBeFocused();
+    const kept = await sprite.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { border: s.borderTopColor, shadow: s.boxShadow };
+    });
+    expect(kept.border).toBe(white);
+    expect(kept.shadow).toContain("rgba(255, 255, 255, 0.5)");
+});
+
 test("selecting a sprite marks it pressed", async ({
     page,
 }: {

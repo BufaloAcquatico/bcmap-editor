@@ -538,22 +538,22 @@ describe("Off-map cursor restyle", () => {
         editor.handleVimKey(keyEvent("j")); // boot the cursor at (20, 21)
     });
 
-    it("draws gold dashed on the map surface", () => {
+    it("draws the shared hover white, dashed, on the map surface", () => {
         mockCtx.setLineDash.mockClear();
         mockCtx.strokeStyle = "";
         (editor as any).render();
         expect(mockCtx.setLineDash).toHaveBeenCalledWith([4, 4]);
-        expect(mockCtx.strokeStyle).toBe("rgba(255, 215, 0, 0.95)");
+        expect(mockCtx.strokeStyle).toBe("rgba(255, 255, 255, 0.9)");
         appSurface.set("map");
     });
 
-    it("draws dim grey dotted off the map and repaints on change", () => {
+    it("draws dimmed white dotted off the map and repaints on change", () => {
         mockCtx.setLineDash.mockClear();
         mockCtx.fillRect.mockClear();
         appSurface.set("picker"); // subscriber repaints synchronously here
         expect(mockCtx.fillRect).toHaveBeenCalled();
         expect(mockCtx.setLineDash).toHaveBeenCalledWith([2, 3]);
-        expect(mockCtx.strokeStyle).toBe("rgba(160, 160, 175, 0.8)");
+        expect(mockCtx.strokeStyle).toBe("rgba(255, 255, 255, 0.35)");
         appSurface.set("map");
     });
 });

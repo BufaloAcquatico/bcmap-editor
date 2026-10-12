@@ -58,18 +58,20 @@
       background-position: center;
       cursor: pointer;
     }
-    .sprite-item.selected { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,0.5); }
     .sprite-item:hover { border-color: #6c757d; }
+    /* Selected wins over hover on equal specificity: the brush stays
+       white even with the mouse resting on it. Focus outranks both. */
+    .sprite-item.selected { border-color: rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
     /* Keyboard focus must always be visible: one ring in the picker grid. */
     button.sprite-item:focus-visible,
     button.sprite-item:focus {
-      outline: 2px solid #ffd700;
+      outline: 2px solid rgba(255, 255, 255, 0.9);
       outline-offset: 1px;
-      border-color: #ffd700;
+      border-color: rgba(255, 255, 255, 0.9);
     }
     button.category-header:focus-visible,
     button.category-header:focus {
-      outline: 2px solid #ffd700;
+      outline: 2px solid rgba(255, 255, 255, 0.9);
       outline-offset: -2px;
       background-color: #2a2a4a;
     }
@@ -4746,13 +4748,16 @@ const GRID_COLOR = "rgba(30, 30, 40, 0.45)";
 const GRID_LINE_WIDTH = 0.5;
 const HOVER_OUTLINE_COLOR = "rgba(255, 255, 255, 0.9)";
 const HOVER_OUTLINE_WIDTH = 2;
-const CURSOR_OUTLINE_COLOR = "rgba(255, 215, 0, 0.95)";
+// The vim cursor shares the hover white exactly: one white-ish color for
+// every outline (hover, cursor, picker focus, selection). Only the dash
+// pattern tells keyboard and mouse apart.
+const CURSOR_OUTLINE_COLOR = HOVER_OUTLINE_COLOR;
 const CURSOR_OUTLINE_WIDTH = 2;
 const CURSOR_DASH_PATTERN = [4, 4];
-// Off-map cursor: same position, dim grey dotted — context kept,
+// Off-map cursor: same position and hue, dimmed dotted — context kept,
 // paint-ready signal unambiguous. Drawn when the tracked surface is
 // anything but the map.
-const CURSOR_INACTIVE_COLOR = "rgba(160, 160, 175, 0.8)";
+const CURSOR_INACTIVE_COLOR = "rgba(255, 255, 255, 0.35)";
 const CURSOR_INACTIVE_DASH_PATTERN = [2, 3];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
@@ -5541,8 +5546,8 @@ class BCMapEditor {
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
             ctx.strokeRect(startX + hover.X * tileSize, startY + hover.Y * tileSize, tileSize, tileSize);
         }
-        // Draw the vim keyboard cursor: dashed gold while the tracked
-        // surface is the map, dim grey dotted everywhere else.
+        // Draw the vim keyboard cursor: white dashed while the tracked
+        // surface is the map, dimmed white dotted everywhere else.
         const vimCursor = this.vim.getCursor();
         if (vimCursor &&
             vimCursor.X >= 0 &&
