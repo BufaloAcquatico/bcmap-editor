@@ -97,6 +97,46 @@ test("lowercase g does not toggle the grid (G does)", async ({
     expect(await gridVisible()).toBe(false);
 });
 
+test("cursor glides toward motions across frames (motion on)", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press("j"); // boot (20, 21)
+    await page.waitForTimeout(500); // let the boot glide settle
+    // Record the render position at each animation frame.
+    await page.evaluate(() => {
+        (window as any).__traj = [];
+        const ed = (window as any).editor;
+        const orig = window.requestAnimationFrame.bind(window);
+        window.requestAnimationFrame = ((cb: FrameRequestCallback) =>
+            orig(() => {
+                const r = ed.cursorRenderPos;
+                (window as any).__traj.push(r ? r.X : null);
+                cb(performance.now());
+            })) as typeof requestAnimationFrame;
+    });
+    await page.keyboard.press("l"); // logical (21, 21)
+    await page.waitForFunction(() => {
+        const r = (window as any).editor.cursorRenderPos;
+        return r && r.X === 21 && r.Y === 21;
+    });
+    const traj = (await page.evaluate(() => (window as any).__traj)) as (
+        number | null
+    )[];
+    const xs = traj.filter((x): x is number => typeof x === "number");
+    expect(xs.length).toBeGreaterThanOrEqual(2);
+    // Starts at the old cell, passes strictly through the middle,
+    // never leaves the segment, ends exactly on the new cell.
+    expect(xs[0]).toBe(20);
+    expect(xs.some((x) => x > 20 && x < 21)).toBe(true);
+    expect(xs.every((x) => x >= 20 && x <= 21)).toBe(true);
+    for (let i = 1; i < xs.length; i++)
+        expect(xs[i]).toBeGreaterThanOrEqual(xs[i - 1]);
+    expect(await vimCursor(page)).toEqual({ X: 21, Y: 21 });
+});
+
 test("cursor reappears after zooming past the viewport", async ({
     page,
 }: {
