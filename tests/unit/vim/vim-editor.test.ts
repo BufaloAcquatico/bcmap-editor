@@ -557,3 +557,83 @@ describe("Off-map cursor restyle", () => {
         appSurface.set("map");
     });
 });
+
+describe("Canvas cursor glide", () => {
+    let editor: BCMapEditor;
+    let frames: Array<() => void>;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        appSurface.set("map");
+        // Pump frames manually: renders only run when flushed, so
+        // mid-flight positions are observable without any timing.
+        frames = [];
+        vi.stubGlobal("requestAnimationFrame", (cb: () => void) => {
+            frames.push(cb);
+            return frames.length;
+        });
+        editor = new BCMapEditor("testCanvas");
+    });
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    const flushOne = () => {
+        const pending = frames;
+        frames = [];
+        pending.forEach((cb) => cb());
+    };
+    const flushAll = () => {
+        for (let i = 0; i < 500 && frames.length > 0; i++) flushOne();
+        expect(frames).toHaveLength(0);
+    };
+
+    it("snaps the render position on first appearance", () => {
+        editor.handleVimKey(keyEvent("j")); // logical (20, 21)
+        flushAll();
+        expect((editor as any).cursorRenderPos).toEqual({ X: 20, Y: 21 });
+    });
+
+    it("glides mid-flight, then lands exactly", () => {
+        editor.handleVimKey(keyEvent("j"));
+        flushAll(); // snap to (20, 21)
+        editor.handleVimKey(keyEvent("l")); // logical (21, 21)
+        flushOne(); // exactly one frame toward it
+        const mid = (editor as any).cursorRenderPos;
+        expect(mid.X).toBeGreaterThan(20);
+        expect(mid.X).toBeLessThan(21);
+        expect(mid.Y).toBe(21);
+        expect(frames.length).toBeGreaterThan(0); // chain continues
+        flushAll();
+        expect((editor as any).cursorRenderPos).toEqual({ X: 21, Y: 21 });
+    });
+
+    it("eases an open region and snaps a fresh one", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        flushAll(); // snap region (20..21, 20)
+        editor.handleVimKey(keyEvent("l")); // logical to.x = 22
+        flushOne();
+        const mid = (editor as any).regionRender.to.X;
+        expect(mid).toBeGreaterThan(21);
+        expect(mid).toBeLessThan(22);
+        flushAll();
+        expect((editor as any).regionRender.to).toEqual({ X: 22, Y: 20 });
+    });
+
+    it("snaps everything under reduced motion", () => {
+        vi.stubGlobal("window", {
+            matchMedia: vi.fn(() => ({ matches: true })),
+            devicePixelRatio: 1,
+            addEventListener: vi.fn(),
+        });
+        editor.handleVimKey(keyEvent("j"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        flushAll();
+        // Jumped two cells with no intermediate positions rendered.
+        expect((editor as any).cursorRenderPos).toEqual({ X: 22, Y: 21 });
+        expect((editor as any).stepMotion()).toBe(false);
+    });
+});

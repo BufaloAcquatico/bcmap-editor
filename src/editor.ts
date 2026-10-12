@@ -22,6 +22,13 @@ import {
 } from "./mapdata";
 import { MapPicker } from "./picker";
 import { appSurface } from "./appSurface";
+import {
+    approach,
+    settled,
+    prefersReducedMotion,
+    CURSOR_APPROACH_RATE,
+    MOTION_EPSILON_TILES,
+} from "./anim";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
 import { captureRegion, type YankBuffer } from "./vim/yank";
@@ -127,6 +134,13 @@ export class BCMapEditor {
         onSelectObject: (obj) => this.setSelectedObject(obj),
     });
     private objectMarginTiles = 0;
+    /**
+     * Render-side cursor/region: fractional positions easing toward the
+     * logical vim state each frame. Presentation only — status, paint,
+     * yank and boot logic always read the raw cursor/region.
+     */
+    private cursorRenderPos: Point | null = null;
+    private regionRender: Region | null = null;
     private vim = new VimController({
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
@@ -990,8 +1004,12 @@ export class BCMapEditor {
             }
         }
 
+        // Ease render positions toward the logical state first so the
+        // cursor and region below draw mid-flight; chain another frame
+        // while anything is still moving (stops dead at rest).
+        const moving = this.stepMotion();
         // Tint the visual-mode selection under the hover/cursor outlines
-        const visualRegion = this.vim.getRegion();
+        const visualRegion = this.regionRender;
         if (visualRegion) {
             const regionX = startX + visualRegion.from.X * tileSize;
             const regionY = startY + visualRegion.from.Y * tileSize;
@@ -1029,7 +1047,7 @@ export class BCMapEditor {
 
         // Draw the vim keyboard cursor: white dashed while the tracked
         // surface is the map, dimmed white dotted everywhere else.
-        const vimCursor = this.vim.getCursor();
+        const vimCursor = this.cursorRenderPos;
         if (
             vimCursor &&
             vimCursor.X >= 0 &&
@@ -1054,6 +1072,97 @@ export class BCMapEditor {
             );
             ctx.restore();
         }
+        if (moving) this.requestRender();
+    }
+
+    /**
+     * Ease render positions toward the logical vim state. Open/close
+     * snaps (a fresh outline appears whole, a dismissed one vanishes);
+     * resizes glide. Returns true while anything is still moving.
+     */
+    private stepMotion(): boolean {
+        if (prefersReducedMotion()) {
+            const cursor = this.vim.getCursor();
+            this.cursorRenderPos = cursor ? { ...cursor } : null;
+            const region = this.vim.getRegion();
+            this.regionRender = region
+                ? { from: { ...region.from }, to: { ...region.to } }
+                : null;
+            return false;
+        }
+        let moving = false;
+        const cursor = this.vim.getCursor();
+        if (!cursor) {
+            this.cursorRenderPos = null;
+        } else if (!this.cursorRenderPos) {
+            this.cursorRenderPos = { ...cursor };
+        } else {
+            const next = {
+                X: approach(
+                    this.cursorRenderPos.X,
+                    cursor.X,
+                    CURSOR_APPROACH_RATE,
+                ),
+                Y: approach(
+                    this.cursorRenderPos.Y,
+                    cursor.Y,
+                    CURSOR_APPROACH_RATE,
+                ),
+            };
+            if (
+                settled(next.X, cursor.X, MOTION_EPSILON_TILES) &&
+                settled(next.Y, cursor.Y, MOTION_EPSILON_TILES)
+            ) {
+                this.cursorRenderPos = { ...cursor };
+            } else {
+                this.cursorRenderPos = next;
+                moving = true;
+            }
+        }
+        const region = this.vim.getRegion();
+        if (!region) {
+            this.regionRender = null;
+        } else if (!this.regionRender) {
+            this.regionRender = {
+                from: { ...region.from },
+                to: { ...region.to },
+            };
+        } else {
+            const from = {
+                X: approach(
+                    this.regionRender.from.X,
+                    region.from.X,
+                    CURSOR_APPROACH_RATE,
+                ),
+                Y: approach(
+                    this.regionRender.from.Y,
+                    region.from.Y,
+                    CURSOR_APPROACH_RATE,
+                ),
+            };
+            const to = {
+                X: approach(
+                    this.regionRender.to.X,
+                    region.to.X,
+                    CURSOR_APPROACH_RATE,
+                ),
+                Y: approach(
+                    this.regionRender.to.Y,
+                    region.to.Y,
+                    CURSOR_APPROACH_RATE,
+                ),
+            };
+            const done =
+                settled(from.X, region.from.X, MOTION_EPSILON_TILES) &&
+                settled(from.Y, region.from.Y, MOTION_EPSILON_TILES) &&
+                settled(to.X, region.to.X, MOTION_EPSILON_TILES) &&
+                settled(to.Y, region.to.Y, MOTION_EPSILON_TILES);
+            this.regionRender = done
+                ? { from: { ...region.from }, to: { ...region.to } }
+                : { from, to };
+            moving = moving || !done;
+        }
+        return moving;
     }
 
     private requestRender(): void {
