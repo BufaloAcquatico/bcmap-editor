@@ -26,6 +26,7 @@ export interface KeyBinding {
     keys: string;
     description: string;
     scope: "map" | "sidebar" | "global";
+    group: KeybindGroup;
     applies: (e: KeyboardEvent) => boolean;
     /** Returns true when the key was consumed; false lets the next binding try. */
     run: (e: KeyboardEvent) => boolean;
@@ -37,62 +38,110 @@ export interface KeyBinding {
  * (scripts/render-keybinds-doc.js). A unit test guards it against drift
  * from the installEditorKeybinds definitions.
  */
+export type KeybindGroup =
+    "cursor" | "paint" | "clipboard" | "navigate" | "command" | "system";
+
 export const KEYBIND_HELP: {
     keys: string;
     description: string;
     scope: "map" | "sidebar" | "global";
+    group: KeybindGroup;
 }[] = [
     {
         keys: "hjkl / arrows",
-        description: "Move cursor (counts, 0, $, gg)",
+        description: "Move around the map",
         scope: "map",
+        group: "cursor",
     },
     {
         keys: "Space / Enter",
-        description: "Paint selection (fills region in visual)",
+        description: "Paint tiles on the map",
         scope: "map",
+        group: "paint",
     },
-    { keys: "v", description: "Visual mode (select region)", scope: "map" },
-    { keys: "y / Y", description: "Yank region (both layers)", scope: "map" },
+    {
+        keys: "v",
+        description: "Select an area",
+        scope: "map",
+        group: "paint",
+    },
+    {
+        keys: "y / Y",
+        description: "Copy the selected area",
+        scope: "map",
+        group: "clipboard",
+    },
     {
         keys: "p",
-        description: "Paste yank (tiles over region in visual)",
+        description: "Paste what you copied",
         scope: "map",
+        group: "clipboard",
     },
-    { keys: "u", description: "Undo (vim alias)", scope: "map" },
+    {
+        keys: "u",
+        description: "Undo the last change",
+        scope: "map",
+        group: "clipboard",
+    },
     {
         keys: "Esc",
-        description: "Cancel selection / pending state",
+        description: "Cancel",
         scope: "map",
+        group: "system",
     },
     {
         keys: ":",
-        description: "Command line (w/e/help/grid/line)",
+        description: "Type a command",
         scope: "global",
+        group: "command",
     },
-    { keys: "/", description: "Focus the picker search", scope: "map" },
+    {
+        keys: "/",
+        description: "Search for tiles and objects",
+        scope: "map",
+        group: "navigate",
+    },
     {
         keys: "arrows",
-        description: "Navigate picker grid (headers: collapse/expand)",
+        description: "Move through the tile list",
         scope: "sidebar",
+        group: "navigate",
     },
     {
         keys: "Tab",
-        description: "Move between map and picker",
+        description: "Switch between the map and the sidebar",
         scope: "global",
+        group: "navigate",
     },
     {
         keys: "Enter",
-        description: "Search: go to first match / Picker: select and return",
+        description: "Pick the tile",
         scope: "sidebar",
+        group: "navigate",
     },
-    { keys: "G", description: "Toggle grid", scope: "map" },
-    { keys: "?", description: "Toggle help overlay", scope: "map" },
-    { keys: "Ctrl+Z", description: "Undo", scope: "global" },
+    {
+        keys: "G",
+        description: "Show or hide the grid",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "?",
+        description: "Show or hide this help",
+        scope: "map",
+        group: "system",
+    },
+    {
+        keys: "Ctrl+Z",
+        description: "Undo the last change",
+        scope: "global",
+        group: "system",
+    },
     {
         keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
         description: "Redo",
         scope: "global",
+        group: "system",
     },
 ];
 
@@ -169,17 +218,18 @@ export function installEditorKeybinds(
     return [
         {
             keys: "arrows",
-            description: "Navigate picker grid (headers: collapse/expand)",
+            description: "Move through the tile list",
             scope: "sidebar",
+            group: "navigate",
             applies: (e) =>
                 isSidebarSurface(e) && !e.ctrlKey && !e.metaKey && !e.altKey,
             run: (e) => actions.handleSidebarKey(e),
         },
         {
             keys: "Enter",
-            description:
-                "Search: go to first match / Picker: select and return",
+            description: "Pick the tile",
             scope: "sidebar",
+            group: "navigate",
             applies: (e) => {
                 if (e.ctrlKey || e.metaKey || e.altKey) return false;
                 if (e.key !== "Enter") return false;
@@ -197,8 +247,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "Tab",
-            description: "Move between map and picker",
+            description: "Switch between the map and the sidebar",
             scope: "global",
+            group: "navigate",
             applies: (e) => {
                 if (e.ctrlKey || e.metaKey || e.altKey) return false;
                 if (e.key !== "Tab") return false;
@@ -232,8 +283,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "G",
-            description: "Toggle grid",
+            description: "Show or hide the grid",
             scope: "map",
+            group: "navigate",
             // Text fields own their keys: without this guard, typing a
             // capital G in search (or a modal) would toggle the grid and
             // swallow the character.
@@ -251,8 +303,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "?",
-            description: "Toggle help overlay",
+            description: "Show or hide this help",
             scope: "map",
+            group: "system",
             applies: (e) => isCharKey(e, "?") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -262,8 +315,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "Ctrl+Z",
-            description: "Undo",
+            description: "Undo the last change",
             scope: "global",
+            group: "system",
             applies: (e) => {
                 const key = e.key.toLowerCase();
                 return (
@@ -284,6 +338,7 @@ export function installEditorKeybinds(
             keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
             description: "Redo",
             scope: "global",
+            group: "system",
             applies: (e) => {
                 const key = e.key.toLowerCase();
                 const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
@@ -302,8 +357,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "hjkl / arrows",
-            description: "Move cursor (counts, 0, $, gg)",
+            description: "Move around the map",
             scope: "map",
+            group: "cursor",
             applies: (e) =>
                 VIM_MOTION_KEYS.test(e.key) &&
                 !e.ctrlKey &&
@@ -320,8 +376,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "Space / Enter",
-            description: "Paint selection (fills region in visual)",
+            description: "Paint tiles on the map",
             scope: "map",
+            group: "paint",
             applies: (e) =>
                 (e.key === " " || e.key === "Enter") &&
                 !e.ctrlKey &&
@@ -337,8 +394,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "u",
-            description: "Undo (vim alias)",
+            description: "Undo the last change",
             scope: "map",
+            group: "clipboard",
             applies: (e) => isCharKey(e, "u") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -348,8 +406,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "v",
-            description: "Visual mode (select region)",
+            description: "Select an area",
             scope: "map",
+            group: "paint",
             applies: (e) => isCharKey(e, "v") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -359,8 +418,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "y / Y",
-            description: "Yank region (both layers)",
+            description: "Copy the selected area",
             scope: "map",
+            group: "clipboard",
             applies: (e) =>
                 !isEditableTarget(e) &&
                 (isCharKey(e, "y") || isCharKey(e, "Y")),
@@ -372,8 +432,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "p",
-            description: "Paste yank (tiles over region in visual)",
+            description: "Paste what you copied",
             scope: "map",
+            group: "clipboard",
             applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -383,8 +444,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "Esc",
-            description: "Cancel selection / pending state",
+            description: "Cancel",
             scope: "map",
+            group: "system",
             applies: (e) => e.key === "Escape" && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -394,8 +456,9 @@ export function installEditorKeybinds(
         },
         {
             keys: ":",
-            description: "Command line (w/e/help/grid/line)",
+            description: "Type a command",
             scope: "global",
+            group: "command",
             applies: (e) =>
                 e.key === ":" &&
                 !e.ctrlKey &&
@@ -410,8 +473,9 @@ export function installEditorKeybinds(
         },
         {
             keys: "/",
-            description: "Focus the picker search",
+            description: "Search for tiles and objects",
             scope: "map",
+            group: "navigate",
             applies: (e) =>
                 e.key === "/" &&
                 !e.ctrlKey &&

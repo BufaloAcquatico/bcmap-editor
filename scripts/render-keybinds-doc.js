@@ -9,51 +9,94 @@ const path = require("path");
 
 const readmeFile = path.join(__dirname, "..", "README.md");
 const keybindsDist = path.join(__dirname, "..", "dist", "vim", "keybinds.js");
+const commandsDist = path.join(__dirname, "..", "dist", "vim", "commands.js");
+const helpCardDist = path.join(__dirname, "..", "dist", "helpCard.js");
 
 const MOUSE_ROWS = [
-    ["Paint tile/object", "Left click or left-drag"],
-    ["Pan", "Right drag"],
+    ["Paint tiles or objects", "Left click or left-drag"],
+    ["Move the view", "Right drag"],
     ["Zoom", "Mouse wheel"],
 ];
+
+// Display grouping is single-sourced from the help card
+// (src/helpCard.ts GROUP_ORDER / GROUP_LABELS): registry order is
+// untouched, rows are only clustered.
+const { GROUP_ORDER, GROUP_LABELS } = require(helpCardDist);
+
+function formatKeys(keys) {
+    // A bare "/" entry must not be split into "" + "".
+    if (keys === "/") return "`/`";
+    return keys
+        .split("/")
+        .map((k) => `\`${k.trim()}\``)
+        .join(" / ");
+}
 
 function main() {
     const { KEYBIND_HELP } = require(keybindsDist);
     const rows = ["| Action | Input |", "| --- | --- |"];
+    const byGroup = new Map(GROUP_ORDER.map((group) => [group, []]));
     for (const [action, input] of MOUSE_ROWS) {
-        rows.push(`| ${action} | ${input} |`);
+        byGroup.get("mouse").push(`| ${action} | ${input} |`);
     }
     for (const entry of KEYBIND_HELP) {
-        // A bare "/" entry must not be split into "" + "".
-        const keys =
-            entry.keys === "/"
-                ? "`/`"
-                : entry.keys
-                      .split("/")
-                      .map((k) => `\`${k.trim()}\``)
-                      .join(" / ");
-        rows.push(`| ${entry.description} | ${keys} |`);
+        const list = byGroup.get(entry.group);
+        if (!list) {
+            console.error(
+                `Unknown keybind group "${entry.group}" for keys "${entry.keys}"`,
+            );
+            process.exit(1);
+        }
+        list.push(`| ${entry.description} | ${formatKeys(entry.keys)} |`);
+    }
+    for (const group of GROUP_ORDER) {
+        const list = byGroup.get(group);
+        if (list.length === 0) continue;
+        rows.push(`| **${GROUP_LABELS[group]}** |  |`);
+        rows.push(...list);
     }
     const table = rows.join("\n");
 
     let readme = fs.readFileSync(readmeFile, "utf8");
-    const start = readme.indexOf("<!-- KEYBINDS:START");
-    const end = readme.indexOf("<!-- KEYBINDS:END");
-    if (start < 0 || end < 0) {
-        console.error(
-            "README markers not found: add <!-- KEYBINDS:START --> ... <!-- KEYBINDS:END --> around the Controls table",
-        );
-        process.exit(1);
-    }
-    const after = end + "<!-- KEYBINDS:END -->".length;
-    readme =
-        readme.slice(0, start) +
-        "<!-- KEYBINDS:START -->\n" +
-        table +
-        "\n<!-- KEYBINDS:END -->" +
-        readme.slice(after);
+    readme = rewriteSection(readme, "KEYBINDS", table);
     fs.writeFileSync(readmeFile, readme);
     console.log(
         `README Controls table regenerated (${KEYBIND_HELP.length} keybinds)`,
+    );
+
+    const { COMMANDS } = require(commandsDist);
+    const commandRows = ["| Command | What it does |", "| --- | --- |"];
+    for (const command of COMMANDS) {
+        commandRows.push(`| \`${command.syntax}\` | ${command.description} |`);
+    }
+    readme = rewriteSection(
+        fs.readFileSync(readmeFile, "utf8"),
+        "COMMANDS",
+        commandRows.join("\n"),
+    );
+    fs.writeFileSync(readmeFile, readme);
+    console.log(
+        `README Commands table regenerated (${COMMANDS.length} commands)`,
+    );
+}
+
+/** Replace the text between the `<!-- NAME:START -->` markers. */
+function rewriteSection(readme, name, table) {
+    const start = readme.indexOf(`<!-- ${name}:START`);
+    const end = readme.indexOf(`<!-- ${name}:END`);
+    if (start < 0 || end < 0) {
+        console.error(
+            `README markers not found: add <!-- ${name}:START --> ... <!-- ${name}:END --> around the table`,
+        );
+        process.exit(1);
+    }
+    const after = end + `<!-- ${name}:END -->`.length;
+    return (
+        readme.slice(0, start) +
+        `<!-- ${name}:START -->\n` +
+        table +
+        `\n<!-- ${name}:END -->` +
+        readme.slice(after)
     );
 }
 

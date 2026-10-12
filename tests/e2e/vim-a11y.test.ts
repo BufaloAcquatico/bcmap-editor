@@ -215,28 +215,46 @@ test("help card shows the tracked surface slice", async ({
     // Map surface: paint keys, no picker grid row.
     await page.locator("#mapCanvas").click();
     expect(await surface()).toBe("map");
-    await expect(help).toContainText("Move cursor (counts, 0, $, gg)");
-    await expect(help).toContainText("Command line (w/e/help/grid/line)");
-    await expect(help).not.toContainText("Navigate picker grid");
+    await expect(help).toContainText("Move around the map");
+    await expect(help).toContainText("Type a command");
+    await expect(help).not.toContainText("Move through the tile list");
+    // Sectioned layout: surface label plus one shared key grid.
+    await expect(help.locator(".help-surface-label")).toHaveText("Map keys");
+    await expect(help.locator(".help-section-label")).toContainText([
+        "Mouse",
+        "Cursor",
+    ]);
+    await expect(help.locator(".help-sections").first()).toHaveCSS(
+        "display",
+        "grid",
+    );
     // Picker surface via keyboard: grid row appears, map row hides.
     await page.keyboard.press("Tab");
     expect(await surface()).toBe("picker");
-    await expect(help).toContainText("Navigate picker grid");
-    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    await expect(help).toContainText("Move through the tile list");
+    await expect(help).not.toContainText("Move around the map");
+    await expect(help.locator(".help-surface-label")).toHaveText(
+        "Sidebar keys",
+    );
+    await expect(help.locator(".help-section-label")).toContainText([
+        "Mouse",
+        "Navigate",
+    ]);
     // Picker surface via mouse: clicking a sprite tracks too.
     await page.locator("#tileCategories .category-header").first().click();
     await page.locator("#tileCategories .sprite-item").first().click();
     expect(await surface()).toBe("picker");
-    await expect(help).toContainText("Navigate picker grid");
+    await expect(help).toContainText("Move through the tile list");
     // Search surface via mouse: first-match row, no map row.
     await page.locator("#searchInput").click();
     expect(await surface()).toBe("search");
-    await expect(help).toContainText("Search: go to first match");
-    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    await expect(help).toContainText("Pick the tile");
+    await expect(help).not.toContainText("Move around the map");
     // Show-all toggle restores the full registry list.
     await help.getByRole("button", { name: /show all keys/i }).click();
-    await expect(help).toContainText("Move cursor (counts, 0, $, gg)");
-    await expect(help).toContainText("Navigate picker grid");
+    await expect(help).toContainText("Move around the map");
+    await expect(help).toContainText("Move through the tile list");
+    await expect(help.locator(".help-surface-label")).toHaveText("All keys");
 });
 
 test("help keeps a note while a visual region leaves the map", async ({
@@ -249,7 +267,7 @@ test("help keeps a note while a visual region leaves the map", async ({
     await page.locator("#mapCanvas").click();
     await page.keyboard.press("v");
     await page.keyboard.press("Tab");
-    await expect(help).toContainText("Visual selection kept");
+    await expect(help).toContainText("Your selection is kept");
     await expect(page.locator("#mapCanvas")).not.toBeFocused();
 });
 
@@ -265,8 +283,8 @@ test("modal focus tracks as chrome with dialog help", async ({
     expect(await page.evaluate(() => (window as any).appSurface.get())).toBe(
         "chrome",
     );
-    await expect(help).toContainText("Close the dialog");
-    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    await expect(help).toContainText("Close and go back");
+    await expect(help).not.toContainText("Move around the map");
 });
 
 test("search Enter goes to first match, Tab returns to map", async ({
@@ -316,9 +334,14 @@ test("command surface help lists command rows", async ({
     await page.locator("#mapCanvas").click();
     await page.keyboard.press(":");
     await expect(page.locator("#commandPrompt")).toBeFocused();
-    await expect(help).toContainText("Run the command");
-    await expect(help).toContainText("Recall command history");
-    await expect(help).not.toContainText("Move cursor (counts, 0, $, gg)");
+    await expect(help).toContainText("Run what you typed");
+    await expect(help).toContainText("Show earlier commands");
+    await expect(help).not.toContainText("Move around the map");
+    // Command mode lists every available command with its syntax.
+    await expect(help).toContainText(":w [name]");
+    await expect(help).toContainText("Save the map");
+    await expect(help).toContainText(":line x1,y1 x2,y2");
+    await expect(help).toContainText("Draw a straight line of tiles");
     await page.keyboard.press("Escape");
 });
 

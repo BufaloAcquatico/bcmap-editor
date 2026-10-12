@@ -7,6 +7,7 @@ import {
     installEditorKeybinds,
     KEYBIND_HELP,
 } from "../../../src/vim/keybinds";
+import { SURFACE_HELP_KEYS } from "../../../src/helpCard";
 
 const keyEvent = (
     key: string,
@@ -72,6 +73,7 @@ describe("createKeybindDispatcher", () => {
                 keys: "j",
                 description: "first",
                 scope: "map",
+                group: "cursor",
                 applies: (e) => isCharKey(e, "j"),
                 run: first,
             },
@@ -79,6 +81,7 @@ describe("createKeybindDispatcher", () => {
                 keys: "j",
                 description: "second",
                 scope: "map",
+                group: "cursor",
                 applies: (e) => isCharKey(e, "j"),
                 run: second,
             },
@@ -95,6 +98,7 @@ describe("createKeybindDispatcher", () => {
                 keys: "j",
                 description: "first",
                 scope: "map",
+                group: "cursor",
                 applies: (e) => isCharKey(e, "j"),
                 run,
             },
@@ -361,6 +365,14 @@ describe("installEditorKeybinds", () => {
             expect(binding.keys.length).toBeGreaterThan(0);
             expect(binding.description.length).toBeGreaterThan(0);
             expect(["map", "sidebar", "global"]).toContain(binding.scope);
+            expect([
+                "cursor",
+                "paint",
+                "clipboard",
+                "navigate",
+                "command",
+                "system",
+            ]).toContain(binding.group);
         }
         expect(bindings).toHaveLength(16);
     });
@@ -391,6 +403,7 @@ describe("Keybind registry help-sync", () => {
             ).toBeDefined();
             expect(entry!.description).toBe(binding.description);
             expect(entry!.scope).toBe(binding.scope);
+            expect(entry!.group).toBe(binding.group);
         }
     });
 
@@ -401,6 +414,18 @@ describe("Keybind registry help-sync", () => {
                 bindings.some((b) => b.keys === entry.keys),
                 `${entry.keys} has no binding`,
             ).toBe(true);
+        }
+    });
+
+    it("resolves every help slice key in KEYBIND_HELP (no silent drops)", () => {
+        const known = new Set(KEYBIND_HELP.map((entry) => entry.keys));
+        for (const [surface, keys] of Object.entries(SURFACE_HELP_KEYS)) {
+            for (const key of keys) {
+                expect(
+                    known.has(key),
+                    `${surface} slice key "${key}" missing from KEYBIND_HELP`,
+                ).toBe(true);
+            }
         }
     });
 });

@@ -25,32 +25,32 @@ export const COMMANDS: CommandInfo[] = [
     {
         name: "w",
         syntax: ":w [name]",
-        description: "Write/export the current map",
+        description: "Save the map",
     },
     {
         name: "write",
         syntax: ":write [name]",
-        description: "Alias of :w",
+        description: "Same as :w",
     },
     {
         name: "e",
         syntax: ":e",
-        description: "Open the import dialog",
+        description: "Open a saved map",
     },
     {
         name: "help",
         syntax: ":help",
-        description: "Toggle the help overlay",
+        description: "Show or hide this help",
     },
     {
         name: "grid",
         syntax: ":grid",
-        description: "Toggle the grid",
+        description: "Show or hide the grid",
     },
     {
         name: "line",
         syntax: ":line x1,y1 x2,y2",
-        description: "Draw a line on the active layer",
+        description: "Draw a straight line of tiles",
     },
 ];
 

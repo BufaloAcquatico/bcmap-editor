@@ -154,9 +154,26 @@
       line-height: 1.6;
       color: #cfd3dc;
       pointer-events: none;
-      max-width: 260px;
+      max-width: 300px;
     }
     .controls-help .controls-help-title { font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .controls-help .help-surface-label { font-weight: 600; color: #fff; margin-bottom: 4px; }
+    .controls-help .help-sections {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 8px;
+      row-gap: 1px;
+      align-items: baseline;
+    }
+    .controls-help .help-section-label {
+      grid-column: 1 / -1;
+      color: #8ea2ff;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+    .controls-help .help-section-label:first-child { margin-top: 0; }
+    .controls-help .help-keys { white-space: nowrap; text-align: right; }
+    .controls-help .help-desc { min-width: 0; }
     .controls-help kbd {
       background: #0f0f23;
       border: 1px solid #2a2a4a;
@@ -315,17 +332,18 @@
 // approach. Presentation-only: logic always reads raw state while
 // rendering interpolates toward it, so reduced motion (or a paused
 // loop) can never corrupt map data or selection.
-window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.MOTION_MAX_STEP_MS = window.FRAME_MS = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
+window.CURSOR_MARCH_PX_PER_SEC = window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.MOTION_MAX_STEP_MS = window.FRAME_MS = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
 window.advanceToward = advanceToward;
 window.settled = settled;
+window.marchOffset = marchOffset;
 window.prefersReducedMotion = prefersReducedMotion;
 window.cancelEffects = cancelEffects;
 window.fadeIn = fadeIn;
 window.fadeOut = fadeOut;
 /** Standard transition: picker rings, fades, slides, help, prompt. */
-window.MOTION_MS = 200;
+window.MOTION_MS = 150;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
-window.MOTION_QUICK_MS = 200;
+window.MOTION_QUICK_MS = 150;
 /** Nominal first-frame step when no previous timestamp exists. */
 window.FRAME_MS = 1000 / 60;
 /**
@@ -353,9 +371,22 @@ function advanceToward(current, target, durationMs, dtMs) {
 window.MOTION_EPSILON_TILES = 0.01;
 /** Snap threshold for unitless 0..1 scales. */
 window.MOTION_EPSILON_SCALE = 0.01;
+/** Marching-ants speed for the keyboard cursor outline, px per second. */
+window.CURSOR_MARCH_PX_PER_SEC = 24;
 /** True when a value has settled close enough to snap to target. */
 function settled(current, target, epsilon) {
     return Math.abs(current - target) <= epsilon;
+}
+/**
+ * Marching-ants dash offset after elapsedMs of gliding: linear in
+ * wall-clock time so the outline crawls at pxPerSec px/s and repeats
+ * every periodPx. Callers advance the elapsed clock only while moving
+ * and freeze the offset once settled; degenerate inputs hold at 0.
+ */
+function marchOffset(elapsedMs, periodPx, pxPerSec = window.CURSOR_MARCH_PX_PER_SEC) {
+    if (!(elapsedMs > 0) || !(periodPx > 0) || !(pxPerSec > 0))
+        return 0;
+    return -(((elapsedMs * pxPerSec) / 1000) % periodPx) + 0;
 }
 /**
  * Honors the OS reduced-motion setting. False without a window
@@ -3034,17 +3065,46 @@ function railroadVariantStyles() {
 // Rows still derive from the registry so card, README and dispatcher
 // cannot drift; per-surface selection is by registry key, never
 // hand-maintained text. Command/chrome surfaces have no dispatcher
-// bindings, so their rows are tiny static lists. Visual selections
+// bindings, so their rows are tiny static lists — plus, on command, the
+// full `:` command registry. Visual selections
 // survive surface changes: off-map surfaces carry a reminder while a
 // region is open.
+window.SURFACE_HELP_KEYS = window.GROUP_LABELS = window.GROUP_ORDER = void 0;
 window.createHelpRenderer = createHelpRenderer;
 const anim_1 = window;
 const MOUSE_HELP_ROWS = [
-    ["Left click / drag", "Paint tile or object"],
-    ["Right drag", "Pan"],
+    ["Left click / drag", "Paint tiles or objects"],
+    ["Right drag", "Move the view"],
     ["Wheel", "Zoom"],
 ];
-const SURFACE_HELP_KEYS = {
+/** Display order for help sections; also drives the README table. */
+window.GROUP_ORDER = [
+    "mouse",
+    "cursor",
+    "paint",
+    "clipboard",
+    "navigate",
+    "command",
+    "system",
+];
+window.GROUP_LABELS = {
+    mouse: "Mouse",
+    cursor: "Cursor",
+    paint: "Paint",
+    clipboard: "Clipboard",
+    navigate: "Navigate",
+    command: "Command",
+    system: "System",
+};
+const SURFACE_LABELS = {
+    map: "Map keys",
+    picker: "Sidebar keys",
+    search: "Search keys",
+    command: "Command line",
+    chrome: "Popup",
+};
+/** Registry keys shown per surface; every entry must resolve in KEYBIND_HELP. */
+window.SURFACE_HELP_KEYS = {
     map: [
         "hjkl / arrows",
         "Space / Enter",
@@ -3064,9 +3124,9 @@ const SURFACE_HELP_KEYS = {
     chrome: [],
 };
 const COMMAND_HELP_ROWS = [
-    ["Enter", "Run the command"],
-    ["Esc", "Cancel, back to the map"],
-    ["Up / Down", "Recall command history"],
+    ["Enter", "Run what you typed", "command"],
+    ["Esc", "Cancel and go back to the map", "system"],
+    ["Up / Down", "Show earlier commands", "system"],
 ];
 function createHelpRenderer(deps) {
     const entryByKeys = new Map(deps.registry.map((entry) => [entry.keys, entry]));
@@ -3076,44 +3136,75 @@ function createHelpRenderer(deps) {
         nodes.forEach((node) => node.remove());
         nodes = [];
     };
-    const addRow = (keys, description) => {
-        const row = deps.createElement("div");
-        const kbds = keys
-            .split("/")
-            .map((k) => k.trim())
-            .filter((k) => k.length > 0)
-            .map((k) => `<kbd>${k}</kbd>`)
-            .join(" / ");
-        row.innerHTML = `${kbds} &mdash; ${description}`;
-        deps.card.appendChild(row);
-        nodes.push(row);
-    };
+    const formatKeys = (keys) => keys
+        .split("/")
+        .map((k) => k.trim())
+        .filter((k) => k.length > 0)
+        .map((k) => `<kbd>${k}</kbd>`)
+        .join(" / ");
+    // One shared grid wrapper aligns the key column across every
+    // section; labels span the full row. Rows are key/desc span pairs
+    // appended straight into it (never nested), so alignment holds.
     const render = () => {
         clearRows();
-        addRow("Left click / drag", "Paint tile or object");
-        addRow("Right drag", "Pan");
-        addRow("Wheel", "Zoom");
         const surface = deps.getSurface();
+        const byGroup = new Map();
+        const push = (group, keys, text) => {
+            const list = byGroup.get(group) ?? [];
+            list.push({ keys, text });
+            byGroup.set(group, list);
+        };
+        const pushEntry = (keys) => {
+            const entry = entryByKeys.get(keys);
+            if (entry)
+                push(entry.group, entry.keys, entry.description);
+        };
+        MOUSE_HELP_ROWS.forEach(([keys, text]) => push("mouse", keys, text));
         if (showAll) {
-            deps.registry.forEach((entry) => addRow(entry.keys, entry.description));
+            deps.registry.forEach((entry) => push(entry.group, entry.keys, entry.description));
         }
         else if (surface === "command") {
-            COMMAND_HELP_ROWS.forEach(([keys, text]) => addRow(keys, text));
+            COMMAND_HELP_ROWS.forEach(([keys, text, group]) => push(group, keys, text));
+            deps.commands.forEach((command) => push("command", command.syntax, command.description));
         }
         else if (surface === "chrome") {
-            addRow("Esc", "Close the dialog, back to the map");
+            push("system", "Esc", "Close and go back to the map");
         }
         else {
-            SURFACE_HELP_KEYS[surface].forEach((keys) => {
-                const entry = entryByKeys.get(keys);
-                if (entry)
-                    addRow(entry.keys, entry.description);
-            });
+            window.SURFACE_HELP_KEYS[surface].forEach(pushEntry);
         }
+        const label = deps.createElement("div");
+        label.className = "help-surface-label";
+        label.textContent = showAll ? "All keys" : SURFACE_LABELS[surface];
+        deps.card.appendChild(label);
+        nodes.push(label);
+        const grid = deps.createElement("div");
+        grid.className = "help-sections";
+        for (const group of window.GROUP_ORDER) {
+            const items = byGroup.get(group);
+            if (!items || items.length === 0)
+                continue;
+            const heading = deps.createElement("div");
+            heading.className = "help-section-label";
+            heading.textContent = window.GROUP_LABELS[group];
+            grid.appendChild(heading);
+            for (const item of items) {
+                const keysEl = deps.createElement("span");
+                keysEl.className = "help-keys";
+                keysEl.innerHTML = formatKeys(item.keys);
+                const textEl = deps.createElement("span");
+                textEl.className = "help-desc";
+                textEl.textContent = item.text;
+                grid.appendChild(keysEl);
+                grid.appendChild(textEl);
+            }
+        }
+        deps.card.appendChild(grid);
+        nodes.push(grid);
         if (surface !== "map" && deps.isVisualActive()) {
             const note = deps.createElement("div");
             note.textContent =
-                "Visual selection kept — return to the map to use it";
+                "Your selection is kept — go back to the map to use it";
             note.style.color = "#ffd479";
             deps.card.appendChild(note);
             nodes.push(note);
@@ -3123,7 +3214,7 @@ function createHelpRenderer(deps) {
         const toggle = deps.createElement("button");
         toggle.type = "button";
         toggle.textContent = showAll
-            ? "Show contextual keys"
+            ? "Show keys for this screen"
             : `Show all keys (${deps.registry.length})`;
         toggle.style.pointerEvents = "auto";
         toggle.style.cursor = "pointer";
@@ -4456,32 +4547,32 @@ window.COMMANDS = [
     {
         name: "w",
         syntax: ":w [name]",
-        description: "Write/export the current map",
+        description: "Save the map",
     },
     {
         name: "write",
         syntax: ":write [name]",
-        description: "Alias of :w",
+        description: "Same as :w",
     },
     {
         name: "e",
         syntax: ":e",
-        description: "Open the import dialog",
+        description: "Open a saved map",
     },
     {
         name: "help",
         syntax: ":help",
-        description: "Toggle the help overlay",
+        description: "Show or hide this help",
     },
     {
         name: "grid",
         syntax: ":grid",
-        description: "Toggle the grid",
+        description: "Show or hide the grid",
     },
     {
         name: "line",
         syntax: ":line x1,y1 x2,y2",
-        description: "Draw a line on the active layer",
+        description: "Draw a straight line of tiles",
     },
 ];
 const USAGE = "usage: :line x1,y1 x2,y2 (e.g. :line 0,0 39,20)";
@@ -4564,64 +4655,102 @@ function isCharKey(e, key) {
         !e.metaKey &&
         !e.altKey);
 }
-/**
- * Plain-data view of every shortcut: the single source for the in-app help
- * card (init.ts renders it) and the README Controls table
- * (scripts/render-keybinds-doc.js). A unit test guards it against drift
- * from the installEditorKeybinds definitions.
- */
 window.KEYBIND_HELP = [
     {
         keys: "hjkl / arrows",
-        description: "Move cursor (counts, 0, $, gg)",
+        description: "Move around the map",
         scope: "map",
+        group: "cursor",
     },
     {
         keys: "Space / Enter",
-        description: "Paint selection (fills region in visual)",
+        description: "Paint tiles on the map",
         scope: "map",
+        group: "paint",
     },
-    { keys: "v", description: "Visual mode (select region)", scope: "map" },
-    { keys: "y / Y", description: "Yank region (both layers)", scope: "map" },
+    {
+        keys: "v",
+        description: "Select an area",
+        scope: "map",
+        group: "paint",
+    },
+    {
+        keys: "y / Y",
+        description: "Copy the selected area",
+        scope: "map",
+        group: "clipboard",
+    },
     {
         keys: "p",
-        description: "Paste yank (tiles over region in visual)",
+        description: "Paste what you copied",
         scope: "map",
+        group: "clipboard",
     },
-    { keys: "u", description: "Undo (vim alias)", scope: "map" },
+    {
+        keys: "u",
+        description: "Undo the last change",
+        scope: "map",
+        group: "clipboard",
+    },
     {
         keys: "Esc",
-        description: "Cancel selection / pending state",
+        description: "Cancel",
         scope: "map",
+        group: "system",
     },
     {
         keys: ":",
-        description: "Command line (w/e/help/grid/line)",
+        description: "Type a command",
         scope: "global",
+        group: "command",
     },
-    { keys: "/", description: "Focus the picker search", scope: "map" },
+    {
+        keys: "/",
+        description: "Search for tiles and objects",
+        scope: "map",
+        group: "navigate",
+    },
     {
         keys: "arrows",
-        description: "Navigate picker grid (headers: collapse/expand)",
+        description: "Move through the tile list",
         scope: "sidebar",
+        group: "navigate",
     },
     {
         keys: "Tab",
-        description: "Move between map and picker",
+        description: "Switch between the map and the sidebar",
         scope: "global",
+        group: "navigate",
     },
     {
         keys: "Enter",
-        description: "Search: go to first match / Picker: select and return",
+        description: "Pick the tile",
         scope: "sidebar",
+        group: "navigate",
     },
-    { keys: "G", description: "Toggle grid", scope: "map" },
-    { keys: "?", description: "Toggle help overlay", scope: "map" },
-    { keys: "Ctrl+Z", description: "Undo", scope: "global" },
+    {
+        keys: "G",
+        description: "Show or hide the grid",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "?",
+        description: "Show or hide this help",
+        scope: "map",
+        group: "system",
+    },
+    {
+        keys: "Ctrl+Z",
+        description: "Undo the last change",
+        scope: "global",
+        group: "system",
+    },
     {
         keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
         description: "Redo",
         scope: "global",
+        group: "system",
     },
 ];
 /**
@@ -4664,15 +4793,17 @@ function installEditorKeybinds(actions) {
     return [
         {
             keys: "arrows",
-            description: "Navigate picker grid (headers: collapse/expand)",
+            description: "Move through the tile list",
             scope: "sidebar",
+            group: "navigate",
             applies: (e) => isSidebarSurface(e) && !e.ctrlKey && !e.metaKey && !e.altKey,
             run: (e) => actions.handleSidebarKey(e),
         },
         {
             keys: "Enter",
-            description: "Search: go to first match / Picker: select and return",
+            description: "Pick the tile",
             scope: "sidebar",
+            group: "navigate",
             applies: (e) => {
                 if (e.ctrlKey || e.metaKey || e.altKey)
                     return false;
@@ -4690,8 +4821,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "Tab",
-            description: "Move between map and picker",
+            description: "Switch between the map and the sidebar",
             scope: "global",
+            group: "navigate",
             applies: (e) => {
                 if (e.ctrlKey || e.metaKey || e.altKey)
                     return false;
@@ -4723,8 +4855,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "G",
-            description: "Toggle grid",
+            description: "Show or hide the grid",
             scope: "map",
+            group: "navigate",
             // Text fields own their keys: without this guard, typing a
             // capital G in search (or a modal) would toggle the grid and
             // swallow the character.
@@ -4741,8 +4874,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "?",
-            description: "Toggle help overlay",
+            description: "Show or hide this help",
             scope: "map",
+            group: "system",
             applies: (e) => isCharKey(e, "?") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -4752,8 +4886,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "Ctrl+Z",
-            description: "Undo",
+            description: "Undo the last change",
             scope: "global",
+            group: "system",
             applies: (e) => {
                 const key = e.key.toLowerCase();
                 return (key === "z" &&
@@ -4772,6 +4907,7 @@ function installEditorKeybinds(actions) {
             keys: "Ctrl+Y / Ctrl+Shift+Z / Ctrl+R",
             description: "Redo",
             scope: "global",
+            group: "system",
             applies: (e) => {
                 const key = e.key.toLowerCase();
                 const withCtrl = (e.ctrlKey || e.metaKey) && !e.altKey;
@@ -4788,8 +4924,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "hjkl / arrows",
-            description: "Move cursor (counts, 0, $, gg)",
+            description: "Move around the map",
             scope: "map",
+            group: "cursor",
             applies: (e) => VIM_MOTION_KEYS.test(e.key) &&
                 !e.ctrlKey &&
                 !e.metaKey &&
@@ -4805,8 +4942,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "Space / Enter",
-            description: "Paint selection (fills region in visual)",
+            description: "Paint tiles on the map",
             scope: "map",
+            group: "paint",
             applies: (e) => (e.key === " " || e.key === "Enter") &&
                 !e.ctrlKey &&
                 !e.metaKey &&
@@ -4821,8 +4959,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "u",
-            description: "Undo (vim alias)",
+            description: "Undo the last change",
             scope: "map",
+            group: "clipboard",
             applies: (e) => isCharKey(e, "u") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -4832,8 +4971,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "v",
-            description: "Visual mode (select region)",
+            description: "Select an area",
             scope: "map",
+            group: "paint",
             applies: (e) => isCharKey(e, "v") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -4843,8 +4983,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "y / Y",
-            description: "Yank region (both layers)",
+            description: "Copy the selected area",
             scope: "map",
+            group: "clipboard",
             applies: (e) => !isEditableTarget(e) &&
                 (isCharKey(e, "y") || isCharKey(e, "Y")),
             run: (e) => {
@@ -4855,8 +4996,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "p",
-            description: "Paste yank (tiles over region in visual)",
+            description: "Paste what you copied",
             scope: "map",
+            group: "clipboard",
             applies: (e) => isCharKey(e, "p") && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -4866,8 +5008,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "Esc",
-            description: "Cancel selection / pending state",
+            description: "Cancel",
             scope: "map",
+            group: "system",
             applies: (e) => e.key === "Escape" && !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
@@ -4877,8 +5020,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: ":",
-            description: "Command line (w/e/help/grid/line)",
+            description: "Type a command",
             scope: "global",
+            group: "command",
             applies: (e) => e.key === ":" &&
                 !e.ctrlKey &&
                 !e.metaKey &&
@@ -4892,8 +5036,9 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "/",
-            description: "Focus the picker search",
+            description: "Search for tiles and objects",
             scope: "map",
+            group: "navigate",
             applies: (e) => e.key === "/" &&
                 !e.ctrlKey &&
                 !e.metaKey &&
@@ -5006,6 +5151,13 @@ class BCMapEditor {
          */
         this.cursorRenderPos = null;
         this.regionRender = null;
+        /**
+         * Cursor march state: wall-clock elapsed driving the marching
+         * dashes (frozen once settled). Presentation only, like the
+         * positions above.
+         */
+        this.cursorMarchElapsed = 0;
+        this.cursorDashOffset = 0;
         /**
          * Hover render state: fractional cell chasing the raw hover plus a
          * 0..1 scale that grows the outline from the tile middle on appear
@@ -5867,6 +6019,7 @@ class BCMapEditor {
             const onMap = appSurface_1.appSurface.get() === "map";
             ctx.save();
             ctx.setLineDash(onMap ? CURSOR_DASH_PATTERN : CURSOR_INACTIVE_DASH_PATTERN);
+            ctx.lineDashOffset = this.cursorDashOffset;
             ctx.strokeStyle = onMap
                 ? CURSOR_OUTLINE_COLOR
                 : CURSOR_INACTIVE_COLOR;
@@ -5889,6 +6042,8 @@ class BCMapEditor {
         if ((0, anim_1.prefersReducedMotion)()) {
             const cursor = this.vim.getCursor();
             this.cursorRenderPos = cursor ? { ...cursor } : null;
+            this.cursorMarchElapsed = 0;
+            this.cursorDashOffset = 0;
             const region = this.vim.getRegion();
             this.regionRender = region
                 ? { from: { ...region.from }, to: { ...region.to } }
@@ -5911,7 +6066,10 @@ class BCMapEditor {
             this.cursorRenderPos = null;
         }
         else if (!this.cursorRenderPos) {
+            // Fresh outline appears whole: no glide, no march.
             this.cursorRenderPos = { ...cursor };
+            this.cursorMarchElapsed = 0;
+            this.cursorDashOffset = 0;
         }
         else {
             const next = {
@@ -5924,6 +6082,11 @@ class BCMapEditor {
             }
             else {
                 this.cursorRenderPos = next;
+                this.cursorMarchElapsed += dt;
+                const dashPattern = appSurface_1.appSurface.get() === "map"
+                    ? CURSOR_DASH_PATTERN
+                    : CURSOR_INACTIVE_DASH_PATTERN;
+                this.cursorDashOffset = (0, anim_1.marchOffset)(this.cursorMarchElapsed, dashPattern.reduce((a, b) => a + b, 0));
                 moving = dt > 0;
             }
         }
@@ -6356,6 +6519,7 @@ window.BCMapEditor = BCMapEditor;
 "use strict";
 const keybinds_1 = window;
 
+
 const helpCard_1 = window;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -6726,6 +6890,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const helpRenderer = (0, helpCard_1.createHelpRenderer)({
             card: helpCard,
             registry: keybinds_1.KEYBIND_HELP,
+            commands: commands_1.COMMANDS,
             getSurface: () => appSurface_1.appSurface.get(),
             isVisualActive: () => editor.isVisualActive(),
             createElement: (tag) => document.createElement(tag),

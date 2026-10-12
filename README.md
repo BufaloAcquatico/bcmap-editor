@@ -41,26 +41,48 @@ docker compose up -d
 <!-- KEYBINDS:START -->
 | Action | Input |
 | --- | --- |
-| Paint tile/object | Left click or left-drag |
-| Pan | Right drag |
+| **Mouse** |  |
+| Paint tiles or objects | Left click or left-drag |
+| Move the view | Right drag |
 | Zoom | Mouse wheel |
-| Move cursor (counts, 0, $, gg) | `hjkl` / `arrows` |
-| Paint selection (fills region in visual) | `Space` / `Enter` |
-| Visual mode (select region) | `v` |
-| Yank region (both layers) | `y` / `Y` |
-| Paste yank (tiles over region in visual) | `p` |
-| Undo (vim alias) | `u` |
-| Cancel selection / pending state | `Esc` |
-| Command line (w/e/help/grid/line) | `:` |
-| Focus the picker search | `/` |
-| Navigate picker grid (headers: collapse/expand) | `arrows` |
-| Move between map and picker | `Tab` |
-| Search: go to first match / Picker: select and return | `Enter` |
-| Toggle grid | `G` |
-| Toggle help overlay | `?` |
-| Undo | `Ctrl+Z` |
+| **Cursor** |  |
+| Move around the map | `hjkl` / `arrows` |
+| **Paint** |  |
+| Paint tiles on the map | `Space` / `Enter` |
+| Select an area | `v` |
+| **Clipboard** |  |
+| Copy the selected area | `y` / `Y` |
+| Paste what you copied | `p` |
+| Undo the last change | `u` |
+| **Navigate** |  |
+| Search for tiles and objects | `/` |
+| Move through the tile list | `arrows` |
+| Switch between the map and the sidebar | `Tab` |
+| Pick the tile | `Enter` |
+| Show or hide the grid | `G` |
+| **Command** |  |
+| Type a command | `:` |
+| **System** |  |
+| Cancel | `Esc` |
+| Show or hide this help | `?` |
+| Undo the last change | `Ctrl+Z` |
 | Redo | `Ctrl+Y` / `Ctrl+Shift+Z` / `Ctrl+R` |
 <!-- KEYBINDS:END -->
+
+### Commands
+
+Press `:` and type one of these commands:
+
+<!-- COMMANDS:START -->
+| Command | What it does |
+| --- | --- |
+| `:w [name]` | Save the map |
+| `:write [name]` | Same as :w |
+| `:e` | Open a saved map |
+| `:help` | Show or hide this help |
+| `:grid` | Show or hide the grid |
+| `:line x1,y1 x2,y2` | Draw a straight line of tiles |
+<!-- COMMANDS:END -->
 
 The keyboard cursor boots under the last hovered cell (map center if the
 mouse never visited) and auto-pans to stay visible when zoomed in. The

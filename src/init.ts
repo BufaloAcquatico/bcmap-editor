@@ -4,6 +4,7 @@ import {
     KEYBIND_HELP,
 } from "./vim/keybinds";
 import { appSurface, surfaceForTarget } from "./appSurface";
+import { COMMANDS } from "./vim/commands";
 import { createHelpRenderer } from "./helpCard";
 import { fadeIn, MOTION_MS, MOTION_QUICK_MS } from "./anim";
 
@@ -423,6 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const helpRenderer = createHelpRenderer({
             card: helpCard,
             registry: KEYBIND_HELP,
+            commands: COMMANDS,
             getSurface: () => appSurface.get(),
             isVisualActive: () => editor.isVisualActive(),
             createElement: (tag) => document.createElement(tag),
