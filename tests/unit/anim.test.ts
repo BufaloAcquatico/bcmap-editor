@@ -6,6 +6,7 @@ import {
     fadeIn,
     fadeOut,
     cancelEffects,
+    rateForDuration,
     MOTION_MS,
     MOTION_QUICK_MS,
     CURSOR_APPROACH_RATE,
@@ -24,6 +25,37 @@ describe("motion tokens", () => {
         expect(CURSOR_APPROACH_RATE).toBeGreaterThan(0);
         expect(CURSOR_APPROACH_RATE).toBeLessThan(1);
         expect(HOVER_APPROACH_RATE).toBeGreaterThan(CURSOR_APPROACH_RATE);
+    });
+});
+
+describe("rateForDuration", () => {
+    it("snaps on non-positive durations", () => {
+        expect(rateForDuration(0)).toBe(1);
+        expect(rateForDuration(-50)).toBe(1);
+    });
+
+    it("stays inside (0, 1) so the lerp converges instead of diverging", () => {
+        for (const ms of [10, 50, 100, 140, 200, 250, 1000]) {
+            const rate = rateForDuration(ms);
+            expect(rate).toBeGreaterThan(0);
+            expect(rate).toBeLessThan(1);
+        }
+    });
+
+    it("runs hotter for shorter durations", () => {
+        expect(rateForDuration(100)).toBeGreaterThan(rateForDuration(140));
+        expect(rateForDuration(140)).toBeGreaterThan(rateForDuration(250));
+    });
+
+    it("covers ~99% of any gap within its duration", () => {
+        for (const ms of [100, 250]) {
+            let value = 0;
+            const frames = Math.ceil(ms / (1000 / 60)) + 2;
+            for (let i = 0; i < frames; i++) {
+                value = approach(value, 40, rateForDuration(ms));
+            }
+            expect(Math.abs(40 - value) / 40).toBeLessThan(0.01);
+        }
     });
 });
 

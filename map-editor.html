@@ -315,7 +315,8 @@
 // approach. Presentation-only: logic always reads raw state while
 // rendering interpolates toward it, so reduced motion (or a paused
 // loop) can never corrupt map data or selection.
-window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.HOVER_APPROACH_RATE = window.CURSOR_APPROACH_RATE = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
+window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.HOVER_APPROACH_RATE = window.CURSOR_APPROACH_RATE = window.FRAME_MS = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
+window.rateForDuration = rateForDuration;
 window.approach = approach;
 window.settled = settled;
 window.prefersReducedMotion = prefersReducedMotion;
@@ -326,13 +327,28 @@ window.fadeOut = fadeOut;
 window.MOTION_MS = 250;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
 window.MOTION_QUICK_MS = 200;
+/** Display rate assumed when converting durations to per-frame rates. */
+window.FRAME_MS = 1000 / 60;
 /**
- * Canvas approach rates per frame at ~60fps. Cursor/region settle in
- * roughly the standard token; hover runs hotter so a flicked pointer
- * never outruns its outline into looking broken.
+ * Per-frame approach rate covering ~99% of the gap within durationMs.
+ * Inverting the exponential approach makes durations mean what they
+ * say: retuning MOTION_MS retunes every chase loop with it. Real
+ * displays refresh faster/slower than assumed, so wall-clock settle
+ * is approximate — the contract is coherence, not metronomes.
  */
-window.CURSOR_APPROACH_RATE = 0.35;
-window.HOVER_APPROACH_RATE = 0.5;
+function rateForDuration(durationMs) {
+    if (!(durationMs > 0))
+        return 1;
+    return 1 - Math.pow(0.01, window.FRAME_MS / durationMs);
+}
+/**
+ * Canvas approach rates, derived from the duration tokens above:
+ * cursor/region settle in roughly the standard token; hover runs
+ * hotter so a flicked pointer never outruns its outline into looking
+ * broken. Never hand-tune these — tune the durations instead.
+ */
+window.CURSOR_APPROACH_RATE = rateForDuration(window.MOTION_MS);
+window.HOVER_APPROACH_RATE = rateForDuration(window.MOTION_QUICK_MS);
 /** Snap threshold in tile units (sub-pixel at any zoom). */
 window.MOTION_EPSILON_TILES = 0.01;
 /** Snap threshold for unitless 0..1 scales. */

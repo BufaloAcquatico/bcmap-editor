@@ -11,13 +11,29 @@ export const MOTION_MS = 250;
 /** Quick tier: hover chase, grow/shrink, dismissals. */
 export const MOTION_QUICK_MS = 200;
 
+/** Display rate assumed when converting durations to per-frame rates. */
+export const FRAME_MS = 1000 / 60;
+
 /**
- * Canvas approach rates per frame at ~60fps. Cursor/region settle in
- * roughly the standard token; hover runs hotter so a flicked pointer
- * never outruns its outline into looking broken.
+ * Per-frame approach rate covering ~99% of the gap within durationMs.
+ * Inverting the exponential approach makes durations mean what they
+ * say: retuning MOTION_MS retunes every chase loop with it. Real
+ * displays refresh faster/slower than assumed, so wall-clock settle
+ * is approximate — the contract is coherence, not metronomes.
  */
-export const CURSOR_APPROACH_RATE = 0.35;
-export const HOVER_APPROACH_RATE = 0.5;
+export function rateForDuration(durationMs: number): number {
+    if (!(durationMs > 0)) return 1;
+    return 1 - Math.pow(0.01, FRAME_MS / durationMs);
+}
+
+/**
+ * Canvas approach rates, derived from the duration tokens above:
+ * cursor/region settle in roughly the standard token; hover runs
+ * hotter so a flicked pointer never outruns its outline into looking
+ * broken. Never hand-tune these — tune the durations instead.
+ */
+export const CURSOR_APPROACH_RATE = rateForDuration(MOTION_MS);
+export const HOVER_APPROACH_RATE = rateForDuration(MOTION_QUICK_MS);
 
 /** Snap threshold in tile units (sub-pixel at any zoom). */
 export const MOTION_EPSILON_TILES = 0.01;

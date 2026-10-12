@@ -537,6 +537,20 @@ test("CSS motion durations match the canonical TS constants", async ({
     });
     expect(vars.cssMs).toBe(`${vars.tsMs}ms`);
     expect(vars.cssQuick).toBe(`${vars.tsQuick}ms`);
+    // Chase rates derive from the same durations (never hand-tuned).
+    const rates = await page.evaluate(() => {
+        const w = window as any;
+        const expected = (ms: number) => 1 - Math.pow(0.01, 1000 / 60 / ms);
+        return {
+            cursor: w.CURSOR_APPROACH_RATE as number,
+            hover: w.HOVER_APPROACH_RATE as number,
+            expCursor: expected(w.MOTION_MS),
+            expHover: expected(w.MOTION_QUICK_MS),
+        };
+    });
+    expect(Math.abs(rates.cursor - rates.expCursor)).toBeLessThan(1e-9);
+    expect(Math.abs(rates.hover - rates.expHover)).toBeLessThan(1e-9);
+    expect(rates.hover).toBeGreaterThan(rates.cursor);
 });
 
 test("hover outline follows the mouse while painting identical tiles", async ({
