@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BCMapEditor } from "../../../src/editor";
 import { appSurface } from "../../../src/appSurface";
+import { MOTION_MS, MOTION_QUICK_MS } from "../../../src/anim";
 
 const mockCtx = {
     clearRect: vi.fn(),
@@ -711,16 +712,17 @@ describe("Canvas cursor glide", () => {
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("l"));
         editor.handleVimKey(keyEvent(" "));
-        const flash = (editor as any).flashRegion;
-        expect(flash).toEqual({
+        const flash = (editor as any).flash;
+        expect(flash?.region).toEqual({
             from: { X: 20, Y: 20 },
             to: { X: 21, Y: 20 },
         });
+        expect(flash?.durationMs).toBe(MOTION_MS);
         const now = vi.spyOn(performance, "now");
         try {
             now.mockReturnValue(performance.now() + 10_000);
             (editor as any).render();
-            expect((editor as any).flashRegion).toBeNull();
+            expect((editor as any).flash).toBeNull();
         } finally {
             now.mockRestore();
         }
@@ -741,9 +743,35 @@ describe("Canvas cursor glide", () => {
             editor.handleVimKey(keyEvent("v"));
             editor.handleVimKey(keyEvent("l"));
             editor.handleVimKey(keyEvent(" "));
-            expect((editor as any).flashRegion).toBeNull();
+            expect((editor as any).flash).toBeNull();
         } finally {
             vi.unstubAllGlobals();
+        }
+    });
+
+    it("blinks the yanked region white over the quick tier", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("y"));
+        // Yank exits visual mode, leaving only the blink behind.
+        expect((editor as any).vim.getMode()).toBe("normal");
+        const flash = (editor as any).flash;
+        expect(flash?.region).toEqual({
+            from: { X: 20, Y: 20 },
+            to: { X: 21, Y: 20 },
+        });
+        expect(flash?.durationMs).toBe(MOTION_QUICK_MS);
+        // The blink recolors the selection: white border and fill.
+        (editor as any).render();
+        expect(mockCtx.strokeStyle).toBe("rgba(255, 255, 255, 0.9)");
+        expect(mockCtx.fillStyle).toBe("rgba(255, 255, 255, 0.15)");
+        const now = vi.spyOn(performance, "now");
+        try {
+            now.mockReturnValue(performance.now() + 10_000);
+            (editor as any).render();
+            expect((editor as any).flash).toBeNull();
+        } finally {
+            now.mockRestore();
         }
     });
 });

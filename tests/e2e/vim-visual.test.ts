@@ -51,6 +51,34 @@ test("v shows the VISUAL label with region size", async ({
     expect(await modeText(page)).toBe("-- VISUAL -- 2x1");
 });
 
+test("yank blinks the region white over the quick tier", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.keyboard.press("v");
+    await page.keyboard.press("l");
+    await page.keyboard.press("y");
+    // Visual mode exits as before; only the blink stays behind.
+    expect(await modeText(page)).toBe("-- NORMAL --");
+    const flash = await page.evaluate(() => {
+        const ed = (window as any).editor;
+        return {
+            region: ed.flash?.region ?? null,
+            durationMs: ed.flash?.durationMs ?? null,
+            quickMs: (window as any).MOTION_QUICK_MS,
+        };
+    });
+    expect(flash.region).toEqual({
+        from: { X: 20, Y: 20 },
+        to: { X: 21, Y: 20 },
+    });
+    expect(flash.durationMs).toBe(flash.quickMs);
+    // The blink clears on its own; nothing lingers selected.
+    await page.waitForFunction(() => (window as any).editor.flash === null);
+});
+
 test("y yanks both layers and p pastes them", async ({
     page,
 }: {

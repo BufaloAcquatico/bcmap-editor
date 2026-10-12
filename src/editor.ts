@@ -85,6 +85,8 @@ const CURSOR_INACTIVE_COLOR = "rgba(255, 255, 255, 0.35)";
 const CURSOR_INACTIVE_DASH_PATTERN = [2, 3];
 const REGION_TINT_COLOR = "rgba(13, 110, 253, 0.25)";
 const REGION_BORDER_COLOR = "rgba(13, 110, 253, 0.9)";
+/** Yank blink fill: faint white over the quick tier (border reuses hover white). */
+const YANK_FLASH_FILL = "rgba(255, 255, 255, 0.15)";
 const REGION_BORDER_WIDTH = 2;
 const FEEDBACK_MS = 1500;
 const PAN_OVERSCROLL_TILES = 15;
@@ -165,8 +167,18 @@ export class BCMapEditor {
      * draws it decaying over the standard token, then clears it.
      * Presentation only; skipped under reduced motion.
      */
-    private flashRegion: Region | null = null;
-    private flashStartedAt = 0;
+    /**
+     * One-shot commit pulse: region + start timestamp + duration + style.
+     * Paint commits flash the region tint; yanks blink it white. Latest
+     * gesture wins; skipped under reduced motion. Presentation only.
+     */
+    private flash: {
+        region: Region;
+        startedAt: number;
+        durationMs: number;
+        border: string | null;
+        fill: string | null;
+    } | null = null;
     private vim = new VimController({
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
@@ -459,6 +471,9 @@ export class BCMapEditor {
             MAP_WIDTH,
             MAP_HEIGHT,
         );
+        // A successful yank blinks the region white and exits visual
+        // mode (the controller closes it right after this intent).
+        this.flashCommit(region, "yank");
     }
 
     /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
@@ -529,16 +544,22 @@ export class BCMapEditor {
 
     /**
      * Arm the one-shot commit pulse: the region flashes softly, then
-     * fades over the standard token. Presentation only; skipped under
-     * reduced motion.
+     * fades. Paint uses the region tint over the standard token; yank
+     * blinks white over the quick tier. Presentation only; skipped
+     * under reduced motion.
      */
-    private flashCommit(region: Region): void {
+    private flashCommit(
+        region: Region,
+        kind: "paint" | "yank" = "paint",
+    ): void {
         if (prefersReducedMotion()) return;
-        this.flashRegion = {
-            from: { ...region.from },
-            to: { ...region.to },
+        this.flash = {
+            region: { from: { ...region.from }, to: { ...region.to } },
+            startedAt: performance.now(),
+            durationMs: kind === "yank" ? MOTION_QUICK_MS : MOTION_MS,
+            border: kind === "yank" ? HOVER_OUTLINE_COLOR : null,
+            fill: kind === "yank" ? YANK_FLASH_FILL : REGION_TINT_COLOR,
         };
-        this.flashStartedAt = performance.now();
         this.requestRender();
     }
 
@@ -1106,23 +1127,31 @@ export class BCMapEditor {
             ctx.restore();
         }
 
-        // One-shot commit pulse: region-tinted flash decaying over the
-        // standard token, then gone. Chains frames only while alive.
-        const flash = this.flashRegion;
+        // One-shot commit pulse decaying over its duration, then gone.
+        // Chains frames only while alive.
+        const flash = this.flash;
         if (flash) {
-            const age = performance.now() - this.flashStartedAt;
-            if (age >= MOTION_MS) {
-                this.flashRegion = null;
+            const age = performance.now() - flash.startedAt;
+            if (age >= flash.durationMs) {
+                this.flash = null;
             } else {
+                const rx = startX + flash.region.from.X * tileSize;
+                const ry = startY + flash.region.from.Y * tileSize;
+                const rw =
+                    (flash.region.to.X - flash.region.from.X + 1) * tileSize;
+                const rh =
+                    (flash.region.to.Y - flash.region.from.Y + 1) * tileSize;
                 ctx.save();
-                ctx.globalAlpha = 1 - age / MOTION_MS;
-                ctx.fillStyle = REGION_TINT_COLOR;
-                ctx.fillRect(
-                    startX + flash.from.X * tileSize,
-                    startY + flash.from.Y * tileSize,
-                    (flash.to.X - flash.from.X + 1) * tileSize,
-                    (flash.to.Y - flash.from.Y + 1) * tileSize,
-                );
+                ctx.globalAlpha = 1 - age / flash.durationMs;
+                if (flash.fill) {
+                    ctx.fillStyle = flash.fill;
+                    ctx.fillRect(rx, ry, rw, rh);
+                }
+                if (flash.border) {
+                    ctx.strokeStyle = flash.border;
+                    ctx.lineWidth = REGION_BORDER_WIDTH;
+                    ctx.strokeRect(rx, ry, rw, rh);
+                }
                 ctx.restore();
                 this.requestRender();
             }
