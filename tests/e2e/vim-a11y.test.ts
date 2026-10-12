@@ -217,6 +217,8 @@ test("help card shows the tracked surface slice", async ({
     expect(await surface()).toBe("map");
     await expect(help).toContainText("Move around the map");
     await expect(help).toContainText("Type a command");
+    await expect(help).toContainText("Zoom in");
+    await expect(help).toContainText("Zoom out");
     await expect(help).not.toContainText("Move through the tile list");
     // Sectioned layout: surface label plus one shared key grid.
     await expect(help.locator(".help-surface-label")).toHaveText("Map keys");

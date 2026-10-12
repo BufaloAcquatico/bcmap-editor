@@ -112,6 +112,8 @@ describe("installEditorKeybinds", () => {
     it("wires G to grid, ? to help, Ctrl+Z to undo, Ctrl+Y and Ctrl+Shift+Z to redo", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -146,9 +148,49 @@ describe("installEditorKeybinds", () => {
         expect(actions.redo).toHaveBeenCalledTimes(2);
     });
 
+    it("wires +, = to zoom in and - to zoom out", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
+        };
+        const bindings = installEditorKeybinds(actions);
+        const dispatch = createKeybindDispatcher(bindings);
+
+        const zoomInEvent = keyEvent("+");
+        dispatch(zoomInEvent);
+        expect(actions.zoomIn).toHaveBeenCalledTimes(1);
+        expect(zoomInEvent.preventDefault).toHaveBeenCalledTimes(1);
+
+        dispatch(keyEvent("="));
+        expect(actions.zoomIn).toHaveBeenCalledTimes(2);
+
+        dispatch(keyEvent("-"));
+        expect(actions.zoomOut).toHaveBeenCalledTimes(1);
+
+        // Ctrl+= is the browser's own zoom: never hijack it.
+        dispatch(keyEvent("+", { ctrlKey: true }));
+        dispatch(keyEvent("=", { ctrlKey: true }));
+        dispatch(keyEvent("-", { ctrlKey: true }));
+        expect(actions.zoomIn).toHaveBeenCalledTimes(2);
+        expect(actions.zoomOut).toHaveBeenCalledTimes(1);
+    });
+
     it("ignores plain keys while a text field has focus", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -168,8 +210,13 @@ describe("installEditorKeybinds", () => {
         dispatch(keyEvent("g", {}, input));
         dispatch(keyEvent("G", {}, input));
         dispatch(keyEvent("?", {}, input));
+        dispatch(keyEvent("+", {}, input));
+        dispatch(keyEvent("=", {}, input));
+        dispatch(keyEvent("-", {}, input));
         expect(actions.toggleGrid).not.toHaveBeenCalled();
         expect(actions.toggleHelp).not.toHaveBeenCalled();
+        expect(actions.zoomIn).not.toHaveBeenCalled();
+        expect(actions.zoomOut).not.toHaveBeenCalled();
 
         dispatch(keyEvent("z", { ctrlKey: true }, input));
         dispatch(keyEvent("y", { ctrlKey: true }, input));
@@ -180,6 +227,8 @@ describe("installEditorKeybinds", () => {
     it("keeps undo/redo distinct: Ctrl+Z has no redo, Ctrl+Shift+Z is not undo", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -207,6 +256,8 @@ describe("installEditorKeybinds", () => {
     it("routes vim motion keys, counts and arrows to the vim controller", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -232,6 +283,8 @@ describe("installEditorKeybinds", () => {
     it("routes verb keys to the vim controller", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -259,6 +312,8 @@ describe("installEditorKeybinds", () => {
     it("does not route unbound letter keys to the vim controller", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -283,6 +338,8 @@ describe("installEditorKeybinds", () => {
     it("never steals Space/Enter from a focused button", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -306,6 +363,8 @@ describe("installEditorKeybinds", () => {
     it("routes : to the command prompt and / to the search box", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -329,6 +388,8 @@ describe("installEditorKeybinds", () => {
     it("does not open the command prompt while typing in a field", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -350,6 +411,8 @@ describe("installEditorKeybinds", () => {
     it("describes every binding for the help registry", () => {
         const bindings = installEditorKeybinds({
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -374,7 +437,7 @@ describe("installEditorKeybinds", () => {
                 "system",
             ]).toContain(binding.group);
         }
-        expect(bindings).toHaveLength(16);
+        expect(bindings).toHaveLength(18);
     });
 });
 
@@ -382,6 +445,8 @@ describe("Keybind registry help-sync", () => {
     const bindingsWith = (handleSidebarKey: (e: KeyboardEvent) => boolean) =>
         installEditorKeybinds({
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -450,6 +515,8 @@ describe("Sidebar surface routing", () => {
         const handleSidebarKey = vi.fn(() => true);
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -473,6 +540,8 @@ describe("Sidebar surface routing", () => {
         const handleSidebarKey = vi.fn(() => false);
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -495,6 +564,8 @@ describe("Sidebar surface routing", () => {
     it("routes Tab on the map to the picker and Tab in search to the map", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -525,6 +596,8 @@ describe("Sidebar surface routing", () => {
     it("routes Enter in search to the first match", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -552,6 +625,8 @@ describe("Sidebar surface routing", () => {
     it("treats Shift+Tab exactly like Tab (no reverse navigation)", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),

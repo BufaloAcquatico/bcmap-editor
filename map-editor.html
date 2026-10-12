@@ -3116,6 +3116,8 @@ window.SURFACE_HELP_KEYS = {
         ":",
         "Tab",
         "?",
+        "+ / =",
+        "-",
         "Esc",
     ],
     picker: ["arrows", "Enter", "Tab", "/", "Esc", "?"],
@@ -3136,12 +3138,17 @@ function createHelpRenderer(deps) {
         nodes.forEach((node) => node.remove());
         nodes = [];
     };
-    const formatKeys = (keys) => keys
-        .split("/")
-        .map((k) => k.trim())
-        .filter((k) => k.length > 0)
-        .map((k) => `<kbd>${k}</kbd>`)
-        .join(" / ");
+    const formatKeys = (keys) => {
+        // A bare "/" must not be split into "" + "": it is the key itself.
+        if (keys.trim() === "/")
+            return "<kbd>/</kbd>";
+        return keys
+            .split("/")
+            .map((k) => k.trim())
+            .filter((k) => k.length > 0)
+            .map((k) => `<kbd>${k}</kbd>`)
+            .join(" / ");
+    };
     // One shared grid wrapper aligns the key column across every
     // section; labels span the full row. Rows are key/desc span pairs
     // appended straight into it (never nested), so alignment holds.
@@ -4735,6 +4742,18 @@ window.KEYBIND_HELP = [
         group: "navigate",
     },
     {
+        keys: "+ / =",
+        description: "Zoom in",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "-",
+        description: "Zoom out",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "?",
         description: "Show or hide this help",
         scope: "map",
@@ -4869,6 +4888,41 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
+                return true;
+            },
+        },
+        {
+            keys: "+ / =",
+            description: "Zoom in",
+            scope: "map",
+            group: "navigate",
+            // Text fields own their keys, and Ctrl+= is the browser's
+            // own zoom: without these guards typing or browser-zooming
+            // would move the map instead.
+            applies: (e) => (e.key === "+" || e.key === "=") &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.zoomIn();
+                return true;
+            },
+        },
+        {
+            keys: "-",
+            description: "Zoom out",
+            scope: "map",
+            group: "navigate",
+            applies: (e) => e.key === "-" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.zoomOut();
                 return true;
             },
         },
@@ -6790,6 +6844,8 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleGrid();
             syncGridButton();
         },
+        zoomIn: () => editor.zoomBy(1.1),
+        zoomOut: () => editor.zoomBy(0.9),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),

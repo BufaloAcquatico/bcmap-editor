@@ -96,6 +96,8 @@ export const SURFACE_HELP_KEYS: Record<AppSurface, string[]> = {
         ":",
         "Tab",
         "?",
+        "+ / =",
+        "-",
         "Esc",
     ],
     picker: ["arrows", "Enter", "Tab", "/", "Esc", "?"],

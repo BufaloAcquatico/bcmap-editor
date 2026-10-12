@@ -60,6 +60,8 @@ docker compose up -d
 | Switch between the map and the sidebar | `Tab` |
 | Pick the tile | `Enter` |
 | Show or hide the grid | `G` |
+| Zoom in | `+` / `=` |
+| Zoom out | `-` |
 | **Command** |  |
 | Type a command | `:` |
 | **System** |  |

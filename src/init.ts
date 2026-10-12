@@ -311,6 +311,8 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleGrid();
             syncGridButton();
         },
+        zoomIn: () => editor.zoomBy(1.1),
+        zoomOut: () => editor.zoomBy(0.9),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),

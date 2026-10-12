@@ -126,6 +126,18 @@ export const KEYBIND_HELP: {
         group: "navigate",
     },
     {
+        keys: "+ / =",
+        description: "Zoom in",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "-",
+        description: "Zoom out",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "?",
         description: "Show or hide this help",
         scope: "map",
@@ -163,6 +175,10 @@ export function createKeybindDispatcher(
 
 export interface EditorKeybindActions {
     toggleGrid: () => void;
+    /** Zoom the map canvas in one step (`+` / `=`). */
+    zoomIn: () => void;
+    /** Zoom the map canvas out one step (`-`). */
+    zoomOut: () => void;
     toggleHelp: () => void;
     undo: () => void;
     redo: () => void;
@@ -298,6 +314,43 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 actions.toggleGrid();
+                return true;
+            },
+        },
+        {
+            keys: "+ / =",
+            description: "Zoom in",
+            scope: "map",
+            group: "navigate",
+            // Text fields own their keys, and Ctrl+= is the browser's
+            // own zoom: without these guards typing or browser-zooming
+            // would move the map instead.
+            applies: (e) =>
+                (e.key === "+" || e.key === "=") &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.zoomIn();
+                return true;
+            },
+        },
+        {
+            keys: "-",
+            description: "Zoom out",
+            scope: "map",
+            group: "navigate",
+            applies: (e) =>
+                e.key === "-" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.zoomOut();
                 return true;
             },
         },
