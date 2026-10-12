@@ -622,6 +622,52 @@ describe("Canvas cursor glide", () => {
         expect((editor as any).regionRender.to).toEqual({ X: 22, Y: 20 });
     });
 
+    it("grows the hover outline from the tile middle on appear", () => {
+        (editor as any).hoveredTile = { X: 5, Y: 5 };
+        (editor as any).render();
+        flushOne();
+        const scale = (editor as any).hoverRenderScale;
+        expect(scale).toBeGreaterThan(0);
+        expect(scale).toBeLessThan(1);
+        expect((editor as any).hoverRenderPos).toEqual({ X: 5, Y: 5 });
+        flushAll();
+        expect((editor as any).hoverRenderScale).toBe(1);
+    });
+
+    it("chases the hover across tiles, then shrinks away on leave", () => {
+        (editor as any).hoveredTile = { X: 5, Y: 5 };
+        (editor as any).render();
+        flushAll();
+        (editor as any).hoveredTile = { X: 8, Y: 5 };
+        (editor as any).render(); // exactly one step toward (8, 5)
+        const mid = (editor as any).hoverRenderPos;
+        expect(mid.X).toBeGreaterThan(5);
+        expect(mid.X).toBeLessThan(8);
+        flushAll();
+        expect((editor as any).hoverRenderPos).toEqual({ X: 8, Y: 5 });
+        // Leaving for void shrinks back toward the middle, then hides.
+        (editor as any).hoveredTile = null;
+        (editor as any).render(); // exactly one step toward hidden
+        const shrinking = (editor as any).hoverRenderScale;
+        expect(shrinking).toBeGreaterThan(0);
+        expect(shrinking).toBeLessThan(1);
+        flushAll();
+        expect((editor as any).hoverRenderScale).toBe(0);
+        expect((editor as any).hoverRenderPos).toBeNull();
+    });
+
+    it("treats an out-of-bounds hover as hidden until it returns", () => {
+        (editor as any).hoveredTile = { X: -3, Y: 0 };
+        (editor as any).render();
+        flushAll();
+        expect((editor as any).hoverRenderScale).toBe(0);
+        expect((editor as any).hoverRenderPos).toBeNull();
+        (editor as any).hoveredTile = { X: 5, Y: 5 };
+        (editor as any).render(); // snap position, first grow step
+        expect((editor as any).hoverRenderScale).toBeGreaterThan(0);
+        expect((editor as any).hoverRenderPos).toEqual({ X: 5, Y: 5 });
+    });
+
     it("snaps everything under reduced motion", () => {
         vi.stubGlobal("window", {
             matchMedia: vi.fn(() => ({ matches: true })),

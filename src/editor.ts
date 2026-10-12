@@ -27,7 +27,9 @@ import {
     settled,
     prefersReducedMotion,
     CURSOR_APPROACH_RATE,
+    HOVER_APPROACH_RATE,
     MOTION_EPSILON_TILES,
+    MOTION_EPSILON_SCALE,
 } from "./anim";
 import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
@@ -141,6 +143,13 @@ export class BCMapEditor {
      */
     private cursorRenderPos: Point | null = null;
     private regionRender: Region | null = null;
+    /**
+     * Hover render state: fractional cell chasing the raw hover plus a
+     * 0..1 scale that grows the outline from the tile middle on appear
+     * and shrinks it back on leave. Logic keeps reading hoveredTile.
+     */
+    private hoverRenderPos: Point | null = null;
+    private hoverRenderScale = 0;
     private vim = new VimController({
         setCursor: (pos) => this.applyVimCursor(pos),
         bootCursor: () => this.vimBootPosition(),
@@ -1026,22 +1035,20 @@ export class BCMapEditor {
             ctx.restore();
         }
 
-        // Highlight only the hovered tile with a light white outline
-        const hover = this.hoveredTile;
-        if (
-            hover &&
-            hover.X >= 0 &&
-            hover.X < MAP_WIDTH &&
-            hover.Y >= 0 &&
-            hover.Y < MAP_HEIGHT
-        ) {
+        // Hover outline: chases the raw cell and grows from the tile
+        // middle on appear, shrinking back on leave (presentation only).
+        const hoverDraw = this.hoverRenderPos;
+        if (hoverDraw && this.hoverRenderScale > MOTION_EPSILON_SCALE) {
+            const hoverSize = tileSize * Math.min(1, this.hoverRenderScale);
+            const hoverCX = startX + (hoverDraw.X + 0.5) * tileSize;
+            const hoverCY = startY + (hoverDraw.Y + 0.5) * tileSize;
             ctx.strokeStyle = HOVER_OUTLINE_COLOR;
             ctx.lineWidth = HOVER_OUTLINE_WIDTH;
             ctx.strokeRect(
-                startX + hover.X * tileSize,
-                startY + hover.Y * tileSize,
-                tileSize,
-                tileSize,
+                hoverCX - hoverSize / 2,
+                hoverCY - hoverSize / 2,
+                hoverSize,
+                hoverSize,
             );
         }
 
@@ -1088,6 +1095,10 @@ export class BCMapEditor {
             this.regionRender = region
                 ? { from: { ...region.from }, to: { ...region.to } }
                 : null;
+            const hover = this.hoveredTile;
+            const hoverVisible = !!hover && this.isTileOnMap(hover);
+            this.hoverRenderPos = hoverVisible ? { ...hover } : null;
+            this.hoverRenderScale = hoverVisible ? 1 : 0;
             return false;
         }
         let moving = false;
@@ -1117,6 +1128,71 @@ export class BCMapEditor {
             } else {
                 this.cursorRenderPos = next;
                 moving = true;
+            }
+        }
+        const hover = this.hoveredTile;
+        const hoverCell = hover && this.isTileOnMap(hover) ? hover : null;
+        if (!hoverCell) {
+            // Tile left for void (or the canvas): shrink toward the
+            // middle, then hide. Re-entry mid-shrink reverses below.
+            if (
+                this.hoverRenderPos &&
+                this.hoverRenderScale > MOTION_EPSILON_SCALE
+            ) {
+                this.hoverRenderScale = approach(
+                    this.hoverRenderScale,
+                    0,
+                    HOVER_APPROACH_RATE,
+                );
+                if (this.hoverRenderScale <= MOTION_EPSILON_SCALE) {
+                    this.hoverRenderScale = 0;
+                    this.hoverRenderPos = null;
+                } else {
+                    moving = true;
+                }
+            } else {
+                this.hoverRenderScale = 0;
+                this.hoverRenderPos = null;
+            }
+        } else {
+            if (!this.hoverRenderPos) this.hoverRenderPos = { ...hoverCell };
+            else {
+                const next = {
+                    X: approach(
+                        this.hoverRenderPos.X,
+                        hoverCell.X,
+                        HOVER_APPROACH_RATE,
+                    ),
+                    Y: approach(
+                        this.hoverRenderPos.Y,
+                        hoverCell.Y,
+                        HOVER_APPROACH_RATE,
+                    ),
+                };
+                if (
+                    settled(next.X, hoverCell.X, MOTION_EPSILON_TILES) &&
+                    settled(next.Y, hoverCell.Y, MOTION_EPSILON_TILES)
+                ) {
+                    this.hoverRenderPos = { ...hoverCell };
+                } else {
+                    this.hoverRenderPos = next;
+                    moving = true;
+                }
+            }
+            if (this.hoverRenderScale < 1) {
+                const nextScale = approach(
+                    this.hoverRenderScale,
+                    1,
+                    HOVER_APPROACH_RATE,
+                );
+                this.hoverRenderScale = settled(
+                    nextScale,
+                    1,
+                    MOTION_EPSILON_SCALE,
+                )
+                    ? 1
+                    : nextScale;
+                if (this.hoverRenderScale !== 1) moving = true;
             }
         }
         const region = this.vim.getRegion();
@@ -1177,6 +1253,13 @@ export class BCMapEditor {
             this.renderRequested = false;
             this.render();
         }
+    }
+
+    /** True for cells inside the 40x40 map (hover can stray outside). */
+    private isTileOnMap(pos: Point): boolean {
+        return (
+            pos.X >= 0 && pos.X < MAP_WIDTH && pos.Y >= 0 && pos.Y < MAP_HEIGHT
+        );
     }
 
     /**
