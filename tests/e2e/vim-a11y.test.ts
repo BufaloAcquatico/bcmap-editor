@@ -1,5 +1,9 @@
 import { test, expect, Page } from "playwright/test";
 
+// Motion assertions read end states: run reduced-motion so ring fades
+// and smooth scroll settle instantly instead of mid-transition.
+test.use({ reducedMotion: "reduce" });
+
 const openEditor = async (page: Page) => {
     await page.goto("http://localhost:8080/map-editor.html");
     await page.waitForSelector("#mapCanvas");

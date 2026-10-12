@@ -14,6 +14,19 @@
       --bs-body-color: #eaeaea;
       --bs-primary: #0d6efd;
       --bs-secondary: #6c757d;
+      --motion-ms: 140ms;
+      --motion-quick-ms: 100ms;
+    }
+    /* Motion tokens: one duration family for DOM transitions (canvas
+       loops mirror the rhythm in src/anim.ts). Smooth scroll stays
+       scoped to the picker pane; reduced motion snaps all of it. */
+    #sidebarContent { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
     html, body { height: 100%; margin: 0; padding: 0; }
     body { 
@@ -27,7 +40,7 @@
     .sidebar { background-color: #16213e; border-right: 1px solid #2a2a4a; }
     .map-panel { background-color: #0f0f23; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
     .btn-toolbar .btn { border-radius: 0.375rem; }
-    .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #2a2a4a; }
+    .category-header { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.5rem; border: 1px solid #2a2a4a; transition: background-color var(--motion-ms) ease-out, outline-color var(--motion-ms) ease-out; outline: 2px solid transparent; outline-offset: -2px; }
     .category-content + .category-header { margin-top: -1px; }
     .category-header:hover { background-color: #2a2a4a; }
     /* Picker nodes are real <button>s (F3): strip UA button chrome so the
@@ -43,7 +56,7 @@
     }
     button.sprite-item { display: inline-block; }
     button.category-header { width: 100%; }
-    .category-caret { font-size: 0.75rem; transition: transform 0.15s ease; }
+    .category-caret { font-size: 0.75rem; transition: transform var(--motion-ms) ease-out; }
     .category-caret.expanded { transform: rotate(90deg); }
     .category-content { display: flex; flex-wrap: wrap; }
     .sprite-item { 
@@ -57,6 +70,9 @@
       background-repeat: no-repeat;
       background-position: center;
       cursor: pointer;
+      transition: border-color var(--motion-ms) ease-out, box-shadow var(--motion-ms) ease-out, outline-color var(--motion-ms) ease-out;
+      outline: 2px solid transparent;
+      outline-offset: 1px;
     }
     .sprite-item:hover { border-color: #6c757d; }
     /* Selected wins over hover on equal specificity: the brush stays
@@ -287,6 +303,51 @@
   <script src="assets/vendor/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   <script src="assets/vendor/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
   <script>(function() {
+"use strict";
+// BCMap Editor - motion tokens and math.
+//
+// One duration family for every animation: CSS transitions read the
+// variables below, canvas loops mirror the rhythm with exponential
+// approach. Presentation-only: logic always reads raw state while
+// rendering interpolates toward it, so reduced motion (or a paused
+// loop) can never corrupt map data or selection.
+window.MOTION_EPSILON_SCALE = window.MOTION_EPSILON_TILES = window.HOVER_APPROACH_RATE = window.CURSOR_APPROACH_RATE = window.MOTION_QUICK_MS = window.MOTION_MS = void 0;
+window.approach = approach;
+window.settled = settled;
+window.prefersReducedMotion = prefersReducedMotion;
+/** Standard transition: picker rings, fades, slides, help, prompt. */
+window.MOTION_MS = 140;
+/** Quick tier: hover chase, grow/shrink, dismissals. */
+window.MOTION_QUICK_MS = 100;
+/**
+ * Canvas approach rates per frame at ~60fps. Cursor/region settle in
+ * roughly the standard token; hover runs hotter so a flicked pointer
+ * never outruns its outline into looking broken.
+ */
+window.CURSOR_APPROACH_RATE = 0.35;
+window.HOVER_APPROACH_RATE = 0.5;
+/** Snap threshold in tile units (sub-pixel at any zoom). */
+window.MOTION_EPSILON_TILES = 0.01;
+/** Snap threshold for unitless 0..1 scales. */
+window.MOTION_EPSILON_SCALE = 0.01;
+/** One exponential-approach step from current toward target. */
+function approach(current, target, rate) {
+    return current + (target - current) * rate;
+}
+/** True when a value has settled close enough to snap to target. */
+function settled(current, target, epsilon) {
+    return Math.abs(current - target) <= epsilon;
+}
+/**
+ * Honors the OS reduced-motion setting. False without a window
+ * (unit tests, SSR), so motion stays on unless opted out.
+ */
+function prefersReducedMotion() {
+    return (typeof window !== "undefined" &&
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
 "use strict";
 // BCMap Editor - explicit app-surface tracking.
 //
