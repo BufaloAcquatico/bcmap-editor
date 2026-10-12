@@ -365,7 +365,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.key === ":" && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 return false;
             }
-            // Any other printable character jumps into the search box (D9).
+            // Any other printable character jumps into the search box.
             if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
                 focusSearchSelect();

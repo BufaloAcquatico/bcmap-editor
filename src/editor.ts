@@ -105,7 +105,7 @@ export class BCMapEditor {
     private showHelp = true;
     private renderRequested = false;
     private history = new MapHistory();
-    /** One entry per gesture (mouse) or key-repeat burst (vim), D12. */
+    /** One entry per gesture (mouse) or key-repeat burst (vim): closes on idle timeout or explicit flush. */
     private session = new EditSession({
         begin: () =>
             this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),

@@ -2,7 +2,7 @@
 //
 // Pure parsing + dispatch against injected actions, so the command set is
 // unit-testable without the DOM. The registry below is also the single
-// source for help text (D13).
+// source for help text.
 
 export interface CommandActions {
     /** Export the current map (`:w [name]`). */

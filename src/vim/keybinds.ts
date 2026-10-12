@@ -152,7 +152,7 @@ function isInteractiveTarget(e: KeyboardEvent): boolean {
 /**
  * True when focus sits inside the picker sidebar (a sprite button or a
  * category header). The sidebar router binding runs first and may decline,
- * so G/?/undo keep working no matter where focus is (D10).
+ * so G/?/undo keep working no matter where focus is.
  */
 export function isSidebarSurface(e: KeyboardEvent): boolean {
     const target = e.target as HTMLElement | null;

@@ -366,7 +366,7 @@ describe("installEditorKeybinds", () => {
     });
 });
 
-describe("Keybind registry (D13)", () => {
+describe("Keybind registry help-sync", () => {
     const bindingsWith = (handleSidebarKey: (e: KeyboardEvent) => boolean) =>
         installEditorKeybinds({
             toggleGrid: vi.fn(),
@@ -405,7 +405,7 @@ describe("Keybind registry (D13)", () => {
     });
 });
 
-describe("Sidebar surface routing (D9/D10)", () => {
+describe("Sidebar surface routing", () => {
     const sidebar = () => {
         const target = {
             tagName: "BUTTON",

@@ -4218,7 +4218,7 @@ window.EditSession = EditSession;
 "use strict";
 // BCMap Editor - yank buffer for copy/paste over both map layers.
 //
-// A yank always stores both layers of a rectangular region (D11):
+// A yank always stores both layers of a rectangular region:
 // copy/y stores the visible content, paste/p restores exactly those
 // layers regardless of which layer is active at paste time. In visual
 // mode the yank tiles over the selected region, trimmed to fit.
@@ -4259,7 +4259,7 @@ function normalizeYankSize(buffer) {
 //
 // Pure parsing + dispatch against injected actions, so the command set is
 // unit-testable without the DOM. The registry below is also the single
-// source for help text (D13).
+// source for help text.
 window.COMMANDS = void 0;
 window.parseCommand = parseCommand;
 window.runCommand = runCommand;
@@ -4461,7 +4461,7 @@ function isInteractiveTarget(e) {
 /**
  * True when focus sits inside the picker sidebar (a sprite button or a
  * category header). The sidebar router binding runs first and may decline,
- * so G/?/undo keep working no matter where focus is (D10).
+ * so G/?/undo keep working no matter where focus is.
  */
 function isSidebarSurface(e) {
     const target = e.target;
@@ -4787,7 +4787,7 @@ class BCMapEditor {
         this.showHelp = true;
         this.renderRequested = false;
         this.history = new history_1.MapHistory();
-        /** One entry per gesture (mouse) or key-repeat burst (vim), D12. */
+        /** One entry per gesture (mouse) or key-repeat burst (vim): closes on idle timeout or explicit flush. */
         this.session = new editSession_1.EditSession({
             begin: () => this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),
             markDirty: () => this.history.markDirty(),
@@ -6209,7 +6209,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.key === ":" && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 return false;
             }
-            // Any other printable character jumps into the search box (D9).
+            // Any other printable character jumps into the search box.
             if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 e.preventDefault();
                 focusSearchSelect();
