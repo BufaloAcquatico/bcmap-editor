@@ -54,6 +54,7 @@ const REGISTRY: Array<{
     { keys: "/", description: "Focus search", group: "navigate" },
     { keys: ":", description: "Command line", group: "command" },
     { keys: "Tab", description: "Move between", group: "navigate" },
+    { keys: "/", description: "Search the tiles", group: "navigate" },
     { keys: "?", description: "Toggle help", group: "system" },
     { keys: "Esc", description: "Cancel", group: "system" },
     { keys: "arrows", description: "Navigate picker grid", group: "navigate" },
@@ -97,6 +98,14 @@ describe("createHelpRenderer", () => {
         expect(html).toContain("Move cursor");
         expect(html).toContain("Command line");
         expect(html).not.toContain("Navigate picker grid");
+    });
+
+    it("renders a bare slash key instead of an empty cell", () => {
+        const { renderer, texts } = setup("map");
+        renderer.render();
+        const html = texts().join("\n");
+        expect(html).toContain("<kbd>/</kbd>");
+        expect(html).toContain("Search the tiles");
     });
 
     it("labels the surface and groups rows into sections", () => {

@@ -130,13 +130,16 @@ export function createHelpRenderer(deps: HelpCardDeps): HelpCardRenderer {
         nodes = [];
     };
 
-    const formatKeys = (keys: string) =>
-        keys
+    const formatKeys = (keys: string) => {
+        // A bare "/" must not be split into "" + "": it is the key itself.
+        if (keys.trim() === "/") return "<kbd>/</kbd>";
+        return keys
             .split("/")
             .map((k) => k.trim())
             .filter((k) => k.length > 0)
             .map((k) => `<kbd>${k}</kbd>`)
             .join(" / ");
+    };
 
     // One shared grid wrapper aligns the key column across every
     // section; labels span the full row. Rows are key/desc span pairs
