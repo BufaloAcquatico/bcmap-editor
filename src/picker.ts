@@ -19,6 +19,37 @@ import {
 
 export type PickerLayer = "tile" | "object";
 
+/**
+ * Display-only category overrides by object ID. The catalog data keeps
+ * BC's own categories so the FULL_* arrays stay byte-identical for import
+ * compatibility; this only moves an item within the picker. BC files the
+ * standing banners under FloorDecorationThemed, but users look for them
+ * next to the hangable banners.
+ */
+const DISPLAY_CATEGORY_OVERRIDES: Record<number, string> = {
+    390: "Banners", // StandingBellflowerBanner
+    391: "Banners", // BondageClubBanner
+    392: "Banners", // VoidOrderBanner
+};
+
+/** Picker section label for an object; overrides win over the type mapping. */
+export function displayGroupFor(o: ObjectDef): string {
+    const override = DISPLAY_CATEGORY_OVERRIDES[o.ID];
+    if (override) return override;
+    if (o.Type.startsWith("FloorDecoration")) return "Floor Decorations";
+    if (
+        o.Type === "FloorItem" ||
+        o.Type === "FloorNumber" ||
+        o.Type === "FloorLetter" ||
+        o.Type === "FloorIcon"
+    )
+        return "Floor Items";
+    if (o.Type === "FloorObstacle") return "Floor Obstacles";
+    if (o.Type === "WallDecoration" || o.Type === "WallPath") return "Wall";
+    if (o.Type === "Banners") return "Banners";
+    return o.Type;
+}
+
 export interface PickerDelegate {
     onSelectTile(tile: TileDef): void;
     onSelectObject(obj: ObjectDef): void;
@@ -106,19 +137,7 @@ export class MapPicker {
 
         const objGroups = new Map<string, ObjectDef[]>();
         objectCatalog.forEach((o) => {
-            let g = o.Type;
-            if (o.Type.startsWith("FloorDecoration")) g = "Floor Decorations";
-            else if (
-                o.Type === "FloorItem" ||
-                o.Type === "FloorNumber" ||
-                o.Type === "FloorLetter" ||
-                o.Type === "FloorIcon"
-            )
-                g = "Floor Items";
-            else if (o.Type === "FloorObstacle") g = "Floor Obstacles";
-            else if (o.Type === "WallDecoration" || o.Type === "WallPath")
-                g = "Wall";
-            else if (o.Type === "Banners") g = "Banners";
+            const g = displayGroupFor(o);
             if (!objGroups.has(g)) objGroups.set(g, []);
             objGroups.get(g)!.push(o);
         });
