@@ -400,29 +400,38 @@ test("status bar keeps fixed sections as the selection text changes", async ({
                     (section.left + section.right) / 2,
             );
         });
+    const boxes = () =>
+        Promise.all(
+            [mode, selection, position].map((loc) => loc.boundingBox()),
+        );
+    // The three sections split the bar into equal thirds.
+    const [modeBox, selectionBox, positionBox] = await boxes();
+    expect(selectionBox!.width).toBeGreaterThan(0);
+    expect(Math.abs(modeBox!.width - selectionBox!.width)).toBeLessThan(4);
+    expect(Math.abs(positionBox!.width - selectionBox!.width)).toBeLessThan(4);
     // Short text sits in the middle of the middle section.
     expect(await centerOffset()).toBeLessThan(6);
-    const before = {
-        mode: await mode.boundingBox(),
-        position: await position.boundingBox(),
-    };
-    // A long selection must not move the mode or position text.
+    // A long selection must not move anything else…
     await selection.evaluate((el) => {
         el.textContent =
             "An extremely long object selection name that must be ellipsized";
     });
     await expect(selection).toHaveCSS("text-overflow", "ellipsis");
-    const after = {
-        mode: await mode.boundingBox(),
-        position: await position.boundingBox(),
-    };
-    expect(after.mode!.x).toBe(before.mode!.x);
-    expect(after.position!.x).toBe(before.position!.x);
+    // …and neither must a longer position readout: widths stay put.
+    await position.evaluate((el) => {
+        el.textContent = "Position: (39, 39) zoomed";
+    });
+    const [modeAfter, selectionAfter, positionAfter] = await boxes();
+    for (const [a, b] of [
+        [modeBox, modeAfter],
+        [selectionBox, selectionAfter],
+        [positionBox, positionAfter],
+    ]) {
+        expect(a!.x).toBe(b!.x);
+        expect(a!.width).toBe(b!.width);
+    }
     // Clipped text stays centered too.
     expect(await centerOffset()).toBeLessThan(6);
-    // Only the middle section carries the flexible width.
-    await expect(selection).toHaveCSS("flex-grow", "1");
-    await expect(mode.locator("xpath=..")).toHaveCSS("flex-grow", "0");
 });
 
 test("command prompt widens the left status section while open", async ({

@@ -115,22 +115,20 @@
     }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
     .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
-    /* Three fixed sections so the edges never jitter as the middle text
-       changes length: mode and position hold their width, only the
-       selection text absorbs the difference (ellipsized when it must). */
-    .status-section { min-width: 0; }
-    .status-mode { flex: 0 0 auto; }
-    .status-position { flex: 0 0 auto; }
+    /* Three equal sections so no text change anywhere can move any
+       other text: mode left, selection centered, position right. Only the
+       middle clips (ellipsized) when space runs out. */
+    .status-bar .status-section { flex: 1 1 0; min-width: 0; }
+    .status-mode { text-align: left; }
     .status-selection {
-      flex: 1 1 auto;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      /* The section spans the middle; the text sits in its middle. */
       text-align: center;
     }
-    /* The `:` prompt borrows the left section and needs the full width. */
-    .status-bar.command-open .status-mode { flex: 1 1 auto; }
+    .status-position { text-align: right; }
+    /* The `:` prompt borrows the left section and needs most of the bar. */
+    .status-bar.command-open .status-mode { flex: 4 1 0; }
     /* Vim-style command line: a `:` glyph plus typed text in status-bar
        typography, so opening it shifts no pixels and shows no box chrome.
        (`d-none` still hides the wrap; this rule only lays it out shown.) */
