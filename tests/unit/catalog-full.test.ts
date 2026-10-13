@@ -122,6 +122,22 @@ describe("Catalog - Full mirror of official game data", () => {
         expect(unique(OBJECT_CATALOG)).toEqual(unique(FULL_OBJECT_CATALOG));
     });
 
+    it("carries BC's conveyor rotations, like the game", () => {
+        // BC's Assets/MapData.js: 3500/3510 unrotated, the rest 180/270/90.
+        const byId = new Map(FULL_OBJECT_CATALOG.map((o) => [o.ID, o]));
+        const degrees = (id: number) => byId.get(id)?.Rotation ?? 0;
+        expect([3500, 3510].map(degrees)).toEqual([0, 0]);
+        expect([3501, 3511].map(degrees)).toEqual([180, 180]);
+        expect([3502, 3512].map(degrees)).toEqual([270, 270]);
+        expect([3503, 3513].map(degrees)).toEqual([90, 90]);
+        // Rotation exists nowhere else in the game data.
+        expect(
+            FULL_OBJECT_CATALOG.filter((o) => o.Rotation !== undefined)
+                .map((o) => o.ID)
+                .sort((a, b) => a - b),
+        ).toEqual([3501, 3502, 3503, 3511, 3512, 3513]);
+    });
+
     it("knows every real-game object/tile ID", () => {
         expect(editor.isKnownObjectId(1399)).toBe(true);
         expect(editor.isKnownObjectId(1402)).toBe(true);

@@ -1088,6 +1088,23 @@ export class BCMapEditor {
                     const adjDrawW = tileSize * width;
                     const adjDrawY = startY + (y + top) * tileSize;
                     const adjDrawH = tileSize * height;
+                    // Conveyor belts bake direction purely as a rotation
+                    // about the rect centre (degrees, clockwise on screen),
+                    // mirroring BC. Zero rotation keeps the fast path with no
+                    // transform so existing rendering is pixel-identical.
+                    const rotation = obj.Rotation ?? 0;
+                    if (rotation !== 0) {
+                        ctx.save();
+                        ctx.translate(
+                            adjDrawX + adjDrawW / 2,
+                            adjDrawY + adjDrawH / 2,
+                        );
+                        ctx.rotate((rotation * Math.PI) / 180);
+                        ctx.translate(
+                            -(adjDrawX + adjDrawW / 2),
+                            -(adjDrawY + adjDrawH / 2),
+                        );
+                    }
                     if (img && img.complete && img.naturalWidth > 0) {
                         ctx.drawImage(
                             img,
@@ -1106,6 +1123,7 @@ export class BCMapEditor {
                             adjDrawH * OBJECT_DRAW_SIZE,
                         );
                     }
+                    if (rotation !== 0) ctx.restore();
                 }
             }
         }

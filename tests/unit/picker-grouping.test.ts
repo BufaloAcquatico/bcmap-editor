@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { displayGroupFor, orderObjectGroups } from "../../src/picker";
+import {
+    displayGroupFor,
+    orderObjectGroups,
+    rotationTransform,
+} from "../../src/picker";
 import { FULL_OBJECT_CATALOG, OBJECT_CATALOG } from "../../src/catalog";
 
 // The picker groups OBJECT_CATALOG (display view); FULL_OBJECT_CATALOG
@@ -56,5 +60,18 @@ describe("object section order", () => {
         const groups = new Map([["Wall", [{ ID: 3010 }]]]);
         orderObjectGroups(groups);
         expect([...groups.keys()]).toEqual(["Wall"]);
+    });
+});
+
+describe("rotationTransform", () => {
+    it("leaves unrotated items untransformed", () => {
+        expect(rotationTransform({})).toBe("");
+        expect(rotationTransform({ Rotation: 0 })).toBe("");
+    });
+
+    it("emits a CSS rotation for conveyor directions", () => {
+        expect(rotationTransform({ Rotation: 90 })).toBe("rotate(90deg)");
+        expect(rotationTransform({ Rotation: 180 })).toBe("rotate(180deg)");
+        expect(rotationTransform({ Rotation: 270 })).toBe("rotate(270deg)");
     });
 });

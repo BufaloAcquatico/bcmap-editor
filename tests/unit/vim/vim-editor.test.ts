@@ -3,7 +3,7 @@ import { BCMapEditor } from "../../../src/editor";
 import { appSurface } from "../../../src/appSurface";
 import { MOTION_MS, MOTION_QUICK_MS } from "../../../src/anim";
 import { MAP_WIDTH } from "../../../src/mapdata";
-import { BLANK_OBJECT_ID } from "../../../src/catalog";
+import { BLANK_OBJECT_ID, FULL_OBJECT_CATALOG } from "../../../src/catalog";
 
 const mockCtx = {
     clearRect: vi.fn(),
@@ -11,6 +11,7 @@ const mockCtx = {
     restore: vi.fn(),
     setLineDash: vi.fn(),
     translate: vi.fn(),
+    rotate: vi.fn(),
     scale: vi.fn(),
     setTransform: vi.fn(),
     drawImage: vi.fn(),
@@ -901,5 +902,41 @@ describe("Unique objects (entry flag)", () => {
         editor.handleVimKey(keyEvent(" "));
         expect(objAt(20, 20)).toBe(130);
         expect(objAt(21, 20)).toBe(130);
+    });
+});
+
+describe("Conveyor belt rotation", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setCurrentLayer("object");
+    });
+
+    it("rotates a conveyor sprite about the tile centre on render", () => {
+        const belt = FULL_OBJECT_CATALOG.find((o) => o.ID === 3501)!;
+        editor.setSelectedObject(belt);
+        editor.handleVimKey(keyEvent(" ")); // place at cursor (0,0)
+        // Placing already renders once; isolate the explicit render below.
+        vi.clearAllMocks();
+        (editor as any).render();
+        expect(mockCtx.rotate).toHaveBeenCalledTimes(1);
+        expect(mockCtx.rotate).toHaveBeenCalledWith(Math.PI);
+        // Center-preserving translate pair brackets the rotation.
+        expect(mockCtx.translate.mock.calls.length).toBeGreaterThanOrEqual(2);
+        expect(mockCtx.save).toHaveBeenCalled();
+        expect(mockCtx.restore).toHaveBeenCalled();
+    });
+
+    it("leaves unrotated objects on the transform-free fast path", () => {
+        editor.setSelectedObject({
+            ID: 130,
+            Type: "FloorDecoration",
+            Style: "PillowPink",
+        });
+        editor.handleVimKey(keyEvent(" "));
+        (editor as any).render();
+        expect(mockCtx.rotate).not.toHaveBeenCalled();
     });
 });

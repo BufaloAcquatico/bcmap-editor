@@ -28,6 +28,13 @@ export interface ObjectDef {
      * the entry flag (110) - the single Unique entry in the game catalog.
      */
     unique?: boolean;
+    /**
+     * Clockwise rotation in degrees, applied about the tile centre at draw
+     * time. Mirrors BC's `Rotation` (only the conveyor belts carry it: the
+     * four directions of a style share one `Style` and differ by this field
+     * alone). Absent means 0, matching the game.
+     */
+    Rotation?: number;
     Type: string;
     Style: string;
     Top?: number;
@@ -2167,9 +2174,30 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 3303, Type: "WallDecoration", Style: "MonitorBigRight" },
     { ID: 3499, Type: "Functional", Style: "Blank" },
     { ID: 3500, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
-    { ID: 3501, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
-    { ID: 3502, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
-    { ID: 3503, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    {
+        ID: 3501,
+        Type: "Functional",
+        Style: "ConveyorBelt1",
+        Top: 0,
+        Left: 0,
+        Rotation: 180,
+    },
+    {
+        ID: 3502,
+        Type: "Functional",
+        Style: "ConveyorBelt1",
+        Top: 0,
+        Left: 0,
+        Rotation: 270,
+    },
+    {
+        ID: 3503,
+        Type: "Functional",
+        Style: "ConveyorBelt1",
+        Top: 0,
+        Left: 0,
+        Rotation: 90,
+    },
     {
         ID: 3510,
         Type: "Functional",
@@ -2183,6 +2211,7 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Style: "ConveyorBeltFast1",
         Top: 0,
         Left: 0,
+        Rotation: 180,
     },
     {
         ID: 3512,
@@ -2190,6 +2219,7 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Style: "ConveyorBeltFast1",
         Top: 0,
         Left: 0,
+        Rotation: 270,
     },
     {
         ID: 3513,
@@ -2197,6 +2227,7 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Style: "ConveyorBeltFast1",
         Top: 0,
         Left: 0,
+        Rotation: 90,
     },
     { ID: 3520, Type: "Functional", Style: "SignWood", Top: -0.25 },
     { ID: 3521, Type: "Functional", Style: "SignWoodWall", Top: 0.1 },

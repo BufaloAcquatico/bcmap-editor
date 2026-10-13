@@ -68,6 +68,18 @@ export function orderObjectGroups<T>(groups: Map<string, T[]>): void {
     }
 }
 
+/**
+ * CSS transform for a picker button whose catalog entry carries `Rotation`
+ * (conveyor belts: one shared `Style`, direction in this field). Square
+ * buttons with a uniform radius rotate into themselves, so the artwork turns
+ * while the button box, focus ring, and background-image hook stay put.
+ * Empty string keeps every other item untransformed.
+ */
+export function rotationTransform(obj: { Rotation?: number }): string {
+    const degrees = obj.Rotation ?? 0;
+    return degrees === 0 ? "" : `rotate(${degrees}deg)`;
+}
+
 export interface PickerDelegate {
     onSelectTile(tile: TileDef): void;
     onSelectObject(obj: ObjectDef): void;
@@ -179,6 +191,10 @@ export class MapPicker {
                 item.className = "sprite-item";
                 item.tabIndex = -1;
                 item.setAttribute?.("aria-pressed", "false");
+                // Conveyor belts share one Style per direction set; the icon
+                // shows its direction via the catalog Rotation.
+                const transform = rotationTransform(obj);
+                if (transform) item.style.transform = transform;
                 if (obj.Style !== "Blank") {
                     const key = obj.Type + "/" + obj.Style;
                     item.style.backgroundImage =

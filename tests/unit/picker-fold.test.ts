@@ -193,4 +193,25 @@ describe("Foldable pickers", () => {
         picker.setCategoryCollapsed(entry, true);
         expect(entry.content.animate).toHaveBeenCalledTimes(2);
     });
+
+    it("rotates conveyor picker icons so directions differ", () => {
+        // One shared Style per direction set; Rotation carries direction.
+        const conveyors = [0, 180, 270, 90].map((degrees, i) => ({
+            ID: 3500 + i,
+            Type: "Functional",
+            Style: "ConveyorBelt1",
+            Top: 0,
+            Left: 0,
+            ...(degrees === 0 ? {} : { Rotation: degrees }),
+        }));
+        (editor as any).picker.populate([], conveyors);
+        const icons = created.filter((el) => el.className === "sprite-item");
+        expect(icons).toHaveLength(4);
+        expect(icons.map((el) => el.style.transform ?? "")).toEqual([
+            "",
+            "rotate(180deg)",
+            "rotate(270deg)",
+            "rotate(90deg)",
+        ]);
+    });
 });
