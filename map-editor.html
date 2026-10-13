@@ -145,11 +145,50 @@
     .form-control, .form-select { background-color: #0f0f23; border-color: #2a2a4a; color: #eaeaea; }
     .form-control:focus, .form-select:focus { background-color: #0f0f23; border-color: #0d6efd; color: #eaeaea; box-shadow: 0 0 0 0.25rem rgba(13,110,253,0.25); }
     .search-box { width: 100%; }
-    .layer-tabs { border-bottom: 1px solid #2a2a4a; }
-    .layer-tabs .nav-link { color: #adb5bd; cursor: pointer; flex: 1; text-align: center; white-space: nowrap; }
-    .layer-tabs .nav-link:hover { color: #fff; }
-    .layer-tabs .btn-check:checked + .nav-link { background-color: #fff; color: #16213e; border-color: transparent; }
-    .layer-tabs .nav-link.active { background-color: #fff; color: #16213e; }
+    /* Layer switch: a two-state segmented control, not tabs - everything
+       below it belongs to the same sidebar. The thumb slides between the
+       two options over the shared motion token (reduced motion kills it
+       via the global block above). */
+    .layer-switch {
+      position: relative;
+      display: flex;
+      margin: 8px 8px 0;
+      padding: 3px;
+      background: #0f0f23;
+      border: 1px solid #2a2a4a;
+      border-radius: 999px;
+    }
+    .layer-switch-thumb {
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: calc(50% - 3px);
+      height: calc(100% - 6px);
+      background: #fff;
+      border-radius: 999px;
+      transition: transform var(--motion-ms) ease-out;
+    }
+    .layer-switch:has(#layerObject:checked) .layer-switch-thumb {
+      transform: translateX(100%);
+    }
+    .layer-switch-option {
+      flex: 1;
+      margin: 0;
+      padding: 6px 0;
+      text-align: center;
+      white-space: nowrap;
+      color: #adb5bd;
+      cursor: pointer;
+      position: relative;
+      z-index: 1;
+      transition: color var(--motion-ms) ease-out;
+    }
+    .layer-switch-option:hover { color: #fff; }
+    .layer-switch .btn-check:checked + .layer-switch-option { color: #16213e; }
+    .layer-switch .btn-check:focus-visible + .layer-switch-option {
+      outline: 2px solid #8ea2ff;
+      outline-offset: 2px;
+    }
 .zoom-display { min-width: 80px; text-align: center; }
     .controls-help {
       position: absolute;
@@ -218,11 +257,12 @@
   <div class="flex-1 d-flex" style="flex: 1; min-height: 0; overflow: hidden;">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar d-flex flex-column" style="width: 320px; min-width: 320px; max-width: 400px; overflow: hidden;">
-      <div class="nav nav-tabs layer-tabs px-2 pt-2">
+      <div class="layer-switch" role="group" aria-label="Layer">
+        <span class="layer-switch-thumb" aria-hidden="true"></span>
         <input type="radio" class="btn-check" name="layer" id="layerTile" value="tile" checked autocomplete="off">
-        <label class="nav-link" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
+        <label class="layer-switch-option" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
         <input type="radio" class="btn-check" name="layer" id="layerObject" value="object" autocomplete="off">
-        <label class="nav-link" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
+        <label class="layer-switch-option" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
       </div>
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">

@@ -314,6 +314,50 @@ test("modal focus tracks as chrome with dialog help", async ({
     await expect(help).not.toContainText("Move around the map");
 });
 
+test.describe("layer switch with motion allowed", () => {
+    // The file defaults to reduced motion (instant rings/fades); the
+    // sliding thumb needs the normal tier to observe its transition.
+    test.use({ reducedMotion: "no-preference" });
+
+    test("layer switch slides its thumb over the shared token", async ({
+        page,
+    }: {
+        page: Page;
+    }) => {
+        await openEditor(page);
+        const switchEl = page.locator(".layer-switch");
+        const thumb = page.locator(".layer-switch-thumb");
+        const tileThumb = await thumb.evaluate(
+            (el) => getComputedStyle(el).transform,
+        );
+        await page.keyboard.press("]");
+        await expect(page.locator("#layerObject")).toBeChecked();
+        // Slides over the shared motion token (init.ts mirrors 150ms).
+        await expect(thumb).toHaveCSS("transition-duration", "0.15s");
+        await expect(thumb).toHaveCSS("transform", /matrix/);
+        await page.waitForTimeout(400); // MOTION_MS + slack
+        const objectThumb = await thumb.evaluate(
+            (el) => getComputedStyle(el).transform,
+        );
+        expect(objectThumb).not.toBe(tileThumb);
+        // Still real labels with accessible names, not decorative divs.
+        await expect(switchEl.getByText("Tile")).toBeVisible();
+        await expect(switchEl.getByText("Object")).toBeVisible();
+    });
+});
+
+test("layer switch thumb does not animate under reduced motion", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const thumb = page.locator(".layer-switch-thumb");
+    await expect(thumb).toHaveCSS("transition-duration", "0s");
+    await page.keyboard.press("]");
+    await expect(page.locator("#layerObject")).toBeChecked();
+});
+
 test("[ and ] switch the picker layer from the keyboard", async ({ page }) => {
     await openEditor(page);
     await page.locator("#mapCanvas").click();
