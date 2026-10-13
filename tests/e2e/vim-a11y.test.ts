@@ -434,22 +434,57 @@ test("status bar keeps fixed sections as the selection text changes", async ({
     expect(await centerOffset()).toBeLessThan(6);
 });
 
-test("command prompt widens the left status section while open", async ({
+test("command prompt overlays the bar without moving any section", async ({
     page,
 }: {
     page: Page;
 }) => {
     await openEditor(page);
     await page.locator("#mapCanvas").click();
-    const modeBox = await page.locator("#statusVimMode").boundingBox();
+    // The mode readout itself hides while typing (replaced by the prompt),
+    // so pin the three *sections* - they persist in every mode.
+    const sections = () =>
+        Promise.all(
+            [".status-mode", "#statusSelection", "#statusPosition"].map((sel) =>
+                page.locator(sel).boundingBox(),
+            ),
+        );
+    const before = await sections();
     await page.keyboard.press(":");
     await expect(page.locator("#commandPrompt")).toBeFocused();
-    await expect(page.locator(".status-bar")).toHaveClass(/command-open/);
-    const promptBox = await page.locator("#commandPromptWrap").boundingBox();
-    // The prompt spans far more than the narrow mode slot did.
-    expect(promptBox!.width).toBeGreaterThan(modeBox!.width);
+    // Like vim, the status line becomes the command line: the prompt
+    // floats over the bar instead of reflowing it.
+    const wrap = page.locator("#commandPromptWrap");
+    await expect(wrap).toBeVisible();
+    const wrapBox = await wrap.boundingBox();
+    const barBox = await page.locator(".status-bar").boundingBox();
+    expect(wrapBox!.x).toBeLessThanOrEqual(barBox!.x + 1);
+    expect(wrapBox!.x + wrapBox!.width).toBeGreaterThanOrEqual(
+        barBox!.x + barBox!.width - 1,
+    );
+    const during = await sections();
+    for (const [a, b] of [
+        [before[0], during[0]],
+        [before[1], during[1]],
+        [before[2], during[2]],
+    ]) {
+        expect(b!.x).toBe(a!.x);
+        expect(b!.width).toBe(a!.width);
+    }
+    // Typing still works on top, and closing restores the bar exactly.
+    await page.keyboard.type("grid");
+    await expect(page.locator("#commandPrompt")).toHaveValue("grid");
     await page.keyboard.press("Escape");
-    await expect(page.locator(".status-bar")).not.toHaveClass(/command-open/);
+    await expect(wrap).toBeHidden();
+    const after = await sections();
+    for (const [a, b] of [
+        [before[0], after[0]],
+        [before[1], after[1]],
+        [before[2], after[2]],
+    ]) {
+        expect(b!.x).toBe(a!.x);
+        expect(b!.width).toBe(a!.width);
+    }
 });
 
 test("search Enter goes to first match, Tab returns to map", async ({

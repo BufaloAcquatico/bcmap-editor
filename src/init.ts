@@ -221,11 +221,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // slot; the input itself keeps its id, focus and key handling.
         commandPromptWrap?.classList.toggle("d-none", !open);
         modeSlot?.classList.toggle("d-none", open);
-        // The prompt lives in the left section; let that section take the
-        // full bar while it is open (status bar keeps its three sections).
-        commandPromptWrap
-            ?.closest(".status-bar")
-            ?.classList.toggle("command-open", open);
         if (open) {
             commandPrompt.value = "";
             commandPromptWrap?.classList.remove("d-none");
