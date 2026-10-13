@@ -50,6 +50,24 @@ export function displayGroupFor(o: ObjectDef): string {
     return o.Type;
 }
 
+/**
+ * Sections pinned to the end of the picker, in order. Banners anchors last:
+ * the ID-keyed overrides above would otherwise hoist it up to first use,
+ * which reads as a category jumping around between layers.
+ */
+export const PINNED_LAST_SECTIONS: readonly string[] = ["Banners"];
+
+/** Re-insert pinned sections at the end of the group order, in order. */
+export function orderObjectGroups<T>(groups: Map<string, T[]>): void {
+    for (const name of PINNED_LAST_SECTIONS) {
+        const items = groups.get(name);
+        if (items) {
+            groups.delete(name);
+            groups.set(name, items);
+        }
+    }
+}
+
 export interface PickerDelegate {
     onSelectTile(tile: TileDef): void;
     onSelectObject(obj: ObjectDef): void;
@@ -141,14 +159,7 @@ export class MapPicker {
             if (!objGroups.has(g)) objGroups.set(g, []);
             objGroups.get(g)!.push(o);
         });
-        // The Banners section anchors the end of the list: the ID-keyed
-        // overrides above would otherwise hoist it up to first use, which
-        // reads as a category jumping around between layers.
-        const banners = objGroups.get("Banners");
-        if (banners) {
-            objGroups.delete("Banners");
-            objGroups.set("Banners", banners);
-        }
+        orderObjectGroups(objGroups);
         // Clear without HTML parsing (containers only hold app-created nodes).
         objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {

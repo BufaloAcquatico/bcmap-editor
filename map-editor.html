@@ -3535,8 +3535,9 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
 // report back through the delegate.
 //
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
-window.MapPicker = void 0;
+window.MapPicker = window.PINNED_LAST_SECTIONS = void 0;
 window.displayGroupFor = displayGroupFor;
+window.orderObjectGroups = orderObjectGroups;
 const appSurface_1 = window;
 
 /**
@@ -3570,6 +3571,22 @@ function displayGroupFor(o) {
     if (o.Type === "Banners")
         return "Banners";
     return o.Type;
+}
+/**
+ * Sections pinned to the end of the picker, in order. Banners anchors last:
+ * the ID-keyed overrides above would otherwise hoist it up to first use,
+ * which reads as a category jumping around between layers.
+ */
+window.PINNED_LAST_SECTIONS = ["Banners"];
+/** Re-insert pinned sections at the end of the group order, in order. */
+function orderObjectGroups(groups) {
+    for (const name of window.PINNED_LAST_SECTIONS) {
+        const items = groups.get(name);
+        if (items) {
+            groups.delete(name);
+            groups.set(name, items);
+        }
+    }
 }
 // Bundled eraser icon for Blank (delete-tool) picker items. Inline SVG on
 // purpose: the previous markup used the non-existent `bi-erase` class (only
@@ -3647,14 +3664,7 @@ class MapPicker {
                 objGroups.set(g, []);
             objGroups.get(g).push(o);
         });
-        // The Banners section anchors the end of the list: the ID-keyed
-        // overrides above would otherwise hoist it up to first use, which
-        // reads as a category jumping around between layers.
-        const banners = objGroups.get("Banners");
-        if (banners) {
-            objGroups.delete("Banners");
-            objGroups.set("Banners", banners);
-        }
+        orderObjectGroups(objGroups);
         // Clear without HTML parsing (containers only hold app-created nodes).
         objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {

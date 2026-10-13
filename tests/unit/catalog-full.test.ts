@@ -114,14 +114,12 @@ describe("Catalog - Full mirror of official game data", () => {
 
     it("marks exactly the entry flag as unique, like BC", () => {
         // BC's Assets/MapData.js carries Unique on object 110 only.
-        expect(
-            FULL_OBJECT_CATALOG.filter((o) => o.unique).map((o) => o.ID),
-        ).toEqual([110]);
-        // The picker view marks the same entry, so painting from either
-        // catalog keeps the move-on-place behavior.
-        expect(OBJECT_CATALOG.filter((o) => o.unique).map((o) => o.ID)).toEqual(
-            [110],
-        );
+        const unique = (catalog: readonly { ID: number; unique?: boolean }[]) =>
+            catalog.filter((o) => o.unique).map((o) => o.ID);
+        expect(unique(FULL_OBJECT_CATALOG)).toEqual([110]);
+        // Both mirrors must mark the same entries, or the flag works from
+        // one and silently not from the other.
+        expect(unique(OBJECT_CATALOG)).toEqual(unique(FULL_OBJECT_CATALOG));
     });
 
     it("knows every real-game object/tile ID", () => {

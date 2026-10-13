@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { displayGroupFor } from "../../src/picker";
+import { displayGroupFor, orderObjectGroups } from "../../src/picker";
 import { FULL_OBJECT_CATALOG, OBJECT_CATALOG } from "../../src/catalog";
 
 // The picker groups OBJECT_CATALOG (display view); FULL_OBJECT_CATALOG
@@ -38,5 +38,23 @@ describe("picker grouping", () => {
                 o.Style.endsWith("Banner") || displayGroupFor(o) === "Banners",
         );
         expect(banners.length).toBe(17);
+    });
+});
+
+describe("object section order", () => {
+    it("pins Banners last whatever the insertion order", () => {
+        const groups = new Map([
+            ["Banners", [{ ID: 5010 }]],
+            ["Wall", [{ ID: 3010 }]],
+            ["Floor Items", [{ ID: 1010 }]],
+        ]);
+        orderObjectGroups(groups);
+        expect([...groups.keys()]).toEqual(["Wall", "Floor Items", "Banners"]);
+    });
+
+    it("leaves maps without pinned sections untouched", () => {
+        const groups = new Map([["Wall", [{ ID: 3010 }]]]);
+        orderObjectGroups(groups);
+        expect([...groups.keys()]).toEqual(["Wall"]);
     });
 });
