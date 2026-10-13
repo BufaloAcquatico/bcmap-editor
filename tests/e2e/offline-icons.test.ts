@@ -21,8 +21,8 @@ test("blank picker eraser icons render with CDN stylesheets blocked", async ({
     const icons = page.locator(
         "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible svg.picker-eraser-icon",
     );
-    // 4 object groups carry a Blank entry (Banners has none).
-    expect(await icons.count()).toBe(4);
+    // 19 of the 20 game categories own a Blank entry (Banners has none).
+    expect(await icons.count()).toBe(19);
     for (const box of await icons.evaluateAll((els) =>
         els.map((el) => el.getBoundingClientRect().toJSON()),
     )) {

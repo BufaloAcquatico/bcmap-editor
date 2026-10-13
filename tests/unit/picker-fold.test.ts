@@ -214,4 +214,17 @@ describe("Foldable pickers", () => {
             "rotate(90deg)",
         ]);
     });
+
+    it("shows the eraser first even when Blank sorts last in game order", () => {
+        // Bathroom's Blank (3281) comes after every other Bathroom entry.
+        const bathroom = [
+            { ID: 260, Type: "Bathroom", Style: "LaundryMachine" },
+            { ID: 3024, Type: "Bathroom", Style: "Sink" },
+            { ID: 3281, Type: "Bathroom", Style: "Blank" },
+        ];
+        (editor as any).picker.populate([], bathroom);
+        const icons = created.filter((el) => el.className === "sprite-item");
+        expect(icons).toHaveLength(3);
+        expect(icons[0].title).toBe("Blank (Erase)");
+    });
 });

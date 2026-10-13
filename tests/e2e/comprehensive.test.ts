@@ -17,9 +17,9 @@ test("tile picker categories load with thumbnails", async ({
     const categories = await page
         .locator("#tileCategories .category-header")
         .allTextContents();
-    expect(categories).toContain("Floor");
-    expect(categories).toContain("FloorExterior");
-    expect(categories).toContain("Wall");
+    expect(categories).toContain("Floors");
+    expect(categories).toContain("Outdoor Floors");
+    expect(categories).toContain("Walls");
     expect(categories).toContain("Water");
 
     // Check thumbnails load (background-image style on sprite-items)
@@ -40,14 +40,18 @@ test("object picker categories load with thumbnails", async ({
     await page.click('label[for="layerObject"]');
     await page.waitForSelector("#objectCategories .category-header:visible");
 
-    // Check object categories exist
+    // Check object categories exist - the game's own categories, readable.
     const categories = await page
         .locator("#objectCategories .category-header:visible")
         .allTextContents();
-    expect(categories).toContain("Floor Decorations");
-    expect(categories).toContain("Floor Items");
+    expect(categories).toContain("Functional");
+    expect(categories).toContain("Living Room");
+    expect(categories).toContain("Bedroom");
+    expect(categories).toContain("Bathroom");
+    expect(categories).toContain("School");
+    expect(categories).toContain("Foam Tiles");
+    expect(categories).toContain("ABDL");
     expect(categories).toContain("Floor Obstacles");
-    expect(categories).toContain("Wall");
     expect(categories).toContain("Banners");
 
     // Categories start collapsed; reveal matching sprites via search
@@ -66,9 +70,9 @@ test("object picker categories load with thumbnails", async ({
             "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible",
         )
         .count();
-    // 4 object category groups have Blanks: Floor Decorations, Floor Items, Floor Obstacles, Wall
-    // Banners category has no Blank objects
-    expect(blankItem).toBe(4);
+    // Every object category with a Blank entry shows its eraser first.
+    // 19 of the 20 game categories own a Blank; Banners has none.
+    expect(blankItem).toBe(19);
 });
 
 test("search filter works for tiles", async ({ page }: { page: Page }) => {

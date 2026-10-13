@@ -1,48 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import https from "https";
-import { OBJECT_CATALOG, TILE_CATALOG } from "../src/catalog";
+import { FULL_OBJECT_CATALOG, FULL_TILE_CATALOG } from "../src/catalog";
 import { railroadVariantStyles, WALL_EFFECT_INDICES } from "../src/constants";
 
 const BASE_URL =
     "https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom";
-
-// Some object styles were moved to different folders in the R132 asset tree used
-// by the game server. Keyed by "<CatalogType>/<Style>", the value is the source
-// folder under MapObject/. Assets are always SAVED under the catalog Type/Style
-// path so the editor's preloader can find them.
-const MOVED_OBJECTS: Record<string, string> = {
-    "FloorDecoration/EntryFlag": "Functional",
-    "FloorDecoration/ExitFlag": "Functional",
-    "FloorDecoration/BedTeal": "Bedroom",
-    "FloorDecoration/PillowPink": "LivingRoom",
-    "FloorDecoration/TableBrown": "LivingRoom",
-    "FloorDecoration/ChairWood": "LivingRoom",
-    "FloorDecoration/ThroneRed": "LivingRoom",
-    "FloorDecoration/KeyBronze": "Functional",
-    "FloorDecoration/KeySilver": "Functional",
-    "FloorDecoration/KeyGold": "Functional",
-    "FloorDecoration/VikingChair": "LivingRoom",
-    "FloorDecoration/Bed": "Bedroom",
-    "FloorDecoration/Stairs": "LivingRoom",
-    "FloorDecoration/AirConditioner": "LivingRoom",
-    "FloorDecorationThemed/TeacherDesk": "School",
-    "FloorDecorationThemed/StudentDesk": "School",
-    "FloorDecorationThemed/LaundryMachine": "Bathroom",
-    "FloorDecorationThemed/IroningBoard": "Bathroom",
-    "FloorDecorationThemed/JapaneseTable": "LivingRoom",
-    "FloorDecorationThemed/Toilet": "Bathroom",
-    "FloorDecorationThemed/Television": "LivingRoom",
-    "FloorDecorationThemed/TelevisionBack": "LivingRoom",
-    "FloorDecorationThemed/Wardrobe": "Bedroom",
-    "FloorItem/Locker": "School",
-    "WallDecoration/Mirror": "Bathroom",
-    "WallDecoration/Fireplace": "LivingRoom",
-    "WallDecoration/SchoolBoard": "School",
-    "WallDecoration/Bookshelf": "LivingRoom",
-    "WallDecoration/ShowerHead": "Bathroom",
-    "WallDecoration/EnemaHead": "Bathroom",
-};
 
 interface Options {
     force: boolean;
@@ -191,7 +154,7 @@ async function runPool(
 }
 
 function tileJobs(): Job[] {
-    return TILE_CATALOG.map((tile) => ({
+    return FULL_TILE_CATALOG.map((tile) => ({
         label: `tiles/${tile.Type}/${tile.Style}`,
         url: `${BASE_URL}/MapTile/${tile.Type}/${tile.Style}.png`,
         dest: path.join(
@@ -206,21 +169,24 @@ function tileJobs(): Job[] {
 }
 
 function objectJobs(): Job[] {
-    return OBJECT_CATALOG.filter((obj) => obj.Style !== "Blank").map((obj) => {
-        const assetType = MOVED_OBJECTS[`${obj.Type}/${obj.Style}`] ?? obj.Type;
-        return {
-            label: `objects/${obj.Type}/${obj.Style}`,
-            url: `${BASE_URL}/MapObject/${assetType}/${obj.Style}.png`,
-            dest: path.join(
-                __dirname,
-                "..",
-                "assets",
-                "objects",
-                obj.Type,
-                `${obj.Style}.png`,
-            ),
-        };
-    });
+    // Catalog types are the game types, which match the server folders, so
+    // no remapping is needed between source URL and save path.
+    return FULL_OBJECT_CATALOG.filter((obj) => obj.Style !== "Blank").map(
+        (obj) => {
+            return {
+                label: `objects/${obj.Type}/${obj.Style}`,
+                url: `${BASE_URL}/MapObject/${obj.Type}/${obj.Style}.png`,
+                dest: path.join(
+                    __dirname,
+                    "..",
+                    "assets",
+                    "objects",
+                    obj.Type,
+                    `${obj.Style}.png`,
+                ),
+            };
+        },
+    );
 }
 
 // Neighbor-variant textures for expanding objects (BC BuildImageName).
@@ -278,11 +244,9 @@ export function objectVariantJobs(): Job[] {
     const jobs: Job[] = [];
     for (const spec of OBJECT_VARIANTS) {
         // Variants are served from the same MapObject folder as the base
-        // sprite of the group (exact per-group folder, incl. MOVED_OBJECTS).
-        const base = OBJECT_CATALOG.find((o) => o.ID === spec.baseId);
-        const assetType = base
-            ? (MOVED_OBJECTS[`${base.Type}/${base.Style}`] ?? base.Type)
-            : spec.type;
+        // sprite of the group; catalog types match the server folders.
+        const base = FULL_OBJECT_CATALOG.find((o) => o.ID === spec.baseId);
+        const assetType = base ? base.Type : spec.type;
         for (const style of spec.variants) {
             jobs.push({
                 label: `objects/${spec.type}/${style}`,

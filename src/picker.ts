@@ -36,18 +36,57 @@ const DISPLAY_CATEGORY_OVERRIDES: Record<number, string> = {
 export function displayGroupFor(o: ObjectDef): string {
     const override = DISPLAY_CATEGORY_OVERRIDES[o.ID];
     if (override) return override;
-    if (o.Type.startsWith("FloorDecoration")) return "Floor Decorations";
-    if (
-        o.Type === "FloorItem" ||
-        o.Type === "FloorNumber" ||
-        o.Type === "FloorLetter" ||
-        o.Type === "FloorIcon"
-    )
-        return "Floor Items";
-    if (o.Type === "FloorObstacle") return "Floor Obstacles";
-    if (o.Type === "WallDecoration" || o.Type === "WallPath") return "Wall";
-    if (o.Type === "Banners") return "Banners";
     return o.Type;
+}
+
+/**
+ * Human-readable picker headers per game category. Unknown future types fall
+ * back to the raw `Type` (truthful default) — add a label when the game
+ * grows a new category.
+ */
+const TYPE_DISPLAY_LABELS: Record<string, string> = {
+    ABDL: "ABDL",
+    Banners: "Banners",
+    Bathroom: "Bathroom",
+    Bedroom: "Bedroom",
+    Floor: "Floors",
+    FloorDecorationAnimal: "Animal Decor",
+    FloorDecorationCamping: "Camping",
+    FloorDecorationExpanding: "Large Furniture",
+    FloorDecorationParty: "Party",
+    FloorDecorationThemed: "Themed Decor",
+    FloorExterior: "Outdoor Floors",
+    FloorFoamTiles: "Foam Tiles",
+    FloorIcon: "Floor Icons",
+    FloorItem: "Floor Items",
+    FloorLetter: "Floor Letters",
+    FloorNumber: "Floor Numbers",
+    FloorObstacle: "Floor Obstacles",
+    Functional: "Functional",
+    LivingRoom: "Living Room",
+    School: "School",
+    Wall: "Walls",
+    WallDecoration: "Wall Decor",
+    WallPath: "Wall Paths",
+    Water: "Water",
+};
+
+/** Header text for a picker section; unknown types show raw. */
+export function sectionLabelFor(type: string): string {
+    return TYPE_DISPLAY_LABELS[type] ?? type;
+}
+
+/**
+ * Blank (eraser) entries first, everything else in catalog order (stable).
+ * Catalog position of a Blank is accidental — Bathroom's sorts last in game
+ * order — so first-position is enforced here instead of assumed.
+ */
+export function blankFirst<T extends { Style: string }>(
+    items: readonly T[],
+): T[] {
+    return [...items].sort(
+        (a, b) => Number(b.Style === "Blank") - Number(a.Style === "Blank"),
+    );
 }
 
 /**
@@ -135,7 +174,9 @@ export class MapPicker {
         // Clear without HTML parsing (containers only hold app-created nodes).
         tileCategories.replaceChildren();
         tileGroups.forEach((tiles, type) => {
-            const { header, entry } = this.createCategoryHeader(type);
+            const { header, entry } = this.createCategoryHeader(
+                sectionLabelFor(type),
+            );
             this.tileCategoryEls.push(entry);
             const container = entry.content;
             tiles.forEach((tile) => {
@@ -175,11 +216,13 @@ export class MapPicker {
         // Clear without HTML parsing (containers only hold app-created nodes).
         objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {
-            const { header, entry } = this.createCategoryHeader(group);
+            const { header, entry } = this.createCategoryHeader(
+                sectionLabelFor(group),
+            );
             this.objectCategoryEls.push(entry);
             const container = entry.content;
             let blankAdded = false;
-            objs.forEach((obj) => {
+            blankFirst(objs).forEach((obj) => {
                 if (obj.Style === "Blank") {
                     if (blankAdded) {
                         return;

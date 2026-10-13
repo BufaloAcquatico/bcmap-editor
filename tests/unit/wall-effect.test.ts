@@ -87,8 +87,8 @@ describe("Wall effect computation (BC ChatRoomMapView port)", () => {
     });
 
     it("treats full-catalog-only walls as walls for neighbors", () => {
-        // 1227 (SpiderWeb) exists only in the FULL_TILE_CATALOG, not in the
-        // display pickers. It sits to the left of a display wall at (5,5).
+        // 1227 (SpiderWeb) is a game wall the old display subset lacked.
+        // It sits to the left of a display wall at (5,5).
         (editor as any).mapData.Tiles = tiles({ "4,5": 1227, "5,5": 1000 });
         // CW = true (via full catalog), so (5,5) is a left-corner wall (3).
         expect((editor as any).computeWallEffect(5, 5)).toBe(3);

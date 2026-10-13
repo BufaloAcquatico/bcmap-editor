@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compressToBase64 } from "lz-string";
 import { BCMapEditor } from "../../src/editor";
-import { FULL_OBJECT_CATALOG, OBJECT_CATALOG } from "../../src/catalog";
+import { FULL_OBJECT_CATALOG, FULL_TILE_CATALOG } from "../../src/catalog";
 
 // Minimal DOM mock for constructor
 const mockCtx = {
@@ -51,7 +51,7 @@ describe("Catalog - Full mirror of official game data", () => {
     const tileIds = new Set(tiles.map((t) => t.ID));
     const objectIds = new Set(objects.map((o) => o.ID));
 
-    it("contains new game tiles missing from the display catalog", () => {
+    it("contains the slime, honey, and spiderweb game tiles", () => {
         // Slime/Honey floors 590-597
         expect(tileIds.has(590)).toBe(true);
         expect(tileIds.has(597)).toBe(true);
@@ -73,7 +73,7 @@ describe("Catalog - Full mirror of official game data", () => {
         expect(blank?.Type).toBe("ABDL");
     });
 
-    it("contains the other obscure objects missing from the display catalog", () => {
+    it("contains the previously missing game objects", () => {
         // School blank, Bedroom furniture
         for (const id of [211, 400, 401, 402, 403, 404]) {
             expect(objectIds.has(id)).toBe(true);
@@ -105,11 +105,34 @@ describe("Catalog - Full mirror of official game data", () => {
         expect(objectIds.size).toBe(objects.length);
     });
 
-    it("is a superset of the display catalog", () => {
-        const displayTiles = editor.getTileCatalog();
-        const displayObjects = editor.getObjectCatalog();
-        displayTiles.forEach((t) => expect(tileIds.has(t.ID)).toBe(true));
-        displayObjects.forEach((o) => expect(objectIds.has(o.ID)).toBe(true));
+    it("is the picker catalog: no second list can drift", () => {
+        // The regression test for the 72 missing items: the picker reads
+        // these same mirrors, so a game addition surfaces everywhere.
+        const pickerTiles = editor.getTileCatalog();
+        const pickerObjects = editor.getObjectCatalog();
+        expect(new Set(pickerTiles.map((t) => t.ID))).toEqual(
+            new Set(FULL_TILE_CATALOG.map((t) => t.ID)),
+        );
+        expect(new Set(pickerObjects.map((o) => o.ID))).toEqual(
+            new Set(FULL_OBJECT_CATALOG.map((o) => o.ID)),
+        );
+    });
+
+    it("pins the game catalog sizes so updates fail loudly", () => {
+        // A game update changes these counts on purpose; the failure tells
+        // the author to re-sync deliberately, not silently.
+        expect(FULL_TILE_CATALOG.length).toBe(170);
+        expect(FULL_OBJECT_CATALOG.length).toBe(280);
+    });
+
+    it("keys previously re-typed entries by their game type", () => {
+        // Renderer, preloader, and downloader all key on Type/Style; these
+        // entries used to carry rewritten types, forking the asset paths.
+        const byId = new Map(editor.getObjectCatalog().map((o) => [o.ID, o]));
+        expect(byId.get(110)?.Type).toBe("Functional");
+        expect(byId.get(130)?.Type).toBe("LivingRoom");
+        expect(byId.get(1050)?.Type).toBe("School");
+        expect(byId.get(3020)?.Type).toBe("Bathroom");
     });
 
     it("marks exactly the entry flag as unique, like BC", () => {
@@ -117,9 +140,6 @@ describe("Catalog - Full mirror of official game data", () => {
         const unique = (catalog: readonly { ID: number; unique?: boolean }[]) =>
             catalog.filter((o) => o.unique).map((o) => o.ID);
         expect(unique(FULL_OBJECT_CATALOG)).toEqual([110]);
-        // Both mirrors must mark the same entries, or the flag works from
-        // one and silently not from the other.
-        expect(unique(OBJECT_CATALOG)).toEqual(unique(FULL_OBJECT_CATALOG));
     });
 
     it("carries BC's conveyor rotations, like the game", () => {

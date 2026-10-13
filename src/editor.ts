@@ -4,8 +4,6 @@ import {
     BLANK_OBJECT_ID,
     FULL_OBJECT_CATALOG,
     FULL_TILE_CATALOG,
-    OBJECT_CATALOG,
-    TILE_CATALOG,
     type ObjectDef,
     type TileDef,
 } from "./catalog";
@@ -293,11 +291,12 @@ export class BCMapEditor {
     }
 
     private initCatalogs(): void {
-        // The display catalogs live in ./catalog.ts and mirror the game data.
-        // They keep the picker order. Entries are preserved verbatim - styles
-        // are intentionally NOT de-duplicated.
-        this.tileCatalog = [...TILE_CATALOG];
-        this.objectCatalog = [...OBJECT_CATALOG];
+        // Single source of truth: the picker catalogs ARE the game mirrors,
+        // so anything the game ships is paintable, preloadable, and
+        // import-compatible with no second list to re-sync. Entries are
+        // preserved verbatim - styles are intentionally NOT de-duplicated.
+        this.tileCatalog = [...FULL_TILE_CATALOG];
+        this.objectCatalog = [...FULL_OBJECT_CATALOG];
 
         // Build lookup maps for performance
         this.tileMap.clear();

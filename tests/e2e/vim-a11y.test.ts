@@ -275,8 +275,8 @@ test("help card shows the tracked surface slice", async ({
     expect(await surface()).toBe("search");
     await expect(help).toContainText("Pick the tile");
     await expect(help).not.toContainText("Move around the map");
-    await expect(help).toContainText("Switch the sidebar to tiles");
-    await expect(help).toContainText("Switch the sidebar to objects");
+    // Bracket layer-switch keys are map-scoped and dead inside editable
+    // targets, so the search slice must not list them.
     // Show-all toggle restores the full registry list.
     await help.getByRole("button", { name: /show all keys/i }).click();
     await expect(help).toContainText("Move around the map");
