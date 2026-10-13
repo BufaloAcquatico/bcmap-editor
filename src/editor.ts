@@ -1618,6 +1618,10 @@ export class BCMapEditor {
     }
 
     public setCurrentLayer(layer: "tile" | "object"): void {
+        // Same layer: nothing to do. Keyboard ([ / ]) and clicks can
+        // arrive redundantly; skipping avoids a full picker rebuild (and
+        // its selection reset) for no change.
+        if (this.currentLayer === layer) return;
         this.currentLayer = layer;
         this.applyDefaultSelection();
         this.picker.setLayer(layer);

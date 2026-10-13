@@ -121,7 +121,14 @@
     .status-section { min-width: 0; }
     .status-mode { flex: 0 0 auto; }
     .status-position { flex: 0 0 auto; }
-    .status-selection { flex: 1 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .status-selection {
+      flex: 1 1 auto;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      /* The section spans the middle; the text sits in its middle. */
+      text-align: center;
+    }
     /* The `:` prompt borrows the left section and needs the full width. */
     .status-bar.command-open .status-mode { flex: 1 1 auto; }
     /* Vim-style command line: a `:` glyph plus typed text in status-bar
@@ -3644,6 +3651,14 @@ class MapPicker {
                 objGroups.set(g, []);
             objGroups.get(g).push(o);
         });
+        // The Banners section anchors the end of the list: the ID-keyed
+        // overrides above would otherwise hoist it up to first use, which
+        // reads as a category jumping around between layers.
+        const banners = objGroups.get("Banners");
+        if (banners) {
+            objGroups.delete("Banners");
+            objGroups.set("Banners", banners);
+        }
         // Clear without HTML parsing (containers only hold app-created nodes).
         objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {
@@ -6558,6 +6573,11 @@ class BCMapEditor {
         this.syncPickerSelection();
     }
     setCurrentLayer(layer) {
+        // Same layer: nothing to do. Keyboard ([ / ]) and clicks can
+        // arrive redundantly; skipping avoids a full picker rebuild (and
+        // its selection reset) for no change.
+        if (this.currentLayer === layer)
+            return;
         this.currentLayer = layer;
         this.applyDefaultSelection();
         this.picker.setLayer(layer);

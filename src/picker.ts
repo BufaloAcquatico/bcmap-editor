@@ -141,6 +141,14 @@ export class MapPicker {
             if (!objGroups.has(g)) objGroups.set(g, []);
             objGroups.get(g)!.push(o);
         });
+        // The Banners section anchors the end of the list: the ID-keyed
+        // overrides above would otherwise hoist it up to first use, which
+        // reads as a category jumping around between layers.
+        const banners = objGroups.get("Banners");
+        if (banners) {
+            objGroups.delete("Banners");
+            objGroups.set("Banners", banners);
+        }
         // Clear without HTML parsing (containers only hold app-created nodes).
         objectCategories.replaceChildren();
         objGroups.forEach((objs, group) => {

@@ -389,6 +389,19 @@ test("status bar keeps fixed sections as the selection text changes", async ({
     const position = page.locator("#statusPosition");
     const selection = page.locator("#statusSelection");
     // Baseline positions with a short selection text.
+    const centerOffset = () =>
+        selection.evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            const text = range.getBoundingClientRect();
+            const section = el.getBoundingClientRect();
+            return Math.abs(
+                (text.left + text.right) / 2 -
+                    (section.left + section.right) / 2,
+            );
+        });
+    // Short text sits in the middle of the middle section.
+    expect(await centerOffset()).toBeLessThan(6);
     const before = {
         mode: await mode.boundingBox(),
         position: await position.boundingBox(),
@@ -405,6 +418,8 @@ test("status bar keeps fixed sections as the selection text changes", async ({
     };
     expect(after.mode!.x).toBe(before.mode!.x);
     expect(after.position!.x).toBe(before.position!.x);
+    // Clipped text stays centered too.
+    expect(await centerOffset()).toBeLessThan(6);
     // Only the middle section carries the flexible width.
     await expect(selection).toHaveCSS("flex-grow", "1");
     await expect(mode.locator("xpath=..")).toHaveCSS("flex-grow", "0");

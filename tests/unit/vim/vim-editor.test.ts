@@ -561,6 +561,37 @@ describe("Off-map cursor restyle", () => {
     });
 });
 
+describe("Layer switching", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+    });
+
+    it("ignores a redundant switch: no rebuild, no selection reset", () => {
+        editor.setCurrentLayer("object");
+        editor.setSelectedObject({
+            ID: 130,
+            Type: "FloorDecoration",
+            Style: "PillowPink",
+        });
+        const setLayerSpy = vi.spyOn((editor as any).picker, "setLayer");
+        editor.setCurrentLayer("object");
+        expect(setLayerSpy).not.toHaveBeenCalled();
+        expect(editor.getCurrentLayer()).toBe("object");
+        expect((editor as any).selectedObject.ID).toBe(130);
+        setLayerSpy.mockRestore();
+    });
+
+    it("still switches to the other layer", () => {
+        editor.setCurrentLayer("object");
+        expect(editor.getCurrentLayer()).toBe("object");
+        editor.setCurrentLayer("tile");
+        expect(editor.getCurrentLayer()).toBe("tile");
+    });
+});
+
 describe("Canvas cursor glide", () => {
     let editor: BCMapEditor;
     let frames: Array<() => void>;

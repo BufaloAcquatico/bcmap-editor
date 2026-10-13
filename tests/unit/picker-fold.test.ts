@@ -122,6 +122,32 @@ describe("Foldable pickers", () => {
         expect(entries[0].collapsed).toBe(true);
     });
 
+    it("lists the Banners section last in the object picker", () => {
+        editor.populatePickers();
+        const tileCount = (editor as any).picker.tileCategoryEls.length;
+        const headers = created.filter(
+            (el: any) =>
+                typeof el.className === "string" &&
+                el.className.includes("category-header"),
+        );
+        // Each header appends its caret first, then its label span; the
+        // label carries the group name in creation (= display) order.
+        const labelOf = (header: any) =>
+            header.appendChild.mock.calls
+                .map((c: any[]) => c[0])
+                .find(
+                    (el: any) =>
+                        el &&
+                        typeof el.textContent === "string" &&
+                        el.textContent !== "",
+                ).textContent;
+        const objectNames = headers
+            .slice(tileCount)
+            .map((h: any) => labelOf(h));
+        expect(objectNames.length).toBeGreaterThan(0);
+        expect(objectNames[objectNames.length - 1]).toBe("Banners");
+    });
+
     it("filters without throwing and stores the term", () => {
         editor.populatePickers();
         expect(() => editor.filterPickers("Grass")).not.toThrow();
