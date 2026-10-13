@@ -114,7 +114,7 @@
       outline: none;
     }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
-    .status-bar { position: relative; background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
+    .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
     /* Three equal sections so no text change anywhere can move any
        other text: mode left, selection centered, position right. Only the
        middle clips (ellipsized) when space runs out. */
@@ -131,16 +131,6 @@
        typography, so opening it shifts no pixels and shows no box chrome.
        (`d-none` still hides the wrap; this rule only lays it out shown.) */
     #commandPromptWrap { display: flex; align-items: center; min-width: 0; }
-    /* The `:` prompt floats over the whole bar instead of reflowing it:
-       like vim, the status line *becomes* the command line while typing,
-       so no section moves. `d-none` still hides the wrap. */
-    .status-bar #commandPromptWrap:not(.d-none) {
-      position: absolute;
-      inset: 0;
-      padding: 0.5rem;
-      background-color: #16213e;
-      z-index: 1;
-    }
     #commandPromptPrefix { flex: none; }
     #commandPrompt {
       flex: 1;

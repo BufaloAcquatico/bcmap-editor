@@ -434,7 +434,7 @@ test("status bar keeps fixed sections as the selection text changes", async ({
     expect(await centerOffset()).toBeLessThan(6);
 });
 
-test("command prompt overlays the bar without moving any section", async ({
+test("command prompt opens inside the left section, nothing moves", async ({
     page,
 }: {
     page: Page;
@@ -452,16 +452,19 @@ test("command prompt overlays the bar without moving any section", async ({
     const before = await sections();
     await page.keyboard.press(":");
     await expect(page.locator("#commandPrompt")).toBeFocused();
-    // Like vim, the status line becomes the command line: the prompt
-    // floats over the bar instead of reflowing it.
+    // The prompt lives inside the left section: every section keeps
+    // its box, and every section stays visible.
     const wrap = page.locator("#commandPromptWrap");
     await expect(wrap).toBeVisible();
+    const modeSection = page.locator(".status-mode");
     const wrapBox = await wrap.boundingBox();
-    const barBox = await page.locator(".status-bar").boundingBox();
-    expect(wrapBox!.x).toBeLessThanOrEqual(barBox!.x + 1);
-    expect(wrapBox!.x + wrapBox!.width).toBeGreaterThanOrEqual(
-        barBox!.x + barBox!.width - 1,
+    const modeBox = await modeSection.boundingBox();
+    expect(wrapBox!.x).toBeGreaterThanOrEqual(modeBox!.x - 1);
+    expect(wrapBox!.x + wrapBox!.width).toBeLessThanOrEqual(
+        modeBox!.x + modeBox!.width + 1,
     );
+    await expect(page.locator("#statusSelection")).toBeVisible();
+    await expect(page.locator("#statusPosition")).toBeVisible();
     const during = await sections();
     for (const [a, b] of [
         [before[0], during[0]],
