@@ -3127,6 +3127,8 @@ window.SURFACE_HELP_KEYS = {
         "?",
         "+ / =",
         "-",
+        "[",
+        "]",
         "Esc",
     ],
     picker: ["arrows", "Enter", "Tab", "/", "Esc", "?"],
@@ -4763,6 +4765,18 @@ window.KEYBIND_HELP = [
         group: "navigate",
     },
     {
+        keys: "[",
+        description: "Switch the sidebar to tiles",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "]",
+        description: "Switch the sidebar to objects",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "?",
         description: "Show or hide this help",
         scope: "map",
@@ -4932,6 +4946,38 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 actions.zoomOut();
+                return true;
+            },
+        },
+        {
+            keys: "[",
+            description: "Switch the sidebar to tiles",
+            scope: "map",
+            group: "navigate",
+            applies: (e) => e.key === "[" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.selectTileLayer();
+                return true;
+            },
+        },
+        {
+            keys: "]",
+            description: "Switch the sidebar to objects",
+            scope: "map",
+            group: "navigate",
+            applies: (e) => e.key === "]" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.selectObjectLayer();
                 return true;
             },
         },
@@ -6600,7 +6646,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Shared surface store, exposed for end-to-end probing.
     window.appSurface = appSurface_1.appSurface;
     editor.populatePickers();
-    // Layer toggle
+    // Layer toggle: one path shared by the radios and the [ / ] keybind.
+    // Setting .checked directly (never a synthetic event) keeps a single
+    // switch per interaction - no double-handling, no recursion.
+    const layerTileRadio = document.getElementById("layerTile");
+    const layerObjectRadio = document.getElementById("layerObject");
+    const setLayer = (layer) => {
+        const radio = layer === "tile" ? layerTileRadio : layerObjectRadio;
+        if (radio)
+            radio.checked = true;
+        editor.setCurrentLayer(layer);
+    };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
         radio.addEventListener("change", (e) => {
@@ -6860,6 +6916,8 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
+        selectTileLayer: () => setLayer("tile"),
+        selectObjectLayer: () => setLayer("object"),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),

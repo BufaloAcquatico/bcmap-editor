@@ -275,6 +275,8 @@ test("help card shows the tracked surface slice", async ({
     expect(await surface()).toBe("search");
     await expect(help).toContainText("Pick the tile");
     await expect(help).not.toContainText("Move around the map");
+    await expect(help).toContainText("Switch the sidebar to tiles");
+    await expect(help).toContainText("Switch the sidebar to objects");
     // Show-all toggle restores the full registry list.
     await help.getByRole("button", { name: /show all keys/i }).click();
     await expect(help).toContainText("Move around the map");
@@ -310,6 +312,26 @@ test("modal focus tracks as chrome with dialog help", async ({
     );
     await expect(help).toContainText("Close and go back");
     await expect(help).not.toContainText("Move around the map");
+});
+
+test("[ and ] switch the picker layer from the keyboard", async ({ page }) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").click();
+    const tileRadio = page.locator("#layerTile");
+    const objectRadio = page.locator("#layerObject");
+    await expect(tileRadio).toBeChecked();
+    await page.keyboard.press("]");
+    await expect(objectRadio).toBeChecked();
+    await expect(page.locator("#objectCategories")).toBeVisible();
+    await expect(page.locator("#tileCategories")).not.toBeVisible();
+    await page.keyboard.press("[");
+    await expect(tileRadio).toBeChecked();
+    await expect(page.locator("#tileCategories")).toBeVisible();
+    // Typing brackets in the search box must not switch layers.
+    await page.keyboard.press("/");
+    await page.locator("#searchInput").fill("[");
+    await expect(tileRadio).toBeChecked();
+    await page.keyboard.press("Escape");
 });
 
 test("status bar keeps fixed sections as the selection text changes", async ({

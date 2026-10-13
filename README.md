@@ -62,6 +62,8 @@ docker compose up -d
 | Show or hide the grid | `G` |
 | Zoom in | `+` / `=` |
 | Zoom out | `-` |
+| Switch the sidebar to tiles | `[` |
+| Switch the sidebar to objects | `]` |
 | **Command** |  |
 | Type a command | `:` |
 | **System** |  |

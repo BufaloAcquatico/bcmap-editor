@@ -30,7 +30,20 @@ document.addEventListener("DOMContentLoaded", () => {
     (window as any).appSurface = appSurface;
     editor.populatePickers();
 
-    // Layer toggle
+    // Layer toggle: one path shared by the radios and the [ / ] keybind.
+    // Setting .checked directly (never a synthetic event) keeps a single
+    // switch per interaction - no double-handling, no recursion.
+    const layerTileRadio = document.getElementById(
+        "layerTile",
+    ) as HTMLInputElement | null;
+    const layerObjectRadio = document.getElementById(
+        "layerObject",
+    ) as HTMLInputElement | null;
+    const setLayer = (layer: "tile" | "object") => {
+        const radio = layer === "tile" ? layerTileRadio : layerObjectRadio;
+        if (radio) radio.checked = true;
+        editor.setCurrentLayer(layer);
+    };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
         radio.addEventListener("change", (e) => {
@@ -318,6 +331,8 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
+        selectTileLayer: () => setLayer("tile"),
+        selectObjectLayer: () => setLayer("object"),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),

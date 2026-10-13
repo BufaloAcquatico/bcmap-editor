@@ -138,6 +138,18 @@ export const KEYBIND_HELP: {
         group: "navigate",
     },
     {
+        keys: "[",
+        description: "Switch the sidebar to tiles",
+        scope: "map",
+        group: "navigate",
+    },
+    {
+        keys: "]",
+        description: "Switch the sidebar to objects",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "?",
         description: "Show or hide this help",
         scope: "map",
@@ -179,6 +191,10 @@ export interface EditorKeybindActions {
     zoomIn: () => void;
     /** Zoom the map canvas out one step (`-`). */
     zoomOut: () => void;
+    /** Switch the picker to the tile layer (`[`). */
+    selectTileLayer: () => void;
+    /** Switch the picker to the object layer (`]`). */
+    selectObjectLayer: () => void;
     toggleHelp: () => void;
     undo: () => void;
     redo: () => void;
@@ -351,6 +367,40 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 actions.zoomOut();
+                return true;
+            },
+        },
+        {
+            keys: "[",
+            description: "Switch the sidebar to tiles",
+            scope: "map",
+            group: "navigate",
+            applies: (e) =>
+                e.key === "[" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.selectTileLayer();
+                return true;
+            },
+        },
+        {
+            keys: "]",
+            description: "Switch the sidebar to objects",
+            scope: "map",
+            group: "navigate",
+            applies: (e) =>
+                e.key === "]" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.selectObjectLayer();
                 return true;
             },
         },
