@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { compressToBase64 } from "lz-string";
 import { BCMapEditor } from "../../src/editor";
+import { FULL_OBJECT_CATALOG, OBJECT_CATALOG } from "../../src/catalog";
 
 // Minimal DOM mock for constructor
 const mockCtx = {
@@ -109,6 +110,18 @@ describe("Catalog - Full mirror of official game data", () => {
         const displayObjects = editor.getObjectCatalog();
         displayTiles.forEach((t) => expect(tileIds.has(t.ID)).toBe(true));
         displayObjects.forEach((o) => expect(objectIds.has(o.ID)).toBe(true));
+    });
+
+    it("marks exactly the entry flag as unique, like BC", () => {
+        // BC's Assets/MapData.js carries Unique on object 110 only.
+        expect(
+            FULL_OBJECT_CATALOG.filter((o) => o.unique).map((o) => o.ID),
+        ).toEqual([110]);
+        // The picker view marks the same entry, so painting from either
+        // catalog keeps the move-on-place behavior.
+        expect(OBJECT_CATALOG.filter((o) => o.unique).map((o) => o.ID)).toEqual(
+            [110],
+        );
     });
 
     it("knows every real-game object/tile ID", () => {

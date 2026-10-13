@@ -22,6 +22,12 @@ export interface TileDef {
 
 export interface ObjectDef {
     ID: number;
+    /**
+     * Mirrors BC's `Unique` flag: the object may exist at most once per
+     * map (placing it elsewhere clears the previous copy). Currently only
+     * the entry flag (110) - the single Unique entry in the game catalog.
+     */
+    unique?: boolean;
     Type: string;
     Style: string;
     Top?: number;
@@ -216,7 +222,13 @@ export const TILE_CATALOG: readonly TileDef[] = [
 
 export const OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 100, Type: "FloorDecoration", Style: "Blank" },
-    { ID: 110, Type: "FloorDecoration", Style: "EntryFlag", Top: -0.125 },
+    {
+        ID: 110,
+        Type: "FloorDecoration",
+        Style: "EntryFlag",
+        Top: -0.125,
+        unique: true,
+    },
     { ID: 115, Type: "FloorDecoration", Style: "ExitFlag", Top: -0.125 },
     { ID: 120, Type: "FloorDecoration", Style: "BedTeal", Top: -0.25 },
     { ID: 130, Type: "FloorDecoration", Style: "PillowPink" },
@@ -1375,7 +1387,14 @@ export const FULL_TILE_CATALOG: readonly TileDef[] = [
 
 export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 100, Type: "LivingRoom", Style: "Blank" },
-    { ID: 110, Type: "Functional", Style: "EntryFlag", Top: -0.125 },
+    {
+        ID: 110,
+        Type: "Functional",
+        Style: "EntryFlag",
+        Top: -0.125,
+        // unique in BC (the only Unique entry in Assets/MapData.js).
+        unique: true,
+    },
     { ID: 115, Type: "Functional", Style: "ExitFlag", Top: -0.125 },
     { ID: 120, Type: "Bedroom", Style: "BedTeal", Top: -0.25 },
     { ID: 130, Type: "LivingRoom", Style: "PillowPink" },

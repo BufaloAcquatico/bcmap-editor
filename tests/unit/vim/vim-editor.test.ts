@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BCMapEditor } from "../../../src/editor";
 import { appSurface } from "../../../src/appSurface";
 import { MOTION_MS, MOTION_QUICK_MS } from "../../../src/anim";
+import { MAP_WIDTH } from "../../../src/mapdata";
+import { BLANK_OBJECT_ID } from "../../../src/catalog";
 
 const mockCtx = {
     clearRect: vi.fn(),
@@ -794,5 +796,79 @@ describe("Canvas cursor glide", () => {
         } finally {
             now.mockRestore();
         }
+    });
+});
+
+describe("Unique objects (entry flag)", () => {
+    let editor: BCMapEditor;
+    const objAt = (x: number, y: number) =>
+        editor.getMapData().Objects.charCodeAt(x + y * MAP_WIDTH);
+    const flagCount = () =>
+        editor
+            .getMapData()
+            .Objects.split("")
+            .filter((c) => c.charCodeAt(0) === 110).length;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setCurrentLayer("object");
+        editor.setSelectedObject({
+            ID: 110,
+            Type: "FloorDecoration",
+            Style: "EntryFlag",
+            Top: -0.125,
+            unique: true,
+        });
+    });
+
+    it("moves the flag: placing clears the previous copy", () => {
+        editor.handleVimKey(keyEvent(" ")); // (20,20)
+        expect(objAt(20, 20)).toBe(110);
+        editor.handleVimKey(keyEvent("l")); // cursor (21,20)
+        editor.handleVimKey(keyEvent(" "));
+        expect(objAt(20, 20)).toBe(BLANK_OBJECT_ID);
+        expect(objAt(21, 20)).toBe(110);
+        expect(flagCount()).toBe(1);
+    });
+
+    it("collapses the move into one undo entry", () => {
+        editor.handleVimKey(keyEvent(" "));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent(" "));
+        expect(editor.canUndo()).toBe(true);
+        editor.undo();
+        expect(flagCount()).toBe(0);
+        expect(objAt(20, 20)).toBe(BLANK_OBJECT_ID);
+        expect(objAt(21, 20)).toBe(BLANK_OBJECT_ID);
+    });
+
+    it("repainting the same cell is a no-op that keeps the flag", () => {
+        editor.handleVimKey(keyEvent(" "));
+        editor.handleVimKey(keyEvent(" "));
+        expect(flagCount()).toBe(1);
+        expect(objAt(20, 20)).toBe(110);
+    });
+
+    it("keeps exactly one flag after a visual fill", () => {
+        editor.handleVimKey(keyEvent("v"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent(" ")); // fill (20,20)..(22,20)
+        expect(flagCount()).toBe(1);
+        expect(objAt(22, 20)).toBe(110);
+    });
+
+    it("leaves ordinary objects repeatable", () => {
+        editor.setSelectedObject({
+            ID: 130,
+            Type: "FloorDecoration",
+            Style: "PillowPink",
+        });
+        editor.handleVimKey(keyEvent(" "));
+        editor.handleVimKey(keyEvent("l"));
+        editor.handleVimKey(keyEvent(" "));
+        expect(objAt(20, 20)).toBe(130);
+        expect(objAt(21, 20)).toBe(130);
     });
 });

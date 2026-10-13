@@ -424,6 +424,13 @@ export class BCMapEditor {
                 : null;
             if (ch === null) return false;
             if (this.mapData.Objects[index] === ch) return false;
+            // Unique objects (BC's `Unique`: the entry flag) live at most
+            // once per map, so placing one moves it. The clear and the
+            // write share this stroke, making the whole move one undo
+            // entry. Mirrors BC's setObject/#clearUniqueObject.
+            if (this.selectedObject?.unique) {
+                this.clearUniqueObject(this.selectedObject.ID, index);
+            }
             this.mapData.Objects =
                 this.mapData.Objects.substring(0, index) +
                 ch +
@@ -442,6 +449,20 @@ export class BCMapEditor {
             this.mapData.Tiles.substring(index + 1);
         this.requestRender();
         return true;
+    }
+
+    /** Blank every cell holding `objectId`, except `keepIndex`. */
+    private clearUniqueObject(objectId: number, keepIndex: number): void {
+        const chars = this.mapData.Objects.split("");
+        let cleared = false;
+        for (let i = 0; i < chars.length; i++) {
+            if (i === keepIndex) continue;
+            if (chars[i].charCodeAt(0) === objectId) {
+                chars[i] = String.fromCharCode(BLANK_OBJECT_ID);
+                cleared = true;
+            }
+        }
+        if (cleared) this.mapData.Objects = chars.join("");
     }
 
     private paintAt(pos: Point): void {

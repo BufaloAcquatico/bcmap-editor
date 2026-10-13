@@ -751,7 +751,13 @@ window.TILE_CATALOG = [
 ];
 window.OBJECT_CATALOG = [
     { ID: 100, Type: "FloorDecoration", Style: "Blank" },
-    { ID: 110, Type: "FloorDecoration", Style: "EntryFlag", Top: -0.125 },
+    {
+        ID: 110,
+        Type: "FloorDecoration",
+        Style: "EntryFlag",
+        Top: -0.125,
+        unique: true,
+    },
     { ID: 115, Type: "FloorDecoration", Style: "ExitFlag", Top: -0.125 },
     { ID: 120, Type: "FloorDecoration", Style: "BedTeal", Top: -0.25 },
     { ID: 130, Type: "FloorDecoration", Style: "PillowPink" },
@@ -1907,7 +1913,14 @@ window.FULL_TILE_CATALOG = [
 ];
 window.FULL_OBJECT_CATALOG = [
     { ID: 100, Type: "LivingRoom", Style: "Blank" },
-    { ID: 110, Type: "Functional", Style: "EntryFlag", Top: -0.125 },
+    {
+        ID: 110,
+        Type: "Functional",
+        Style: "EntryFlag",
+        Top: -0.125,
+        // unique in BC (the only Unique entry in Assets/MapData.js).
+        unique: true,
+    },
     { ID: 115, Type: "Functional", Style: "ExitFlag", Top: -0.125 },
     { ID: 120, Type: "Bedroom", Style: "BedTeal", Top: -0.25 },
     { ID: 130, Type: "LivingRoom", Style: "PillowPink" },
@@ -3520,8 +3533,41 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
 //
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 window.MapPicker = void 0;
+window.displayGroupFor = displayGroupFor;
 const appSurface_1 = window;
 
+/**
+ * Display-only category overrides by object ID. The catalog data keeps
+ * BC's own categories so the FULL_* arrays stay byte-identical for import
+ * compatibility; this only moves an item within the picker. BC files the
+ * standing banners under FloorDecorationThemed, but users look for them
+ * next to the hangable banners.
+ */
+const DISPLAY_CATEGORY_OVERRIDES = {
+    390: "Banners", // StandingBellflowerBanner
+    391: "Banners", // BondageClubBanner
+    392: "Banners", // VoidOrderBanner
+};
+/** Picker section label for an object; overrides win over the type mapping. */
+function displayGroupFor(o) {
+    const override = DISPLAY_CATEGORY_OVERRIDES[o.ID];
+    if (override)
+        return override;
+    if (o.Type.startsWith("FloorDecoration"))
+        return "Floor Decorations";
+    if (o.Type === "FloorItem" ||
+        o.Type === "FloorNumber" ||
+        o.Type === "FloorLetter" ||
+        o.Type === "FloorIcon")
+        return "Floor Items";
+    if (o.Type === "FloorObstacle")
+        return "Floor Obstacles";
+    if (o.Type === "WallDecoration" || o.Type === "WallPath")
+        return "Wall";
+    if (o.Type === "Banners")
+        return "Banners";
+    return o.Type;
+}
 // Bundled eraser icon for Blank (delete-tool) picker items. Inline SVG on
 // purpose: the previous markup used the non-existent `bi-erase` class (only
 // `eraser`/`eraser-fill` exist), so the icon could never render, and font
@@ -3593,20 +3639,7 @@ class MapPicker {
         });
         const objGroups = new Map();
         objectCatalog.forEach((o) => {
-            let g = o.Type;
-            if (o.Type.startsWith("FloorDecoration"))
-                g = "Floor Decorations";
-            else if (o.Type === "FloorItem" ||
-                o.Type === "FloorNumber" ||
-                o.Type === "FloorLetter" ||
-                o.Type === "FloorIcon")
-                g = "Floor Items";
-            else if (o.Type === "FloorObstacle")
-                g = "Floor Obstacles";
-            else if (o.Type === "WallDecoration" || o.Type === "WallPath")
-                g = "Wall";
-            else if (o.Type === "Banners")
-                g = "Banners";
+            const g = displayGroupFor(o);
             if (!objGroups.has(g))
                 objGroups.set(g, []);
             objGroups.get(g).push(o);
@@ -5542,6 +5575,13 @@ class BCMapEditor {
                 return false;
             if (this.mapData.Objects[index] === ch)
                 return false;
+            // Unique objects (BC's `Unique`: the entry flag) live at most
+            // once per map, so placing one moves it. The clear and the
+            // write share this stroke, making the whole move one undo
+            // entry. Mirrors BC's setObject/#clearUniqueObject.
+            if (this.selectedObject?.unique) {
+                this.clearUniqueObject(this.selectedObject.ID, index);
+            }
             this.mapData.Objects =
                 this.mapData.Objects.substring(0, index) +
                     ch +
@@ -5562,6 +5602,21 @@ class BCMapEditor {
                 this.mapData.Tiles.substring(index + 1);
         this.requestRender();
         return true;
+    }
+    /** Blank every cell holding `objectId`, except `keepIndex`. */
+    clearUniqueObject(objectId, keepIndex) {
+        const chars = this.mapData.Objects.split("");
+        let cleared = false;
+        for (let i = 0; i < chars.length; i++) {
+            if (i === keepIndex)
+                continue;
+            if (chars[i].charCodeAt(0) === objectId) {
+                chars[i] = String.fromCharCode(catalog_1.BLANK_OBJECT_ID);
+                cleared = true;
+            }
+        }
+        if (cleared)
+            this.mapData.Objects = chars.join("");
     }
     paintAt(pos) {
         this.applySessionEdit(() => this.writeCell(pos));
