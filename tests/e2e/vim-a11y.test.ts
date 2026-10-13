@@ -312,6 +312,56 @@ test("modal focus tracks as chrome with dialog help", async ({
     await expect(help).not.toContainText("Move around the map");
 });
 
+test("status bar keeps fixed sections as the selection text changes", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").click();
+    const mode = page.locator("#statusVimMode");
+    const position = page.locator("#statusPosition");
+    const selection = page.locator("#statusSelection");
+    // Baseline positions with a short selection text.
+    const before = {
+        mode: await mode.boundingBox(),
+        position: await position.boundingBox(),
+    };
+    // A long selection must not move the mode or position text.
+    await selection.evaluate((el) => {
+        el.textContent =
+            "An extremely long object selection name that must be ellipsized";
+    });
+    await expect(selection).toHaveCSS("text-overflow", "ellipsis");
+    const after = {
+        mode: await mode.boundingBox(),
+        position: await position.boundingBox(),
+    };
+    expect(after.mode!.x).toBe(before.mode!.x);
+    expect(after.position!.x).toBe(before.position!.x);
+    // Only the middle section carries the flexible width.
+    await expect(selection).toHaveCSS("flex-grow", "1");
+    await expect(mode.locator("xpath=..")).toHaveCSS("flex-grow", "0");
+});
+
+test("command prompt widens the left status section while open", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").click();
+    const modeBox = await page.locator("#statusVimMode").boundingBox();
+    await page.keyboard.press(":");
+    await expect(page.locator("#commandPrompt")).toBeFocused();
+    await expect(page.locator(".status-bar")).toHaveClass(/command-open/);
+    const promptBox = await page.locator("#commandPromptWrap").boundingBox();
+    // The prompt spans far more than the narrow mode slot did.
+    expect(promptBox!.width).toBeGreaterThan(modeBox!.width);
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".status-bar")).not.toHaveClass(/command-open/);
+});
+
 test("search Enter goes to first match, Tab returns to map", async ({
     page,
 }: {

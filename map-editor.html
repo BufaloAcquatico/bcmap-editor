@@ -115,6 +115,15 @@
     }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
     .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
+    /* Three fixed sections so the edges never jitter as the middle text
+       changes length: mode and position hold their width, only the
+       selection text absorbs the difference (ellipsized when it must). */
+    .status-section { min-width: 0; }
+    .status-mode { flex: 0 0 auto; }
+    .status-position { flex: 0 0 auto; }
+    .status-selection { flex: 1 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    /* The `:` prompt borrows the left section and needs the full width. */
+    .status-bar.command-open .status-mode { flex: 1 1 auto; }
     /* Vim-style command line: a `:` glyph plus typed text in status-bar
        typography, so opening it shifts no pixels and shows no box chrome.
        (`d-none` still hides the wrap; this rule only lays it out shown.) */
@@ -245,8 +254,8 @@
       <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
       <span id="commandPromptWrap" class="d-none w-100"><span id="commandPromptPrefix" aria-hidden="true">:</span><input id="commandPrompt" type="text" aria-label="Command prompt" autocomplete="off" spellcheck="false"></span>
     </div>
-    <div id="statusSelection">No selection</div>
-    <div id="statusPosition">Position: (-, -)</div>
+    <div id="statusSelection" class="status-section status-selection">No selection</div>
+    <div id="statusPosition" class="status-section status-position">Position: (-, -)</div>
   </div>
 
   <!-- Import Modal -->
@@ -6737,6 +6746,11 @@ document.addEventListener("DOMContentLoaded", () => {
         // slot; the input itself keeps its id, focus and key handling.
         commandPromptWrap?.classList.toggle("d-none", !open);
         modeSlot?.classList.toggle("d-none", open);
+        // The prompt lives in the left section; let that section take the
+        // full bar while it is open (status bar keeps its three sections).
+        commandPromptWrap
+            ?.closest(".status-bar")
+            ?.classList.toggle("command-open", open);
         if (open) {
             commandPrompt.value = "";
             commandPromptWrap?.classList.remove("d-none");
