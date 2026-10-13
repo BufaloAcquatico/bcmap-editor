@@ -77,6 +77,23 @@ export function sectionLabelFor(type: string): string {
 }
 
 /**
+ * Human-readable item name for tooltips, labels, and search. The catalog
+ * `Style` stays byte-exact (asset paths and cache keys depend on it), so the
+ * prettifying lives here at the display edge: "furnace" -> "Furnace",
+ * "ConveyorBelt1" -> "Conveyor Belt 1", "JackOLantern" -> "Jack O Lantern".
+ */
+export function displayNameFor(style: string): string {
+    return style
+        .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/([A-Za-z])(\d)/g, "$1 $2")
+        .split(" ")
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
+/**
  * Blank (eraser) entries first, everything else in catalog order (stable).
  * Catalog position of a Blank is accidental — Bathroom's sorts last in game
  * order — so first-position is enforced here instead of assumed.
@@ -188,8 +205,11 @@ export class MapPicker {
                 const key = tile.Type + "/" + tile.Style;
                 item.style.backgroundImage =
                     "url(assets/tiles/" + key + ".png)";
-                item.title = tile.Style;
-                item.setAttribute?.("aria-label", `Select tile ${tile.Style}`);
+                item.title = displayNameFor(tile.Style);
+                item.setAttribute?.(
+                    "aria-label",
+                    `Select tile ${displayNameFor(tile.Style)}`,
+                );
                 item.addEventListener("click", (e: MouseEvent) => {
                     this.delegate.onSelectTile(tile);
                     // Keyboard activation (Enter/Space) commits and returns
@@ -242,10 +262,10 @@ export class MapPicker {
                     const key = obj.Type + "/" + obj.Style;
                     item.style.backgroundImage =
                         "url(assets/objects/" + key + ".png)";
-                    item.title = obj.Style;
+                    item.title = displayNameFor(obj.Style);
                     item.setAttribute?.(
                         "aria-label",
-                        `Select object ${obj.Style}`,
+                        `Select object ${displayNameFor(obj.Style)}`,
                     );
                 } else {
                     // Static compile-time SVG constant only (no interpolation
@@ -289,7 +309,10 @@ export class MapPicker {
 
     filter(term: string): void {
         this.searchTerm = term;
-        const lowered = term.trim().toLowerCase();
+        // Space-insensitive: "LongGrass" and "Long Grass" match alike, so
+        // raw-style queries keep working now that titles are prettified.
+        const squash = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+        const lowered = squash(term.trim());
         const entries =
             this.layer === "tile"
                 ? this.tileCategoryEls
@@ -303,8 +326,8 @@ export class MapPicker {
                 const txt = htmlEl.textContent || "";
                 const match =
                     lowered === "" ||
-                    title.toLowerCase().includes(lowered) ||
-                    txt.toLowerCase().includes(lowered);
+                    squash(title).includes(lowered) ||
+                    squash(txt).includes(lowered);
                 const wasHidden = htmlEl.style.display === "none";
                 htmlEl.style.display = match ? "" : "none";
                 if (match) {

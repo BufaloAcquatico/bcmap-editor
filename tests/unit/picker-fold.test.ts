@@ -227,4 +227,28 @@ describe("Foldable pickers", () => {
         expect(icons).toHaveLength(3);
         expect(icons[0].title).toBe("Blank (Erase)");
     });
+
+    it("matches raw-style and prettified queries alike", () => {
+        const picker = (editor as any).picker;
+        const shown = (title: string) => ({
+            getAttribute: (name: string) => (name === "title" ? title : null),
+            textContent: "",
+            style: { display: "none" },
+        });
+        const items = [shown("Long Grass"), shown("Grass")];
+        const classList = { add: () => {}, remove: () => {}, toggle: () => {} };
+        picker.tileCategoryEls.push({
+            header: { setAttribute: () => {}, classList },
+            content: { style: {}, querySelectorAll: () => items },
+            caret: { classList, setAttribute: () => {} },
+            collapsed: true,
+        });
+        picker.setLayer("tile");
+        picker.filter("LongGrass");
+        expect(items[0].style.display).toBe("");
+        expect(items[1].style.display).toBe("none");
+        picker.filter("long grass");
+        expect(items[0].style.display).toBe("");
+        expect(items[1].style.display).toBe("none");
+    });
 });

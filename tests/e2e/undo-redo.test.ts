@@ -16,7 +16,7 @@ async function paintCenterTile(page: Page): Promise<void> {
     await page.waitForSelector("#mapCanvas");
     await page.fill("#searchInput", "LongGrass");
     await page.waitForTimeout(100);
-    await page.click('#tileCategories .sprite-item[title="LongGrass"]');
+    await page.click('#tileCategories .sprite-item[title="Long Grass"]');
     const canvas = page.locator("#mapCanvas");
     const box = await canvas.boundingBox();
     if (!box) throw new Error("no canvas box");

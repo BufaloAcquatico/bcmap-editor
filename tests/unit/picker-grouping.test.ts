@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
     blankFirst,
     displayGroupFor,
+    displayNameFor,
     orderObjectGroups,
     rotationTransform,
     sectionLabelFor,
@@ -122,5 +123,23 @@ describe("rotationTransform", () => {
         expect(rotationTransform({ Rotation: 90 })).toBe("rotate(90deg)");
         expect(rotationTransform({ Rotation: 180 })).toBe("rotate(180deg)");
         expect(rotationTransform({ Rotation: 270 })).toBe("rotate(270deg)");
+    });
+});
+
+describe("displayNameFor", () => {
+    it("capitalizes single-word lowercase styles", () => {
+        expect(displayNameFor("furnace")).toBe("Furnace");
+        expect(displayNameFor("anvil")).toBe("Anvil");
+        expect(displayNameFor("Grass")).toBe("Grass");
+    });
+
+    it("splits camelCase and letter-digit boundaries", () => {
+        expect(displayNameFor("ConveyorBelt1")).toBe("Conveyor Belt 1");
+        expect(displayNameFor("JackOLantern")).toBe("Jack O Lantern");
+        expect(displayNameFor("PlayTileLightBlue")).toBe(
+            "Play Tile Light Blue",
+        );
+        expect(displayNameFor("SignWoodWall")).toBe("Sign Wood Wall");
+        expect(displayNameFor("BondageBench")).toBe("Bondage Bench");
     });
 });

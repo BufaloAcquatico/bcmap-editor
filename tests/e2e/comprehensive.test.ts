@@ -169,7 +169,7 @@ test("click-to-paint object layer", async ({ page }: { page: Page }) => {
     await page.waitForTimeout(100);
 
     // Select an object (BondageBench)
-    await page.click('#objectCategories .sprite-item[title="BondageBench"]');
+    await page.click('#objectCategories .sprite-item[title="Bondage Bench"]');
     await page.waitForTimeout(100);
 
     // Click on canvas to paint
