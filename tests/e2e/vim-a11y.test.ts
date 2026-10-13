@@ -33,6 +33,29 @@ test("picker items are real buttons with accessible names", async ({
     await expect(header).toHaveAttribute("aria-expanded", /true|false/);
 });
 
+test("toolbar buttons wear the default Bootstrap size", async ({ page }) => {
+    await openEditor(page);
+    const btn = page.locator("#btnNew");
+    const size = await btn.evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { font: s.fontSize, pad: `${s.paddingTop} ${s.paddingLeft}` };
+    });
+    // Bootstrap default btn: 1rem/16px font, .375rem/.75rem -> 6px 12px padding.
+    // btn-sm was 14px / 4px 8px.
+    expect(size).toEqual({ font: "16px", pad: "6px 12px" });
+    // Still a comfortable hit target.
+    const box = await btn.boundingBox();
+    expect(box!.height).toBeGreaterThan(30);
+    // The wider buttons must not wrap or overflow a narrow viewport.
+    await page.setViewportSize({ width: 800, height: 600 });
+    const toolbar = await page.locator(".toolbar").evaluate((el) => ({
+        scroll: el.scrollWidth,
+        client: el.clientWidth,
+    }));
+    expect(toolbar.scroll).toBeLessThanOrEqual(toolbar.client);
+    await page.setViewportSize({ width: 1280, height: 720 });
+});
+
 test("category headers wear the thin theme border on all sides", async ({
     page,
 }: {

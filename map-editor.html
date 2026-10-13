@@ -188,20 +188,20 @@
   <!-- Top Toolbar -->
   <div class="toolbar p-2 d-flex justify-content-between align-items-center">
     <div class="d-flex gap-2">
-      <button id="btnNew" class="btn btn-sm btn-outline-light" title="New Map"><i class="bi bi-file-earmark-plus"></i></button>
-      <button id="btnImport" class="btn btn-sm btn-outline-light" title="Import Map"><i class="bi bi-upload"></i></button>
-      <button id="btnExport" class="btn btn-sm btn-outline-light" title="Export Map"><i class="bi bi-download"></i></button>
-      <button id="btnUndo" class="btn btn-sm btn-outline-light" title="Undo (Ctrl+Z)" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
-      <button id="btnRedo" class="btn btn-sm btn-outline-light" title="Redo (Ctrl+Y)" disabled><i class="bi bi-arrow-clockwise"></i></button>
+      <button id="btnNew" class="btn btn-outline-light" title="New Map"><i class="bi bi-file-earmark-plus"></i></button>
+      <button id="btnImport" class="btn btn-outline-light" title="Import Map"><i class="bi bi-upload"></i></button>
+      <button id="btnExport" class="btn btn-outline-light" title="Export Map"><i class="bi bi-download"></i></button>
+      <button id="btnUndo" class="btn btn-outline-light" title="Undo (Ctrl+Z)" disabled><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button id="btnRedo" class="btn btn-outline-light" title="Redo (Ctrl+Y)" disabled><i class="bi bi-arrow-clockwise"></i></button>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <div class="zoom-display text-light">
         Zoom: <span id="zoomLevel">100%</span>
       </div>
-      <button id="btnZoomIn" class="btn btn-sm btn-outline-light" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
-      <button id="btnZoomOut" class="btn btn-sm btn-outline-light" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
-      <button id="btnZoomReset" class="btn btn-sm btn-outline-light" title="Reset Zoom"><i class="bi bi-arrows-fullscreen"></i></button>
-      <button id="btnToggleGrid" class="btn btn-sm btn-outline-light active" title="Toggle Grid (G)"><i class="bi bi-grid"></i></button>
+      <button id="btnZoomIn" class="btn btn-outline-light" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+      <button id="btnZoomOut" class="btn btn-outline-light" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+      <button id="btnZoomReset" class="btn btn-outline-light" title="Reset Zoom"><i class="bi bi-arrows-fullscreen"></i></button>
+      <button id="btnToggleGrid" class="btn btn-outline-light active" title="Toggle Grid (G)"><i class="bi bi-grid"></i></button>
     </div>
   </div>
 
@@ -241,7 +241,7 @@
 
   <!-- Status Bar -->
   <div class="status-bar p-2 d-flex justify-content-between align-items-center gap-2">
-    <div class="flex-1" style="min-width: 0;">
+    <div class="status-section status-mode">
       <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
       <span id="commandPromptWrap" class="d-none w-100"><span id="commandPromptPrefix" aria-hidden="true">:</span><input id="commandPrompt" type="text" aria-label="Command prompt" autocomplete="off" spellcheck="false"></span>
     </div>
