@@ -104,7 +104,7 @@ describe("Editor vim cursor integration", () => {
 
     it("starts in normal mode with the mode slot rendered", () => {
         expect((editor as any).vim.getCursor()).toBeNull();
-        expect(mockElements["statusVimMode"].textContent).toBe("-- NORMAL --");
+        expect(mockElements["statusVimMode"].textContent).toBe("NORMAL");
     });
 
     it("boots the cursor at the map center on the first vim key", () => {
@@ -146,7 +146,7 @@ describe("Editor vim cursor integration", () => {
         editor.handleVimKey(keyEvent("g"));
         expect(mockElements["statusVimMode"].textContent).toBe("g");
         editor.handleVimKey(keyEvent("g"));
-        expect(mockElements["statusVimMode"].textContent).toBe("-- NORMAL --");
+        expect(mockElements["statusVimMode"].textContent).toBe("NORMAL");
         expect((editor as any).vim.getCursor()).toEqual({ X: 0, Y: 0 });
     });
 
@@ -330,9 +330,7 @@ describe("Editor visual mode + yank/paste", () => {
     it("shows the VISUAL label with region size", () => {
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("l"));
-        expect(mockElements["statusVimMode"].textContent).toBe(
-            "-- VISUAL -- 2x1",
-        );
+        expect(mockElements["statusVimMode"].textContent).toBe("VISUAL 2x1");
     });
 
     it("draws a tinted rectangle for the visual region", () => {
@@ -460,7 +458,7 @@ describe("Editor visual mode + yank/paste", () => {
         editor.handleVimKey(keyEvent("v"));
         editor.handleVimKey(keyEvent("Escape"));
         expect((editor as any).vim.getRegion()).toBeNull();
-        expect(mockElements["statusVimMode"].textContent).toBe("-- NORMAL --");
+        expect(mockElements["statusVimMode"].textContent).toBe("NORMAL");
     });
 });
 

@@ -126,12 +126,15 @@
     .menubar-toggle:hover, .menubar-toggle:focus-visible { background-color: #2a2a4a; color: #fff; }
     .menubar-toggle:focus-visible { outline: 1px solid #0d6efd; outline-offset: -1px; }
     .menubar-toggle[aria-expanded="true"] { background-color: #2a2a4a; color: #fff; }
-    .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; }
+    .status-bar { background-color: #16213e; border-top: 1px solid #2a2a4a; font-size: 0.875rem; padding: 0 0.5rem 0 0; }
     /* Three equal sections so no text change anywhere can move any
        other text: mode left, selection centered, position right. Only the
-       middle clips (ellipsized) when space runs out. */
+       middle clips (ellipsized) when space runs out. The mode section
+       stretches full bar height so the pill can bleed edge to edge;
+       selection and position keep the bar's old vertical padding. */
     .status-bar .status-section { flex: 1 1 0; min-width: 0; }
-    .status-mode { text-align: left; display: flex; align-items: center; }
+    .status-mode { text-align: left; display: flex; align-items: center; align-self: stretch; }
+    .status-selection, .status-position { padding-top: 0.5rem; padding-bottom: 0.5rem; }
     .status-selection {
       overflow: hidden;
       white-space: nowrap;
@@ -140,9 +143,10 @@
     }
     .status-position { text-align: right; }
     /* Lualine-style mode pill: slanted trailing edge, color per vim mode.
-       Horizontal padding only: the pill must stay exactly one text line
-       tall so swapping it for the command prompt never moves the bar. */
-    .mode-pill { display: inline-block; padding: 0 0.9rem 0 0.6rem; font-weight: 600; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); }
+       Horizontal padding only, stretched to the full bar height; the text
+       stays centered via inner flex. Swapping the pill for the command
+       prompt never moves the bar (both live in the same stretched third). */
+    .mode-pill { display: flex; align-items: center; align-self: stretch; padding: 0 0.9rem 0 0.6rem; font-weight: 600; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); }
     .mode-normal { background-color: #6c757d; color: #fff; }
     .mode-visual { background-color: #0dcaf0; color: #212529; }
     /* Current slot name after the pill: its own ellipsis so the pill never
@@ -333,9 +337,9 @@
   </div>
 
   <!-- Status Bar -->
-  <div class="status-bar p-2 d-flex justify-content-between align-items-center gap-2">
+  <div class="status-bar d-flex justify-content-between align-items-center gap-2">
     <div class="status-section status-mode">
-      <div id="statusVimMode" class="mode-pill mode-normal" role="status" aria-live="polite">-- NORMAL --</div>
+      <div id="statusVimMode" class="mode-pill mode-normal" role="status" aria-live="polite">NORMAL</div>
       <span id="statusSlotName" class="slot-name" title=""></span>
       <span id="commandPromptWrap" class="d-none w-100"><span id="commandPromptPrefix" aria-hidden="true">:</span><input id="commandPrompt" type="text" aria-label="Command prompt" autocomplete="off" spellcheck="false"></span>
     </div>
@@ -3646,9 +3650,9 @@ class VimController {
             const size = region
                 ? ` ${region.to.X - region.from.X + 1}x${region.to.Y - region.from.Y + 1}`
                 : "";
-            return `-- VISUAL --${size}`;
+            return `VISUAL${size}`;
         }
-        return "-- NORMAL --";
+        return "NORMAL";
     }
     getMode() {
         return this.mode;

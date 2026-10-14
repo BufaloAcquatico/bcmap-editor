@@ -31,7 +31,7 @@ test("status bar shows normal mode on load", async ({
     page: Page;
 }) => {
     await openEditor(page);
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
 });
 
 test("j boots the cursor at the map center and moves down", async ({
@@ -51,7 +51,7 @@ test("counts prefix motions", async ({ page }: { page: Page }) => {
     expect(await modeText(page)).toBe("5");
     await page.keyboard.press("j");
     expect(await vimCursor(page)).toEqual({ X: 20, Y: 25 });
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
 });
 
 test("gg goes to the top-left corner", async ({ page }: { page: Page }) => {

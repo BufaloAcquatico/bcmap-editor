@@ -46,9 +46,9 @@ test("v shows the VISUAL label with region size", async ({
 }) => {
     await openEditor(page);
     await page.keyboard.press("v");
-    expect(await modeText(page)).toBe("-- VISUAL -- 1x1");
+    expect(await modeText(page)).toBe("VISUAL 1x1");
     await page.keyboard.press("l");
-    expect(await modeText(page)).toBe("-- VISUAL -- 2x1");
+    expect(await modeText(page)).toBe("VISUAL 2x1");
 });
 
 test("yank blinks the region white over the quick tier", async ({
@@ -61,7 +61,7 @@ test("yank blinks the region white over the quick tier", async ({
     await page.keyboard.press("l");
     await page.keyboard.press("y");
     // Visual mode exits as before; only the blink stays behind.
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
     const flash = await page.evaluate(() => {
         const ed = (window as any).editor;
         return {
@@ -98,7 +98,7 @@ test("y yanks both layers and p pastes them", async ({
     await page.keyboard.press("v");
     await page.keyboard.press("l");
     await page.keyboard.press("y");
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
     // erase originals with the grass brush, then paste elsewhere
     await selectGrass(page);
     await page.keyboard.press(" ");
@@ -136,7 +136,7 @@ test("Space fills the visual region with the brush", async ({
     expect(await tileAt(page, 0, 0)).toBe(215);
     expect(await tileAt(page, 1, 0)).toBe(215);
     expect(await tileAt(page, 2, 0)).toBe(215);
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
     // one undo reverts the fill only: the gap returns to grass
     await page.keyboard.press("u");
     expect(await tileAt(page, 0, 0)).toBe(215);
@@ -169,7 +169,7 @@ test("p tiles the yank over the visual region", async ({
     expect(await tileAt(page, 2, 5)).toBe(210);
     expect(await tileAt(page, 3, 5)).toBe(215);
     expect(await tileAt(page, 4, 5)).toBe(210);
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
     // one undo reverts the whole tiling
     await page.keyboard.press("u");
     expect(await tileAt(page, 1, 5)).toBe(210);
@@ -207,13 +207,13 @@ test("visual boot clamps an out-of-bounds mouse hover", async ({
     expect(region.to.X).toBeLessThan(40);
     expect(region.from.Y).toBeGreaterThanOrEqual(0);
     expect(region.to.Y).toBeLessThan(40);
-    expect(await modeText(page)).toMatch(/-- VISUAL --/);
+    expect(await modeText(page)).toMatch(/VISUAL/);
 });
 
 test("Escape exits visual mode", async ({ page }: { page: Page }) => {
     await openEditor(page);
     await page.keyboard.press("v");
-    expect(await modeText(page)).toBe("-- VISUAL -- 1x1");
+    expect(await modeText(page)).toBe("VISUAL 1x1");
     await page.keyboard.press("Escape");
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
 });

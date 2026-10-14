@@ -206,5 +206,5 @@ test("Esc after click-away keeps the mode visible", async ({
     await page.keyboard.press("Escape");
     await expect(page.locator("#commandPrompt")).toBeHidden();
     await expect(page.locator("#statusVimMode")).toBeVisible();
-    expect(await modeText(page)).toBe("-- NORMAL --");
+    expect(await modeText(page)).toBe("NORMAL");
 });

@@ -108,9 +108,7 @@ describe("VimController motions (normal mode)", () => {
 
 describe("VimController status text", () => {
     it("shows the normal mode label by default", () => {
-        expect(makeController().controller.statusModeText()).toBe(
-            "-- NORMAL --",
-        );
+        expect(makeController().controller.statusModeText()).toBe("NORMAL");
     });
 
     it("shows pending count digits while typing a count", () => {
@@ -130,7 +128,7 @@ describe("VimController status text", () => {
         const { controller } = makeController();
         controller.handleKey("3");
         controller.handleKey("j");
-        expect(controller.statusModeText()).toBe("-- NORMAL --");
+        expect(controller.statusModeText()).toBe("NORMAL");
     });
 });
 
@@ -202,7 +200,7 @@ describe("VimController visual mode", () => {
             from: { X: 20, Y: 20 },
             to: { X: 22, Y: 20 },
         });
-        expect(ctx.controller.statusModeText()).toBe("-- VISUAL -- 3x1");
+        expect(ctx.controller.statusModeText()).toBe("VISUAL 3x1");
     });
 
     it("dragging backwards normalizes the region", () => {

@@ -83,9 +83,9 @@ export class VimController {
             const size = region
                 ? ` ${region.to.X - region.from.X + 1}x${region.to.Y - region.from.Y + 1}`
                 : "";
-            return `-- VISUAL --${size}`;
+            return `VISUAL${size}`;
         }
-        return "-- NORMAL --";
+        return "NORMAL";
     }
 
     getMode(): VimMode {

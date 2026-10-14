@@ -131,7 +131,7 @@ test("mode pill follows the vim mode", async ({ page }: { page: Page }) => {
     await page.locator("#mapCanvas").click();
     await page.keyboard.press("v");
     await expect(pill).toHaveClass(/mode-visual/);
-    await expect(pill).toContainText("-- VISUAL --");
+    await expect(pill).toContainText("VISUAL");
     await page.keyboard.press("Escape");
     await expect(pill).toHaveClass(/mode-normal/);
 });

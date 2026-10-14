@@ -96,7 +96,7 @@ Press `:` and type one of these commands:
 
 The keyboard cursor starts where your mouse last hovered and auto-pans to
 stay visible when zoomed in. The status bar shows the vim mode
-(`-- NORMAL --`) on the left, the selection in the middle, and the
+(`NORMAL`) on the left, the selection in the middle, and the
 cursor/pointer position on the right. Painting in one stroke — a
 click-drag or a quick burst of key presses — undoes as a single step.
 
