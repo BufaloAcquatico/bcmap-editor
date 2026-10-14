@@ -4,4 +4,5 @@ declare var LZString: {
 };
 declare var bootstrap: {
     Modal: any;
+    Dropdown: any;
 };

@@ -221,6 +221,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const menuShortcuts = document.getElementById("menuShortcuts");
     menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
 
+    // Application menubar: hovering another top-level item while a menu is
+    // open switches to it. Hovering with nothing open does nothing — a
+    // click (or keyboard) still opens.
+    document.querySelectorAll(".menubar-toggle").forEach((toggle) => {
+        toggle.addEventListener("mouseenter", () => {
+            const openToggle = document.querySelector(
+                '.menubar-toggle[aria-expanded="true"]',
+            );
+            if (!openToggle || openToggle === toggle) return;
+            bootstrap.Dropdown.getInstance(openToggle)?.hide();
+            bootstrap.Dropdown.getOrCreateInstance(toggle).show();
+        });
+    });
+
     // Undo/Redo (buttons + keybinds)
     const btnUndo = document.getElementById(
         "btnUndo",

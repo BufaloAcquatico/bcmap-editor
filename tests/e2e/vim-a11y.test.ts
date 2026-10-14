@@ -63,6 +63,27 @@ test("menu toggles read as plain menubar items", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
 });
 
+test("open menu follows hover across top-level menus", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    const mapMenu = page.locator("#menuMapToggle + .dropdown-menu");
+    const editMenu = page.locator("#menuEditToggle + .dropdown-menu");
+    await page.click("#menuMapToggle");
+    await expect(mapMenu).toBeVisible();
+    // Hovering Edit with Map open switches: Edit opens, Map closes.
+    await page.hover("#menuEditToggle");
+    await expect(editMenu).toBeVisible();
+    await expect(mapMenu).toBeHidden();
+    // Hovering with nothing open does not open.
+    await page.keyboard.press("Escape");
+    await expect(editMenu).toBeHidden();
+    await page.hover("#menuViewToggle");
+    await expect(page.locator("#menuViewToggle + .dropdown-menu")).toBeHidden();
+});
+
 test("category headers wear the thin theme border on all sides", async ({
     page,
 }: {
