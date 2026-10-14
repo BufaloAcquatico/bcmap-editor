@@ -5626,6 +5626,95 @@ class BCMapEditor {
     getMapData() {
         return this.mapData;
     }
+    /**
+     * Capture a whole-map thumbnail for save slots: every cell composited
+     * from the same sprite caches and variant resolution as the main view,
+     * with no camera, grid, cursor or overlays. Returns a JPEG data URL
+     * sized to fit within maxPx on each side.
+     */
+    captureMapThumbnail(maxPx = 240) {
+        const cell = Math.max(1, Math.floor(maxPx / mapdata_1.MAP_WIDTH));
+        const size = cell * mapdata_1.MAP_WIDTH;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx)
+            throw new Error("Failed to get canvas context");
+        ctx.fillStyle = "#0f0f23";
+        ctx.fillRect(0, 0, size, size);
+        for (let y = 0; y < mapdata_1.MAP_HEIGHT; y++) {
+            for (let x = 0; x < mapdata_1.MAP_WIDTH; x++) {
+                this.drawThumbnailCell(ctx, x, y, cell);
+            }
+        }
+        return canvas.toDataURL("image/jpeg", 0.7);
+    }
+    /** One thumbnail cell: tile, wall/floor effect, then object on top. */
+    drawThumbnailCell(ctx, x, y, cell) {
+        const index = x + y * mapdata_1.MAP_WIDTH;
+        const drawX = x * cell;
+        const drawY = y * cell;
+        const tileId = this.mapData.Tiles.charCodeAt(index);
+        const tile = this.tileMap.get(tileId) ?? this.fullTileMap.get(tileId);
+        if (tile) {
+            const img = this.tileImageCache.get(tile.Type + "/" + tile.Style);
+            if (img && img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(img, drawX, drawY, cell, cell);
+            }
+            else {
+                // Fallback to color if image not loaded
+                ctx.fillStyle = this.getTileColor(tile.Type, tile.Style);
+                ctx.fillRect(drawX, drawY, cell, cell);
+            }
+            const effectIndex = tile.Type === "Wall"
+                ? this.computeWallEffect(x, y)
+                : this.computeFloorWallEffect(x, y);
+            if (effectIndex >= 0) {
+                const effectImg = this.wallEffectImageCache.get(effectIndex);
+                if (effectImg &&
+                    effectImg.complete &&
+                    effectImg.naturalWidth > 0) {
+                    ctx.drawImage(effectImg, drawX, drawY, cell, cell);
+                }
+            }
+        }
+        const objId = this.mapData.Objects.charCodeAt(index);
+        if (objId === catalog_1.BLANK_OBJECT_ID)
+            return;
+        const obj = this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
+        if (!obj || obj.Style === "Blank")
+            return;
+        const variant = this.resolveVariantImageName(x, y, obj);
+        const baseKey = obj.Type + "/" + obj.Style;
+        const img = this.objectImageCache.get(obj.Type + "/" + variant) ??
+            this.objectImageCache.get(baseKey);
+        const left = obj.Left ?? 0;
+        const top = obj.Top ?? 0;
+        const width = obj.Width ?? 1;
+        const height = obj.Height ?? 1;
+        const adjDrawX = drawX + left * cell;
+        const adjDrawW = cell * width;
+        const adjDrawY = drawY + top * cell;
+        const adjDrawH = cell * height;
+        const rotation = obj.Rotation ?? 0;
+        if (rotation !== 0) {
+            ctx.save();
+            ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
+            ctx.rotate((rotation * Math.PI) / 180);
+            ctx.translate(-(adjDrawX + adjDrawW / 2), -(adjDrawY + adjDrawH / 2));
+        }
+        if (img && img.complete && img.naturalWidth > 0) {
+            ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+        }
+        else {
+            // Fallback to color if image not loaded
+            ctx.fillStyle = this.getObjectColor(obj.Type);
+            ctx.fillRect(adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN, adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN, adjDrawW * OBJECT_DRAW_SIZE, adjDrawH * OBJECT_DRAW_SIZE);
+        }
+        if (rotation !== 0)
+            ctx.restore();
+    }
     newMap() {
         this.mapData = (0, mapdata_1.createDefaultMap)();
         this.history.clearRedo();
