@@ -114,6 +114,12 @@
       outline: none;
     }
     .toolbar { background-color: #16213e; border-bottom: 1px solid #2a2a4a; }
+    /* Secondary text on the dark chrome: Bootstrap's muted tone is built
+       for light surfaces and reads near-black here. Every text-muted /
+       form-text in the app lives on a dark surface, so brighten both
+       (!important mirrors Bootstrap's own text-muted rule). */
+    .text-muted { color: #9aa0b0 !important; }
+    .form-text { color: #9aa0b0; }
     /* Application menu bar: plain-text items, not buttons. No caret —
        desktop menubars don't wear one; the hover wash is the affordance. */
     .menubar-toggle { background: transparent; border: 0; border-radius: 4px; color: #eaeaea; cursor: pointer; font-size: 0.875rem; padding: 0.375rem 0.75rem; }
