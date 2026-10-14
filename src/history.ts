@@ -61,6 +61,11 @@ export class MapHistory {
                 this.redoStack = this.strokeSavedRedo;
                 this.notify();
             }
+        } else if (this.strokeDirty) {
+            // A kept entry changed the map content after beginStroke
+            // already notified: content-synced views (dirty markers) need
+            // one more signal now that the paint has landed.
+            this.notify();
         }
         this.strokeEntry = null;
         this.strokeSavedRedo = [];

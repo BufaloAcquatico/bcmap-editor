@@ -7,6 +7,18 @@ import { appSurface, surfaceForTarget } from "./appSurface";
 import { COMMANDS } from "./vim/commands";
 import { createHelpRenderer } from "./helpCard";
 import { fadeIn, MOTION_MS, MOTION_QUICK_MS } from "./anim";
+import {
+    MAX_SLOTS,
+    formatAbsoluteTime,
+    formatRelativeTime,
+    isDirty,
+    isStorageAvailable,
+    listSlots,
+    loadSlot,
+    sanitizeName,
+    saveSlot,
+    snapshotMap,
+} from "./slots";
 
 document.addEventListener("DOMContentLoaded", () => {
     // Motion durations are canonical in src/anim.ts; mirror them into
@@ -75,7 +87,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     btnNewConfirm?.addEventListener("click", () => {
-        editor.newMap();
+        // State reset lives in the slots section below (doNewMap); safe to
+        // call here — handlers run long after init finishes.
+        doNewMap();
         newMapModal.hide();
         newMapConfirm.checked = false;
         btnNewConfirm.disabled = true;
@@ -97,6 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btnImportConfirm?.addEventListener("click", () => {
         try {
             editor.importMap(importCode.value);
+            // A pasted map is new work: it belongs to no slot.
+            forgetSlotState();
             importModal.hide();
             importCode.value = "";
         } catch (e: any) {
@@ -210,7 +226,12 @@ document.addEventListener("DOMContentLoaded", () => {
     btnRedo?.addEventListener("click", () => {
         editor.redo();
     });
-    editor.onHistoryChange = syncHistoryButtons;
+    editor.onHistoryChange = () => {
+        syncHistoryButtons();
+        // Every committed stroke can flip the dirty marker (defined in the
+        // slots section below; runs only on edits, long after init).
+        syncSlotIndicator();
+    };
     syncHistoryButtons();
 
     // Vim command line (`:` in the status bar): prompt replaces the mode
@@ -293,16 +314,61 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modeSlot) fadeIn(modeSlot);
     });
 
-    // :w / :write reuses the export path; :e reuses the import modal.
-    editor.onWriteMapRequest = (name?: string) => {
-        const mapName = name || "my-map";
-        const code = editor.exportMap(mapName);
-        const blob = new Blob([code], { type: "text/plain" });
+    // Save slots (browser storage): current-name state, dirty baseline,
+    // availability probe. The store itself lives in src/slots.ts.
+    let storageAvailable = false;
+    try {
+        storageAvailable =
+            typeof window.localStorage !== "undefined" &&
+            isStorageAvailable(window.localStorage);
+    } catch {
+        storageAvailable = false;
+    }
+    if (navigator.storage?.persist) {
+        navigator.storage.persist().catch(() => {});
+    }
+    let currentSlotName: string | null = null;
+    let currentSavedAt: number | null = null;
+    let baselineCode = snapshotMap(editor.getMapData());
+
+    const slotNameEl = document.getElementById("statusSlotName");
+    const syncSlotIndicator = () => {
+        if (!slotNameEl) return;
+        if (!currentSlotName) {
+            slotNameEl.textContent = "";
+            slotNameEl.title = "";
+            return;
+        }
+        const dirty = isDirty(baselineCode, editor.getMapData());
+        slotNameEl.textContent = dirty
+            ? `${currentSlotName} [+]`
+            : currentSlotName;
+        slotNameEl.title =
+            currentSavedAt === null
+                ? currentSlotName
+                : `${currentSlotName} — saved ${formatAbsoluteTime(currentSavedAt)}`;
+    };
+
+    /** The map was replaced (new/import/load): it belongs to no slot yet. */
+    const forgetSlotState = () => {
+        currentSlotName = null;
+        currentSavedAt = null;
+        baselineCode = snapshotMap(editor.getMapData());
+        syncSlotIndicator();
+    };
+
+    const doNewMap = () => {
+        editor.newMap();
+        forgetSlotState();
+    };
+
+    const downloadTextFile = (filename: string, text: string) => {
+        const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         try {
             const a = document.createElement("a");
             a.href = url;
-            a.download = `${mapName}.txt`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -310,7 +376,153 @@ document.addEventListener("DOMContentLoaded", () => {
             URL.revokeObjectURL(url);
         }
     };
+
+    const doSaveSlot = (rawName: string): void => {
+        if (!storageAvailable) {
+            editor.showVimFeedback(
+                "Browser storage is unavailable here — export to a file instead.",
+            );
+            return;
+        }
+        const result = saveSlot(window.localStorage, rawName, {
+            code: editor.exportMap(rawName),
+            savedAt: Date.now(),
+            thumbnail: editor.captureMapThumbnail(),
+        });
+        if (!result.ok) {
+            editor.showVimFeedback(result.error);
+            return;
+        }
+        currentSlotName = result.name;
+        currentSavedAt = Date.now();
+        baselineCode = snapshotMap(editor.getMapData());
+        syncSlotIndicator();
+        editor.showVimFeedback(`"${result.name}" saved`);
+    };
+
+    // :export [name] keeps the original download path; :w moved to slots.
+    editor.onExportMapRequest = (name?: string) => {
+        if (name) {
+            if (!storageAvailable) {
+                editor.showVimFeedback(
+                    "Browser storage is unavailable here — export to a file instead.",
+                );
+                return;
+            }
+            const slot = loadSlot(window.localStorage, name);
+            if (!slot) {
+                editor.showVimFeedback(`E486: No saved map named "${name}"`);
+                return;
+            }
+            downloadTextFile(`${name}.txt`, slot.code);
+            return;
+        }
+        const mapName = currentSlotName || exportName.value || "my-map";
+        downloadTextFile(`${mapName}.txt`, editor.exportMap(mapName));
+    };
+    editor.onSaveSlotRequest = (name: string) => doSaveSlot(name);
+    editor.onNewMapRequest = () => doNewMap();
     editor.onImportRequest = () => importModal.show();
+    editor.onSlotStateRequest = () => ({
+        available: storageAvailable,
+        currentName: currentSlotName,
+        hasSlot: (name: string) =>
+            storageAvailable && loadSlot(window.localStorage, name) !== null,
+        isDirty: isDirty(baselineCode, editor.getMapData()),
+        isFull:
+            storageAvailable &&
+            listSlots(window.localStorage).length >= MAX_SLOTS,
+    });
+
+    // Save modal: prefill with the current slot name; filter typing to the
+    // store charset; an existing foreign name flips to replace-confirm.
+    const menuSave = document.getElementById("menuSave");
+    const saveModal = new bootstrap.Modal(
+        document.getElementById("saveModal")!,
+    );
+    const saveName = document.getElementById(
+        "saveName",
+    ) as HTMLInputElement | null;
+    const saveMessage = document.getElementById("saveMessage");
+    const btnSaveConfirm = document.getElementById(
+        "btnSaveConfirm",
+    ) as HTMLButtonElement | null;
+    let saveArmedReplace: string | null = null;
+
+    const setSaveMessage = (text: string | null) => {
+        if (!saveMessage) return;
+        if (text === null) {
+            saveMessage.textContent = "";
+            saveMessage.classList.add("d-none");
+        } else {
+            saveMessage.textContent = text;
+            saveMessage.classList.remove("d-none");
+        }
+    };
+    const resetSaveModal = () => {
+        saveArmedReplace = null;
+        btnSaveConfirm?.classList.remove("btn-danger");
+        btnSaveConfirm?.classList.add("btn-primary");
+        setSaveMessage(null);
+    };
+    menuSave?.addEventListener("click", () => {
+        if (!storageAvailable) {
+            editor.showVimFeedback(
+                "Browser storage is unavailable here — export to a file instead.",
+            );
+            return;
+        }
+        resetSaveModal();
+        if (saveName) {
+            saveName.value = currentSlotName ?? "";
+            saveModal.show();
+            saveName.focus();
+            try {
+                saveName.select();
+            } catch {
+                // Focus is enough when select() is unavailable.
+            }
+        }
+    });
+    saveName?.addEventListener("input", () => {
+        const clean = sanitizeName(saveName.value);
+        if (clean !== saveName.value) saveName.value = clean;
+        if (saveArmedReplace !== null && saveName.value !== saveArmedReplace) {
+            resetSaveModal();
+        }
+    });
+    btnSaveConfirm?.addEventListener("click", () => {
+        if (!saveName) return;
+        const name = sanitizeName(saveName.value);
+        if (!name) {
+            setSaveMessage("Enter a name — letters, numbers, dash and space.");
+            return;
+        }
+        const existing =
+            storageAvailable && loadSlot(window.localStorage, name);
+        const isCurrent =
+            currentSlotName !== null &&
+            name.toLowerCase() === currentSlotName.toLowerCase();
+        if (existing && !isCurrent && saveArmedReplace !== name) {
+            saveArmedReplace = name;
+            setSaveMessage(
+                `Replace "${name}" (saved ${formatRelativeTime(existing.savedAt, Date.now())})? This cannot be undone — export it first to keep it.`,
+            );
+            btnSaveConfirm?.classList.remove("btn-primary");
+            btnSaveConfirm?.classList.add("btn-danger");
+            return;
+        }
+        doSaveSlot(name);
+        saveModal.hide();
+    });
+    if (!storageAvailable && menuSave) {
+        menuSave.setAttribute("disabled", "");
+        menuSave.setAttribute(
+            "title",
+            "Browser storage is unavailable here — export to a file instead.",
+        );
+    }
+    syncSlotIndicator();
 
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY: Record<

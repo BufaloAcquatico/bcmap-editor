@@ -54,7 +54,23 @@ mockElements["objectCategories"] = {
     appendChild: vi.fn(),
 };
 mockElements["zoomLevel"] = { textContent: "" };
-mockElements["statusVimMode"] = { textContent: "" };
+// Set-backed classList mirror: updateVimMode toggles the mode pill classes.
+const mockClassList = () => {
+    const set = new Set<string>();
+    return {
+        toggle: (cls: string, force?: boolean) => {
+            const on = force ?? !set.has(cls);
+            if (on) set.add(cls);
+            else set.delete(cls);
+            return on;
+        },
+        contains: (cls: string) => set.has(cls),
+    };
+};
+mockElements["statusVimMode"] = {
+    textContent: "",
+    classList: mockClassList(),
+};
 mockElements["statusPosition"] = { textContent: "" };
 mockElements["statusSelection"] = { textContent: "" };
 global.document = {
@@ -497,18 +513,23 @@ describe("Editor command line (VB5)", () => {
         expect(editor.getHelpVisible()).toBe(!before);
     });
 
-    it(":w goes through the write handler with the name", () => {
-        const writer = vi.fn();
-        editor.onWriteMapRequest = writer;
+    it(":w goes through the save-slot handler with the name", () => {
+        const saver = vi.fn();
+        editor.onSaveSlotRequest = saver;
         editor.handleVimCommand("write my-map");
-        expect(writer).toHaveBeenCalledWith("my-map");
+        expect(saver).toHaveBeenCalledWith("my-map");
     });
 
-    it(":e goes through the import handler", () => {
-        const opener = vi.fn();
-        editor.onImportRequest = opener;
+    it(":e opens the slots window, :import the import modal", () => {
+        const slots = vi.fn();
+        const importer = vi.fn();
+        editor.onOpenSlotsRequest = slots;
+        editor.onImportRequest = importer;
         editor.handleVimCommand("e");
-        expect(opener).toHaveBeenCalledTimes(1);
+        expect(slots).toHaveBeenCalledTimes(1);
+        expect(importer).not.toHaveBeenCalled();
+        editor.handleVimCommand("import");
+        expect(importer).toHaveBeenCalledTimes(1);
     });
 
     it("shows E492 for an unknown command", () => {

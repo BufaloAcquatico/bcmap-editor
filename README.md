@@ -83,9 +83,12 @@ Press `:` and type one of these commands:
 <!-- COMMANDS:START -->
 | Command | What it does |
 | --- | --- |
-| `:w [name]` | Save the map |
+| `:w [name]` | Save the map to a browser slot (add ! to overwrite) |
 | `:write [name]` | Same as :w |
-| `:e` | Open a saved map |
+| `:e [name]` | Open a saved map (add ! to discard changes) |
+| `:enew` | Start a new map (add ! to discard changes) |
+| `:export [name]` | Download the map as a .txt file |
+| `:import` | Import a map code |
 | `:help` | Show or hide this help |
 | `:grid` | Show or hide the grid |
 | `:line x1,y1 x2,y2` | Draw a straight line of tiles |

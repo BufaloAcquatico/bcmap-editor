@@ -66,15 +66,23 @@ test(":grid and :help toggle their features", async ({
     await expect(page.locator("#controlsHelp")).toBeHidden();
 });
 
-test(":w exports the map as a download", async ({ page }: { page: Page }) => {
+test(":w saves a slot; :export downloads the map as a file", async ({
+    page,
+}: {
+    page: Page;
+}) => {
     await openEditor(page);
+    await runCommand(page, "w e2e-map");
+    const names = await page.evaluate(() =>
+        Object.keys(
+            JSON.parse(localStorage.getItem("bcmap.v1.slots") ?? '{"slots":{}}')
+                .slots,
+        ),
+    );
+    expect(names).toEqual(["e2e-map"]);
     const [download] = await Promise.all([
         page.waitForEvent("download"),
-        (async () => {
-            await page.keyboard.press(":");
-            await page.keyboard.type("w e2e-map");
-            await page.keyboard.press("Enter");
-        })(),
+        runCommand(page, "export e2e-map"),
     ]);
     expect(download.suggestedFilename()).toBe("e2e-map.txt");
 });

@@ -37,7 +37,7 @@ import { VimController } from "./vim/vimController";
 import { EditSession } from "./vim/editSession";
 import { captureRegion, type YankBuffer } from "./vim/yank";
 import { regionCells, type Region } from "./vim/motions";
-import { runCommand } from "./vim/commands";
+import { runCommand, type SlotState } from "./vim/commands";
 import { lineCells } from "./line";
 import {
     EXPANDABLE_LEFT_RIGHT,
@@ -129,9 +129,19 @@ export class BCMapEditor {
     });
     /** Copy buffer from `y`, holding both layers; `p` pastes it. */
     private yankBuffer: YankBuffer | null = null;
-    /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
-    public onWriteMapRequest: ((name?: string) => void) | null = null;
+    /** Set by init.ts: slot save/load, dialogs and export (`:w`, `:e`, …). */
+    public onSaveSlotRequest: ((name: string) => void) | null = null;
+    public onOpenSlotsRequest: (() => void) | null = null;
+    public onLoadSlotRequest: ((name: string) => void) | null = null;
+    public onNewMapRequest: ((force: boolean) => void) | null = null;
+    public onExportMapRequest: ((name?: string) => void) | null = null;
     public onImportRequest: (() => void) | null = null;
+    /**
+     * Set by init.ts: slot state the command layer reads (current name,
+     * store contents, dirty baseline). Defaults to a safe empty state so
+     * the editor also runs standalone without init wiring.
+     */
+    public onSlotStateRequest: (() => SlotState) | null = null;
     /** Suppress mode-slot updates while a transient message shows. */
     private feedbackUntil = 0;
     private picker = new MapPicker({
@@ -1537,7 +1547,14 @@ export class BCMapEditor {
         // Never clobber a transient feedback message while it is showing.
         if (performance.now() < this.feedbackUntil) return;
         const el = document.getElementById("statusVimMode");
-        if (el) el.textContent = this.vim.statusModeText();
+        if (el) {
+            el.textContent = this.vim.statusModeText();
+            // Pill color follows the mode itself, not the text (which can
+            // also be a pending count or operator like "g").
+            const visual = this.vim.getMode() === "visual";
+            el.classList.toggle("mode-visual", visual);
+            el.classList.toggle("mode-normal", !visual);
+        }
     }
 
     /**
@@ -1560,13 +1577,28 @@ export class BCMapEditor {
      * Unknown/bad input surfaces as a transient E-message.
      */
     public handleVimCommand(input: string): void {
-        const result = runCommand(input, {
-            writeMap: (name) => this.onWriteMapRequest?.(name),
-            openImport: () => this.onImportRequest?.(),
-            toggleHelp: () => this.toggleHelp(),
-            toggleGrid: () => this.toggleGrid(),
-            drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
-        });
+        const state: SlotState = this.onSlotStateRequest?.() ?? {
+            available: true,
+            currentName: null,
+            hasSlot: () => false,
+            isDirty: false,
+            isFull: false,
+        };
+        const result = runCommand(
+            input,
+            {
+                saveSlot: (name) => this.onSaveSlotRequest?.(name),
+                openSlots: () => this.onOpenSlotsRequest?.(),
+                loadSlot: (name) => this.onLoadSlotRequest?.(name),
+                newMap: () => this.onNewMapRequest?.(false),
+                exportMap: (name) => this.onExportMapRequest?.(name),
+                openImport: () => this.onImportRequest?.(),
+                toggleHelp: () => this.toggleHelp(),
+                toggleGrid: () => this.toggleGrid(),
+                drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
+            },
+            state,
+        );
         if (!result.ok && result.error) this.showVimFeedback(result.error);
     }
 

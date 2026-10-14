@@ -119,7 +119,7 @@
        other text: mode left, selection centered, position right. Only the
        middle clips (ellipsized) when space runs out. */
     .status-bar .status-section { flex: 1 1 0; min-width: 0; }
-    .status-mode { text-align: left; }
+    .status-mode { text-align: left; display: flex; align-items: center; }
     .status-selection {
       overflow: hidden;
       white-space: nowrap;
@@ -127,6 +127,15 @@
       text-align: center;
     }
     .status-position { text-align: right; }
+    /* Lualine-style mode pill: slanted trailing edge, color per vim mode.
+       Horizontal padding only: the pill must stay exactly one text line
+       tall so swapping it for the command prompt never moves the bar. */
+    .mode-pill { display: inline-block; padding: 0 0.9rem 0 0.6rem; font-weight: 600; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); }
+    .mode-normal { background-color: #6c757d; color: #fff; }
+    .mode-visual { background-color: #0dcaf0; color: #212529; }
+    /* Current slot name after the pill: its own ellipsis so the pill never
+       shifts the center/right thirds (see the thirds comment above). */
+    .slot-name { color: #9aa0b0; margin-left: 0.5rem; display: inline-block; max-width: 14rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     /* Vim-style command line: a `:` glyph plus typed text in status-bar
        typography, so opening it shifts no pixels and shows no box chrome.
        (`d-none` still hides the wrap; this rule only lays it out shown.) */
@@ -243,6 +252,7 @@
         <button id="menuMapToggle" class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Map</button>
         <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="menuMapToggle">
           <li><button id="btnNew" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-file-earmark-plus me-2"></i>New Map…</button></li>
+          <li><button id="menuSave" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-floppy me-2"></i>Save…<span class="text-muted ms-auto ps-4 small">:w</span></button></li>
           <li><button id="btnImport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-upload me-2"></i>Import Map Code…</button></li>
           <li><button id="btnExport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-download me-2"></i>Export to File…</button></li>
           <li><hr class="dropdown-divider"></li>
@@ -312,7 +322,8 @@
   <!-- Status Bar -->
   <div class="status-bar p-2 d-flex justify-content-between align-items-center gap-2">
     <div class="status-section status-mode">
-      <div id="statusVimMode" role="status" aria-live="polite">-- NORMAL --</div>
+      <div id="statusVimMode" class="mode-pill mode-normal" role="status" aria-live="polite">-- NORMAL --</div>
+      <span id="statusSlotName" class="slot-name" title=""></span>
       <span id="commandPromptWrap" class="d-none w-100"><span id="commandPromptPrefix" aria-hidden="true">:</span><input id="commandPrompt" type="text" aria-label="Command prompt" autocomplete="off" spellcheck="false"></span>
     </div>
     <div id="statusSelection" class="status-section status-selection">No selection</div>
@@ -362,6 +373,30 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" id="btnExportConfirm"><i class="bi bi-check"></i> Export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Map Modal -->
+  <div class="modal fade" id="saveModal" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-floppy"></i> Save Map</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="saveName" class="form-label">Map Name</label>
+            <input type="text" id="saveName" class="form-control" maxlength="40" placeholder="my-map" autocomplete="off" spellcheck="false">
+            <div class="form-text">Letters, numbers, dash and space. Stored in this browser only — export to a file to keep it.</div>
+          </div>
+          <div id="saveMessage" class="alert alert-warning d-none" role="alert"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveConfirm"><i class="bi bi-check"></i> Save</button>
         </div>
       </div>
     </div>
@@ -2279,6 +2314,12 @@ class MapHistory {
                 this.notify();
             }
         }
+        else if (this.strokeDirty) {
+            // A kept entry changed the map content after beginStroke
+            // already notified: content-synced views (dirty markers) need
+            // one more signal now that the paint has landed.
+            this.notify();
+        }
         this.strokeEntry = null;
         this.strokeSavedRedo = [];
     }
@@ -3202,6 +3243,214 @@ function railroadStyleName(neighbors) {
 }
 
 "use strict";
+// BCMap Editor - browser save-slot store.
+//
+// Versioned single-key localStorage store for named map slots: each save
+// rewrites one blob, so a slot write is atomic (no half-written index vs.
+// orphaned values). Entries that fail validation are dropped individually,
+// so one corrupt slot can never brick the rest.
+//
+// DOM-free on purpose: init.ts owns the UI, the editor owns thumbnails; this
+// module only moves plain data in and out of storage. The storage backend is
+// injected (localStorage in the app, an in-memory fake in tests), which also
+// keeps this importable in a node test env where localStorage is undefined.
+// Type-only import: erased at compile time, so the embed script needs no
+// new require mapping for this module.
+window.STORAGE_FULL_MESSAGE = window.INVALID_NAME_MESSAGE = window.SLOT_FULL_MESSAGE = window.MAX_NAME_LENGTH = window.MAX_SLOTS = window.STORE_VERSION = window.SLOTS_STORAGE_KEY = void 0;
+window.sanitizeName = sanitizeName;
+window.isStorageAvailable = isStorageAvailable;
+window.listSlots = listSlots;
+window.loadSlot = loadSlot;
+window.saveSlot = saveSlot;
+window.deleteSlot = deleteSlot;
+window.snapshotMap = snapshotMap;
+window.isDirty = isDirty;
+window.formatRelativeTime = formatRelativeTime;
+window.formatAbsoluteTime = formatAbsoluteTime;
+window.SLOTS_STORAGE_KEY = "bcmap.v1.slots";
+window.STORE_VERSION = 1;
+/** Hard cap: worst-case full house stays well under a quarter of quota. */
+window.MAX_SLOTS = 30;
+window.MAX_NAME_LENGTH = 40;
+window.SLOT_FULL_MESSAGE = "Slot list full (30/30) — delete a saved map or export one to a file first";
+window.INVALID_NAME_MESSAGE = "Invalid map name — use letters, numbers, dash and space (max 40).";
+window.STORAGE_FULL_MESSAGE = "Browser storage is full — export a map to a file to free space.";
+/**
+ * Reduce a raw name to the storable form: letters, numbers, dash and space
+ * only, single internal spaces, no leading/trailing dashes or spaces, max
+ * 40 chars. Returns "" when nothing valid remains (caller rejects).
+ */
+function sanitizeName(raw) {
+    const cleaned = raw
+        .replace(/\s+/g, " ")
+        .replace(/[^A-Za-z0-9 \-]/g, "")
+        .replace(/^[\- ]+|[\- ]+$/g, "");
+    return cleaned.slice(0, window.MAX_NAME_LENGTH);
+}
+/** Probe whether a storage backend actually accepts writes. Never throws. */
+function isStorageAvailable(storage) {
+    const probeKey = "__bcmap_probe__";
+    try {
+        storage.setItem(probeKey, "1");
+        storage.removeItem(probeKey);
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
+function isValidEntry(value) {
+    if (!value || typeof value !== "object")
+        return false;
+    const entry = value;
+    return (typeof entry.code === "string" &&
+        typeof entry.thumbnail === "string" &&
+        typeof entry.savedAt === "number" &&
+        Number.isFinite(entry.savedAt));
+}
+/** Read the table, dropping corrupt entries; a corrupt blob reads as empty. */
+function readTable(storage) {
+    let raw = null;
+    try {
+        raw = storage.getItem(window.SLOTS_STORAGE_KEY);
+    }
+    catch {
+        return {};
+    }
+    if (!raw)
+        return {};
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    }
+    catch {
+        return {};
+    }
+    if (!parsed || typeof parsed !== "object")
+        return {};
+    const slots = parsed.slots;
+    if (!slots || typeof slots !== "object")
+        return {};
+    const table = {};
+    for (const [name, value] of Object.entries(slots)) {
+        if (isValidEntry(value))
+            table[name] = value;
+    }
+    return table;
+}
+function findKey(table, name) {
+    const lowered = name.toLowerCase();
+    for (const key of Object.keys(table)) {
+        if (key.toLowerCase() === lowered)
+            return key;
+    }
+    return null;
+}
+function isQuotaError(error) {
+    if (!error || typeof error !== "object")
+        return false;
+    const err = error;
+    return (err.name === "QuotaExceededError" ||
+        err.code === 22 ||
+        err.code === 1014);
+}
+/** Slots newest-first. */
+function listSlots(storage) {
+    return Object.entries(readTable(storage))
+        .map(([name, entry]) => ({ name, ...entry }))
+        .sort((a, b) => b.savedAt - a.savedAt);
+}
+/** Case-insensitive lookup; null when missing or storage is unreadable. */
+function loadSlot(storage, name) {
+    const table = readTable(storage);
+    const key = findKey(table, name);
+    return key === null ? null : table[key];
+}
+/**
+ * Store a slot. Overwriting is case-insensitive and keeps the original
+ * casing; a genuinely new name past MAX_SLOTS is refused (overwrites always
+ * succeed). Storage failures surface as {ok: false}, never throw — except
+ * nothing here throws at all.
+ */
+function saveSlot(storage, rawName, entry) {
+    const name = sanitizeName(rawName);
+    if (!name)
+        return { ok: false, error: window.INVALID_NAME_MESSAGE };
+    const table = readTable(storage);
+    const existing = findKey(table, name);
+    const key = existing ?? name;
+    if (existing === null && Object.keys(table).length >= window.MAX_SLOTS) {
+        return { ok: false, error: window.SLOT_FULL_MESSAGE };
+    }
+    table[key] = entry;
+    try {
+        storage.setItem(window.SLOTS_STORAGE_KEY, JSON.stringify({ version: window.STORE_VERSION, slots: table }));
+    }
+    catch (error) {
+        return {
+            ok: false,
+            error: isQuotaError(error)
+                ? window.STORAGE_FULL_MESSAGE
+                : `Failed to save "${key}": ${error instanceof Error ? error.message : String(error)}`,
+        };
+    }
+    return { ok: true, name: key };
+}
+/** Case-insensitive delete; false when the name is unknown. */
+function deleteSlot(storage, name) {
+    const table = readTable(storage);
+    const key = findKey(table, name);
+    if (key === null)
+        return false;
+    delete table[key];
+    try {
+        storage.setItem(window.SLOTS_STORAGE_KEY, JSON.stringify({ version: window.STORE_VERSION, slots: table }));
+    }
+    catch {
+        return false;
+    }
+    return true;
+}
+/** Comparable baseline of the editable map state for dirty checking. */
+function snapshotMap(data) {
+    return JSON.stringify({
+        Type: data.Type,
+        Tiles: data.Tiles,
+        Objects: data.Objects,
+    });
+}
+/** True when the map differs from a baseline taken by snapshotMap. */
+function isDirty(baseline, data) {
+    return snapshotMap(data) !== baseline;
+}
+/** "just now" / "5m ago" / "3h ago" / "2d ago" / "3w ago" / "2mo ago" / "1y ago". */
+function formatRelativeTime(savedAt, now) {
+    const seconds = Math.max(0, Math.floor((now - savedAt) / 1000));
+    if (seconds < 60)
+        return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60)
+        return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24)
+        return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7)
+        return `${days}d ago`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5)
+        return `${weeks}w ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12)
+        return `${months}mo ago`;
+    return `${Math.floor(days / 365)}y ago`;
+}
+/** Absolute timestamp in the client's locale and timezone. */
+function formatAbsoluteTime(savedAt) {
+    return new Date(savedAt).toLocaleString();
+}
+
+"use strict";
 // BCMap Editor - pure vim-style grid math.
 //
 // No editor state, no DOM: every function maps keys to clamped grid moves
@@ -3627,11 +3876,12 @@ function normalizeYankSize(buffer) {
 window.COMMANDS = void 0;
 window.parseCommand = parseCommand;
 window.runCommand = runCommand;
+const slots_1 = window;
 window.COMMANDS = [
     {
         name: "w",
         syntax: ":w [name]",
-        description: "Save the map",
+        description: "Save the map to a browser slot (add ! to overwrite)",
     },
     {
         name: "write",
@@ -3640,8 +3890,23 @@ window.COMMANDS = [
     },
     {
         name: "e",
-        syntax: ":e",
-        description: "Open a saved map",
+        syntax: ":e [name]",
+        description: "Open a saved map (add ! to discard changes)",
+    },
+    {
+        name: "enew",
+        syntax: ":enew",
+        description: "Start a new map (add ! to discard changes)",
+    },
+    {
+        name: "export",
+        syntax: ":export [name]",
+        description: "Download the map as a .txt file",
+    },
+    {
+        name: "import",
+        syntax: ":import",
+        description: "Import a map code",
     },
     {
         name: "help",
@@ -3660,6 +3925,11 @@ window.COMMANDS = [
     },
 ];
 const USAGE = "usage: :line x1,y1 x2,y2 (e.g. :line 0,0 39,20)";
+const E13 = "E13: File exists (add ! to override)";
+const E32 = "E32: No file name";
+const E37 = "E37: No write since last change (add ! to override)";
+const INVALID_NAME = "E486: Invalid map name — use letters, numbers, dash and space (max 40).";
+const STORAGE_UNAVAILABLE = "Browser storage is unavailable here — export to a file instead.";
 /** Split command line into a lowercase name and its arguments. */
 function parseCommand(input) {
     const trimmed = input.trim().replace(/^:+/, "").trim();
@@ -3678,19 +3948,91 @@ function parsePair(arg) {
         return null;
     return { x: Number(match[1]), y: Number(match[2]) };
 }
+/** A trailing `!` forces (`:w!`, `:e!`, `:enew!`); returns the base name. */
+function splitBang(name) {
+    if (name.length > 1 && name.endsWith("!")) {
+        return { base: name.slice(0, -1), force: true };
+    }
+    return { base: name, force: false };
+}
+/**
+ * Validate a user-typed slot name against the store charset. Commands
+ * reject (E486) rather than silently mutating what the user typed; the
+ * store re-sanitizes as a backstop.
+ */
+function checkSlotName(raw) {
+    if ((0, slots_1.sanitizeName)(raw) !== raw)
+        return { ok: false, error: INVALID_NAME };
+    return raw;
+}
+function sameName(a, b) {
+    return b !== null && a.toLowerCase() === b.toLowerCase();
+}
 /** Run one command; never throws — errors come back as {ok: false, error}. */
-function runCommand(input, actions) {
+function runCommand(input, actions, state) {
     const { name, args } = parseCommand(input);
     if (!name)
         return { ok: false };
-    switch (name) {
+    const { base, force } = splitBang(name);
+    switch (base) {
         case "w":
-        case "write":
-            actions.writeMap(args.join(" ") || undefined);
+        case "write": {
+            if (!state.available)
+                return { ok: false, error: STORAGE_UNAVAILABLE };
+            const raw = args.join(" ");
+            const checked = raw ? checkSlotName(raw) : null;
+            if (checked !== null && typeof checked !== "string")
+                return checked;
+            const target = raw || state.currentName;
+            if (!target)
+                return { ok: false, error: E32 };
+            if (!force && state.isFull && !state.hasSlot(target)) {
+                return { ok: false, error: slots_1.SLOT_FULL_MESSAGE };
+            }
+            if (!force &&
+                state.hasSlot(target) &&
+                !sameName(target, state.currentName)) {
+                return { ok: false, error: E13 };
+            }
+            actions.saveSlot(target);
             return { ok: true };
-        case "e":
+        }
+        case "e": {
+            if (args.length === 0) {
+                actions.openSlots();
+                return { ok: true };
+            }
+            const raw = args.join(" ");
+            const checked = checkSlotName(raw);
+            if (typeof checked !== "string")
+                return checked;
+            if (!state.available)
+                return { ok: false, error: STORAGE_UNAVAILABLE };
+            if (!state.hasSlot(raw)) {
+                return {
+                    ok: false,
+                    error: `E486: No saved map named "${raw}"`,
+                };
+            }
+            if (!force && state.isDirty)
+                return { ok: false, error: E37 };
+            actions.loadSlot(raw);
+            return { ok: true };
+        }
+        case "enew": {
+            if (!force && state.isDirty)
+                return { ok: false, error: E37 };
+            actions.newMap();
+            return { ok: true };
+        }
+        case "export": {
+            actions.exportMap(args.join(" ") || undefined);
+            return { ok: true };
+        }
+        case "import": {
             actions.openImport();
             return { ok: true };
+        }
         case "help":
             actions.toggleHelp();
             return { ok: true };
@@ -4321,9 +4663,19 @@ class BCMapEditor {
         });
         /** Copy buffer from `y`, holding both layers; `p` pastes it. */
         this.yankBuffer = null;
-        /** Set by init.ts: export the map (`:w`) and open Import (`:e`). */
-        this.onWriteMapRequest = null;
+        /** Set by init.ts: slot save/load, dialogs and export (`:w`, `:e`, …). */
+        this.onSaveSlotRequest = null;
+        this.onOpenSlotsRequest = null;
+        this.onLoadSlotRequest = null;
+        this.onNewMapRequest = null;
+        this.onExportMapRequest = null;
         this.onImportRequest = null;
+        /**
+         * Set by init.ts: slot state the command layer reads (current name,
+         * store contents, dirty baseline). Defaults to a safe empty state so
+         * the editor also runs standalone without init wiring.
+         */
+        this.onSlotStateRequest = null;
         /** Suppress mode-slot updates while a transient message shows. */
         this.feedbackUntil = 0;
         this.picker = new picker_1.MapPicker({
@@ -5478,8 +5830,14 @@ class BCMapEditor {
         if (performance.now() < this.feedbackUntil)
             return;
         const el = document.getElementById("statusVimMode");
-        if (el)
+        if (el) {
             el.textContent = this.vim.statusModeText();
+            // Pill color follows the mode itself, not the text (which can
+            // also be a pending count or operator like "g").
+            const visual = this.vim.getMode() === "visual";
+            el.classList.toggle("mode-visual", visual);
+            el.classList.toggle("mode-normal", !visual);
+        }
     }
     /**
      * Transient message in the mode slot (vim error style), reverting to the
@@ -5501,13 +5859,24 @@ class BCMapEditor {
      * Unknown/bad input surfaces as a transient E-message.
      */
     handleVimCommand(input) {
+        const state = this.onSlotStateRequest?.() ?? {
+            available: true,
+            currentName: null,
+            hasSlot: () => false,
+            isDirty: false,
+            isFull: false,
+        };
         const result = (0, commands_1.runCommand)(input, {
-            writeMap: (name) => this.onWriteMapRequest?.(name),
+            saveSlot: (name) => this.onSaveSlotRequest?.(name),
+            openSlots: () => this.onOpenSlotsRequest?.(),
+            loadSlot: (name) => this.onLoadSlotRequest?.(name),
+            newMap: () => this.onNewMapRequest?.(false),
+            exportMap: (name) => this.onExportMapRequest?.(name),
             openImport: () => this.onImportRequest?.(),
             toggleHelp: () => this.toggleHelp(),
             toggleGrid: () => this.toggleGrid(),
             drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
-        });
+        }, state);
         if (!result.ok && result.error)
             this.showVimFeedback(result.error);
     }
@@ -5839,6 +6208,7 @@ const keybinds_1 = window;
 
 const helpCard_1 = window;
 
+
 document.addEventListener("DOMContentLoaded", () => {
     // Motion durations are canonical in src/anim.ts; mirror them into
     // CSS so stylesheet, app code and tests share one source of truth.
@@ -5886,7 +6256,9 @@ document.addEventListener("DOMContentLoaded", () => {
         btnNewConfirm.disabled = !newMapConfirm.checked;
     });
     btnNewConfirm?.addEventListener("click", () => {
-        editor.newMap();
+        // State reset lives in the slots section below (doNewMap); safe to
+        // call here — handlers run long after init finishes.
+        doNewMap();
         newMapModal.hide();
         newMapConfirm.checked = false;
         btnNewConfirm.disabled = true;
@@ -5902,6 +6274,8 @@ document.addEventListener("DOMContentLoaded", () => {
     btnImportConfirm?.addEventListener("click", () => {
         try {
             editor.importMap(importCode.value);
+            // A pasted map is new work: it belongs to no slot.
+            forgetSlotState();
             importModal.hide();
             importCode.value = "";
         }
@@ -6001,7 +6375,12 @@ document.addEventListener("DOMContentLoaded", () => {
     btnRedo?.addEventListener("click", () => {
         editor.redo();
     });
-    editor.onHistoryChange = syncHistoryButtons;
+    editor.onHistoryChange = () => {
+        syncHistoryButtons();
+        // Every committed stroke can flip the dirty marker (defined in the
+        // slots section below; runs only on edits, long after init).
+        syncSlotIndicator();
+    };
     syncHistoryButtons();
     // Vim command line (`:` in the status bar): prompt replaces the mode
     // slot, Enter runs a command, Escape cancels, Up/Down recalls history.
@@ -6089,16 +6468,59 @@ document.addEventListener("DOMContentLoaded", () => {
         if (modeSlot)
             (0, anim_1.fadeIn)(modeSlot);
     });
-    // :w / :write reuses the export path; :e reuses the import modal.
-    editor.onWriteMapRequest = (name) => {
-        const mapName = name || "my-map";
-        const code = editor.exportMap(mapName);
-        const blob = new Blob([code], { type: "text/plain" });
+    // Save slots (browser storage): current-name state, dirty baseline,
+    // availability probe. The store itself lives in src/slots.ts.
+    let storageAvailable = false;
+    try {
+        storageAvailable =
+            typeof window.localStorage !== "undefined" &&
+                (0, slots_1.isStorageAvailable)(window.localStorage);
+    }
+    catch {
+        storageAvailable = false;
+    }
+    if (navigator.storage?.persist) {
+        navigator.storage.persist().catch(() => { });
+    }
+    let currentSlotName = null;
+    let currentSavedAt = null;
+    let baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
+    const slotNameEl = document.getElementById("statusSlotName");
+    const syncSlotIndicator = () => {
+        if (!slotNameEl)
+            return;
+        if (!currentSlotName) {
+            slotNameEl.textContent = "";
+            slotNameEl.title = "";
+            return;
+        }
+        const dirty = (0, slots_1.isDirty)(baselineCode, editor.getMapData());
+        slotNameEl.textContent = dirty
+            ? `${currentSlotName} [+]`
+            : currentSlotName;
+        slotNameEl.title =
+            currentSavedAt === null
+                ? currentSlotName
+                : `${currentSlotName} — saved ${(0, slots_1.formatAbsoluteTime)(currentSavedAt)}`;
+    };
+    /** The map was replaced (new/import/load): it belongs to no slot yet. */
+    const forgetSlotState = () => {
+        currentSlotName = null;
+        currentSavedAt = null;
+        baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
+        syncSlotIndicator();
+    };
+    const doNewMap = () => {
+        editor.newMap();
+        forgetSlotState();
+    };
+    const downloadTextFile = (filename, text) => {
+        const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         try {
             const a = document.createElement("a");
             a.href = url;
-            a.download = `${mapName}.txt`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -6107,7 +6529,133 @@ document.addEventListener("DOMContentLoaded", () => {
             URL.revokeObjectURL(url);
         }
     };
+    const doSaveSlot = (rawName) => {
+        if (!storageAvailable) {
+            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            return;
+        }
+        const result = (0, slots_1.saveSlot)(window.localStorage, rawName, {
+            code: editor.exportMap(rawName),
+            savedAt: Date.now(),
+            thumbnail: editor.captureMapThumbnail(),
+        });
+        if (!result.ok) {
+            editor.showVimFeedback(result.error);
+            return;
+        }
+        currentSlotName = result.name;
+        currentSavedAt = Date.now();
+        baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
+        syncSlotIndicator();
+        editor.showVimFeedback(`"${result.name}" saved`);
+    };
+    // :export [name] keeps the original download path; :w moved to slots.
+    editor.onExportMapRequest = (name) => {
+        if (name) {
+            if (!storageAvailable) {
+                editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+                return;
+            }
+            const slot = (0, slots_1.loadSlot)(window.localStorage, name);
+            if (!slot) {
+                editor.showVimFeedback(`E486: No saved map named "${name}"`);
+                return;
+            }
+            downloadTextFile(`${name}.txt`, slot.code);
+            return;
+        }
+        const mapName = currentSlotName || exportName.value || "my-map";
+        downloadTextFile(`${mapName}.txt`, editor.exportMap(mapName));
+    };
+    editor.onSaveSlotRequest = (name) => doSaveSlot(name);
+    editor.onNewMapRequest = () => doNewMap();
     editor.onImportRequest = () => importModal.show();
+    editor.onSlotStateRequest = () => ({
+        available: storageAvailable,
+        currentName: currentSlotName,
+        hasSlot: (name) => storageAvailable && (0, slots_1.loadSlot)(window.localStorage, name) !== null,
+        isDirty: (0, slots_1.isDirty)(baselineCode, editor.getMapData()),
+        isFull: storageAvailable &&
+            (0, slots_1.listSlots)(window.localStorage).length >= slots_1.MAX_SLOTS,
+    });
+    // Save modal: prefill with the current slot name; filter typing to the
+    // store charset; an existing foreign name flips to replace-confirm.
+    const menuSave = document.getElementById("menuSave");
+    const saveModal = new bootstrap.Modal(document.getElementById("saveModal"));
+    const saveName = document.getElementById("saveName");
+    const saveMessage = document.getElementById("saveMessage");
+    const btnSaveConfirm = document.getElementById("btnSaveConfirm");
+    let saveArmedReplace = null;
+    const setSaveMessage = (text) => {
+        if (!saveMessage)
+            return;
+        if (text === null) {
+            saveMessage.textContent = "";
+            saveMessage.classList.add("d-none");
+        }
+        else {
+            saveMessage.textContent = text;
+            saveMessage.classList.remove("d-none");
+        }
+    };
+    const resetSaveModal = () => {
+        saveArmedReplace = null;
+        btnSaveConfirm?.classList.remove("btn-danger");
+        btnSaveConfirm?.classList.add("btn-primary");
+        setSaveMessage(null);
+    };
+    menuSave?.addEventListener("click", () => {
+        if (!storageAvailable) {
+            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            return;
+        }
+        resetSaveModal();
+        if (saveName) {
+            saveName.value = currentSlotName ?? "";
+            saveModal.show();
+            saveName.focus();
+            try {
+                saveName.select();
+            }
+            catch {
+                // Focus is enough when select() is unavailable.
+            }
+        }
+    });
+    saveName?.addEventListener("input", () => {
+        const clean = (0, slots_1.sanitizeName)(saveName.value);
+        if (clean !== saveName.value)
+            saveName.value = clean;
+        if (saveArmedReplace !== null && saveName.value !== saveArmedReplace) {
+            resetSaveModal();
+        }
+    });
+    btnSaveConfirm?.addEventListener("click", () => {
+        if (!saveName)
+            return;
+        const name = (0, slots_1.sanitizeName)(saveName.value);
+        if (!name) {
+            setSaveMessage("Enter a name — letters, numbers, dash and space.");
+            return;
+        }
+        const existing = storageAvailable && (0, slots_1.loadSlot)(window.localStorage, name);
+        const isCurrent = currentSlotName !== null &&
+            name.toLowerCase() === currentSlotName.toLowerCase();
+        if (existing && !isCurrent && saveArmedReplace !== name) {
+            saveArmedReplace = name;
+            setSaveMessage(`Replace "${name}" (saved ${(0, slots_1.formatRelativeTime)(existing.savedAt, Date.now())})? This cannot be undone — export it first to keep it.`);
+            btnSaveConfirm?.classList.remove("btn-primary");
+            btnSaveConfirm?.classList.add("btn-danger");
+            return;
+        }
+        doSaveSlot(name);
+        saveModal.hide();
+    });
+    if (!storageAvailable && menuSave) {
+        menuSave.setAttribute("disabled", "");
+        menuSave.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
+    }
+    syncSlotIndicator();
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY = {
         ArrowDown: "down",

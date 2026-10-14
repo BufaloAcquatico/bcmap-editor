@@ -63,6 +63,17 @@ describe("MapHistory", () => {
         expect(h.undo(["x", "x"])).toEqual(["t3", "o3"]);
     });
 
+    it("notifies when a dirty stroke ends so content views can sync", () => {
+        const h = new MapHistory();
+        const cb = vi.fn();
+        h.onChange = cb;
+        h.beginStroke(...A);
+        h.markDirty();
+        cb.mockClear();
+        h.endStroke();
+        expect(cb).toHaveBeenCalledTimes(1);
+    });
+
     it("clearRedo drops the lineage and notifies", () => {
         const h = new MapHistory();
         const cb = vi.fn();
