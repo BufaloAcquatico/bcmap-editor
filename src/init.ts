@@ -202,17 +202,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Application menubar: hovering another top-level item while a menu is
     // open switches to it. Hovering with nothing open does nothing — a
-    // click (or keyboard) still opens.
-    document.querySelectorAll(".menubar-toggle").forEach((toggle) => {
-        toggle.addEventListener("mouseenter", () => {
-            const openToggle = document.querySelector(
-                '.menubar-toggle[aria-expanded="true"]',
-            );
-            if (!openToggle || openToggle === toggle) return;
-            bootstrap.Dropdown.getInstance(openToggle)?.hide();
-            bootstrap.Dropdown.getOrCreateInstance(toggle).show();
+    // click (or keyboard) still opens. Touch-only devices keep stock tap
+    // behavior: a tap would otherwise switch-then-immediately-toggle-shut.
+    if (window.matchMedia("(hover: hover)").matches) {
+        document.querySelectorAll(".menubar-toggle").forEach((toggle) => {
+            toggle.addEventListener("mouseenter", () => {
+                const openToggle = document.querySelector(
+                    '.menubar-toggle[aria-expanded="true"]',
+                );
+                if (!openToggle || openToggle === toggle) return;
+                bootstrap.Dropdown.getInstance(openToggle)?.hide();
+                bootstrap.Dropdown.getOrCreateInstance(toggle).show();
+            });
         });
-    });
+    }
 
     // Undo/Redo (buttons + keybinds)
     const btnUndo = document.getElementById(
@@ -338,8 +341,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const slotNameEl = document.getElementById("statusSlotName");
     const syncSlotIndicator = () => {
-        // Save is only meaningful once the map has a slot name; menuSave is
-        // declared below — read here at call time, long after init.
+        // Save needs storage, not a name: nameless maps fall through to
+        // Save As… on click.
         const saveItem = document.getElementById("menuSave");
         if (saveItem) {
             if (storageAvailable) {
@@ -462,9 +465,9 @@ document.addEventListener("DOMContentLoaded", () => {
             listSlots(window.localStorage).length >= MAX_SLOTS,
     });
 
-    // Save writes straight back to the current slot (desktop Save); Save
-    // As… opens the name modal. Save stays disabled until the map has a
-    // name — synced in syncSlotIndicator on every state transition.
+    // Save writes straight back to the current slot, falling through to
+    // Save As… with no name yet (desktop behavior); Save As… always opens
+    // the name modal. Save enables itself in syncSlotIndicator.
     const menuSave = document.getElementById("menuSave");
     const menuSaveAs = document.getElementById("menuSaveAs");
     const saveModal = new bootstrap.Modal(
