@@ -9,6 +9,7 @@ import { createHelpRenderer } from "./helpCard";
 import { fadeIn, MOTION_MS, MOTION_QUICK_MS } from "./anim";
 import {
     MAX_SLOTS,
+    deleteSlot,
     formatAbsoluteTime,
     formatRelativeTime,
     isDirty,
@@ -18,6 +19,7 @@ import {
     sanitizeName,
     saveSlot,
     snapshotMap,
+    type SlotMeta,
 } from "./slots";
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -523,6 +525,184 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     }
     syncSlotIndicator();
+
+    // Saved Maps window: list, load, export, delete (delete is UI-only).
+    const menuLoad = document.getElementById("menuLoad");
+    const slotsModal = new bootstrap.Modal(
+        document.getElementById("slotsModal")!,
+    );
+    const slotsList = document.getElementById("slotsList");
+    const slotsEmpty = document.getElementById("slotsEmpty");
+    const slotsCount = document.getElementById("slotsCount");
+    const confirmModalEl = document.getElementById("confirmModal");
+    const confirmModal = new bootstrap.Modal(confirmModalEl!);
+    const confirmTitle = document.getElementById("confirmTitle");
+    const confirmBody = document.getElementById("confirmBody");
+    const btnConfirmOk = document.getElementById(
+        "btnConfirmOk",
+    ) as HTMLButtonElement | null;
+
+    /** One-shot destructive confirm; resolves false on dismiss. */
+    const askConfirm = (
+        title: string,
+        body: string,
+        okLabel: string,
+    ): Promise<boolean> =>
+        new Promise((resolve) => {
+            if (
+                !confirmTitle ||
+                !confirmBody ||
+                !btnConfirmOk ||
+                !confirmModalEl
+            ) {
+                resolve(false);
+                return;
+            }
+            confirmTitle.textContent = title;
+            confirmBody.textContent = body;
+            btnConfirmOk.textContent = okLabel;
+            const done = (value: boolean) => {
+                confirmModalEl.removeEventListener("hidden.bs.modal", onHide);
+                btnConfirmOk.removeEventListener("click", onOk);
+                resolve(value);
+            };
+            const onOk = () => {
+                done(true);
+                confirmModal.hide();
+            };
+            const onHide = () => done(false);
+            btnConfirmOk.addEventListener("click", onOk);
+            confirmModalEl.addEventListener("hidden.bs.modal", onHide);
+            confirmModal.show();
+        });
+
+    const smallButton = (label: string, cls: string): HTMLButtonElement => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `btn btn-sm ${cls}`;
+        btn.textContent = label;
+        return btn;
+    };
+
+    const renderSlotRow = (meta: SlotMeta): HTMLElement => {
+        const row = document.createElement("div");
+        row.className =
+            "list-group-item bg-transparent text-light border-secondary d-flex align-items-center gap-3";
+        const img = document.createElement("img");
+        img.src = meta.thumbnail;
+        img.width = 72;
+        img.height = 72;
+        img.className = "rounded border border-secondary flex-shrink-0";
+        img.alt = "";
+        const info = document.createElement("div");
+        info.className = "flex-grow-1";
+        info.style.minWidth = "0";
+        const nameEl = document.createElement("div");
+        nameEl.className = "fw-semibold text-truncate";
+        nameEl.textContent = meta.name;
+        const timeEl = document.createElement("div");
+        timeEl.className = "text-muted small";
+        timeEl.textContent = formatRelativeTime(meta.savedAt, Date.now());
+        timeEl.title = formatAbsoluteTime(meta.savedAt);
+        info.append(nameEl, timeEl);
+        const loadBtn = smallButton("Load", "btn-outline-light");
+        loadBtn.addEventListener("click", () => {
+            void doLoadSlot(meta.name, { force: false });
+        });
+        const exportBtn = smallButton("Export", "btn-outline-light");
+        exportBtn.addEventListener("click", () => {
+            const slot = storageAvailable
+                ? loadSlot(window.localStorage, meta.name)
+                : null;
+            if (slot) downloadTextFile(`${meta.name}.txt`, slot.code);
+        });
+        const deleteBtn = smallButton("", "btn-outline-danger");
+        const deleteIcon = document.createElement("i");
+        deleteIcon.className = "bi bi-x";
+        deleteBtn.append(deleteIcon);
+        deleteBtn.setAttribute("aria-label", `Delete ${meta.name}`);
+        deleteBtn.addEventListener("click", () => {
+            void doDeleteSlot(meta.name);
+        });
+        row.append(img, info, loadBtn, exportBtn, deleteBtn);
+        return row;
+    };
+
+    const refreshSlotsWindow = () => {
+        if (!storageAvailable || !slotsList) return;
+        const slots = listSlots(window.localStorage);
+        if (slotsCount)
+            slotsCount.textContent = `${slots.length} / ${MAX_SLOTS}`;
+        slotsEmpty?.classList.toggle("d-none", slots.length > 0);
+        slotsList.replaceChildren(...slots.map(renderSlotRow));
+    };
+
+    const openSlotsWindow = () => {
+        if (!storageAvailable) {
+            editor.showVimFeedback(
+                "Browser storage is unavailable here — export to a file instead.",
+            );
+            return;
+        }
+        refreshSlotsWindow();
+        slotsModal.show();
+    };
+
+    const doLoadSlot = async (name: string, opts: { force: boolean }) => {
+        const slot = storageAvailable
+            ? loadSlot(window.localStorage, name)
+            : null;
+        if (!slot) {
+            editor.showVimFeedback(`E486: No saved map named "${name}"`);
+            return;
+        }
+        if (!opts.force && isDirty(baselineCode, editor.getMapData())) {
+            const ok = await askConfirm(
+                "Load saved map?",
+                `"${name}" will replace the current map. Unsaved changes will be lost — export first to keep them.`,
+                "Load",
+            );
+            if (!ok) return;
+        }
+        try {
+            editor.importMap(slot.code);
+        } catch (e) {
+            editor.showVimFeedback(
+                `Failed to load "${name}": ${e instanceof Error ? e.message : String(e)}`,
+            );
+            return;
+        }
+        currentSlotName = name;
+        currentSavedAt = slot.savedAt;
+        baselineCode = snapshotMap(editor.getMapData());
+        syncSlotIndicator();
+        editor.showVimFeedback(`"${name}" loaded`);
+        slotsModal.hide();
+    };
+
+    const doDeleteSlot = async (name: string) => {
+        const ok = await askConfirm(
+            "Delete saved map?",
+            `"${name}" will be permanently deleted. Export it to a file first if you want to keep it.`,
+            "Delete",
+        );
+        if (!ok) return;
+        if (storageAvailable) deleteSlot(window.localStorage, name);
+        refreshSlotsWindow();
+    };
+
+    menuLoad?.addEventListener("click", openSlotsWindow);
+    editor.onOpenSlotsRequest = () => openSlotsWindow();
+    editor.onLoadSlotRequest = (name: string) => {
+        void doLoadSlot(name, { force: true });
+    };
+    if (!storageAvailable && menuLoad) {
+        menuLoad.setAttribute("disabled", "");
+        menuLoad.setAttribute(
+            "title",
+            "Browser storage is unavailable here — export to a file instead.",
+        );
+    }
 
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY: Record<

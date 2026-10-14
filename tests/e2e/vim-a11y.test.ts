@@ -386,7 +386,9 @@ test("status bar keeps fixed sections as the selection text changes", async ({
 }) => {
     await openEditor(page);
     await page.locator("#mapCanvas").click();
-    const mode = page.locator("#statusVimMode");
+    // The mode *section*: #statusVimMode is now a shrink-to-fit pill, so the
+    // thirds invariant is measured on its section, as the intent requires.
+    const mode = page.locator(".status-mode");
     const position = page.locator("#statusPosition");
     const selection = page.locator("#statusSelection");
     // Baseline positions with a short selection text.

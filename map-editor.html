@@ -253,6 +253,7 @@
         <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="menuMapToggle">
           <li><button id="btnNew" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-file-earmark-plus me-2"></i>New Map…</button></li>
           <li><button id="menuSave" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-floppy me-2"></i>Save…<span class="text-muted ms-auto ps-4 small">:w</span></button></li>
+          <li><button id="menuLoad" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-hdd me-2"></i>Load Saved Map…<span class="text-muted ms-auto ps-4 small">:e</span></button></li>
           <li><button id="btnImport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-upload me-2"></i>Import Map Code…</button></li>
           <li><button id="btnExport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-download me-2"></i>Export to File…</button></li>
           <li><hr class="dropdown-divider"></li>
@@ -397,6 +398,47 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
           <button type="button" class="btn btn-primary" id="btnSaveConfirm"><i class="bi bi-check"></i> Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved Maps Modal -->
+  <div class="modal fade" id="slotsModal" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-hdd"></i> Saved Maps <span id="slotsCount" class="text-muted small"></span></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="slotsEmpty" class="text-muted d-none">No saved maps yet — maps you save live in this browser only. Export to a file for long-term storage.</div>
+          <div id="slotsList" class="list-group"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Modal (delete slot, load over unsaved work). No fade: it
+       stacks over the slots window and must dismiss instantly — Bootstrap
+       ignores hide() during a fade-in transition, which would swallow a
+       fast Cancel click. -->
+  <div class="modal" id="confirmModal" tabindex="-1" role="dialog" aria-modal="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="confirmTitle"></h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmBody"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmOk">Confirm</button>
         </div>
       </div>
     </div>
@@ -6656,6 +6698,155 @@ document.addEventListener("DOMContentLoaded", () => {
         menuSave.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
     }
     syncSlotIndicator();
+    // Saved Maps window: list, load, export, delete (delete is UI-only).
+    const menuLoad = document.getElementById("menuLoad");
+    const slotsModal = new bootstrap.Modal(document.getElementById("slotsModal"));
+    const slotsList = document.getElementById("slotsList");
+    const slotsEmpty = document.getElementById("slotsEmpty");
+    const slotsCount = document.getElementById("slotsCount");
+    const confirmModalEl = document.getElementById("confirmModal");
+    const confirmModal = new bootstrap.Modal(confirmModalEl);
+    const confirmTitle = document.getElementById("confirmTitle");
+    const confirmBody = document.getElementById("confirmBody");
+    const btnConfirmOk = document.getElementById("btnConfirmOk");
+    /** One-shot destructive confirm; resolves false on dismiss. */
+    const askConfirm = (title, body, okLabel) => new Promise((resolve) => {
+        if (!confirmTitle ||
+            !confirmBody ||
+            !btnConfirmOk ||
+            !confirmModalEl) {
+            resolve(false);
+            return;
+        }
+        confirmTitle.textContent = title;
+        confirmBody.textContent = body;
+        btnConfirmOk.textContent = okLabel;
+        const done = (value) => {
+            confirmModalEl.removeEventListener("hidden.bs.modal", onHide);
+            btnConfirmOk.removeEventListener("click", onOk);
+            resolve(value);
+        };
+        const onOk = () => {
+            done(true);
+            confirmModal.hide();
+        };
+        const onHide = () => done(false);
+        btnConfirmOk.addEventListener("click", onOk);
+        confirmModalEl.addEventListener("hidden.bs.modal", onHide);
+        confirmModal.show();
+    });
+    const smallButton = (label, cls) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `btn btn-sm ${cls}`;
+        btn.textContent = label;
+        return btn;
+    };
+    const renderSlotRow = (meta) => {
+        const row = document.createElement("div");
+        row.className =
+            "list-group-item bg-transparent text-light border-secondary d-flex align-items-center gap-3";
+        const img = document.createElement("img");
+        img.src = meta.thumbnail;
+        img.width = 72;
+        img.height = 72;
+        img.className = "rounded border border-secondary flex-shrink-0";
+        img.alt = "";
+        const info = document.createElement("div");
+        info.className = "flex-grow-1";
+        info.style.minWidth = "0";
+        const nameEl = document.createElement("div");
+        nameEl.className = "fw-semibold text-truncate";
+        nameEl.textContent = meta.name;
+        const timeEl = document.createElement("div");
+        timeEl.className = "text-muted small";
+        timeEl.textContent = (0, slots_1.formatRelativeTime)(meta.savedAt, Date.now());
+        timeEl.title = (0, slots_1.formatAbsoluteTime)(meta.savedAt);
+        info.append(nameEl, timeEl);
+        const loadBtn = smallButton("Load", "btn-outline-light");
+        loadBtn.addEventListener("click", () => {
+            void doLoadSlot(meta.name, { force: false });
+        });
+        const exportBtn = smallButton("Export", "btn-outline-light");
+        exportBtn.addEventListener("click", () => {
+            const slot = storageAvailable
+                ? (0, slots_1.loadSlot)(window.localStorage, meta.name)
+                : null;
+            if (slot)
+                downloadTextFile(`${meta.name}.txt`, slot.code);
+        });
+        const deleteBtn = smallButton("", "btn-outline-danger");
+        const deleteIcon = document.createElement("i");
+        deleteIcon.className = "bi bi-x";
+        deleteBtn.append(deleteIcon);
+        deleteBtn.setAttribute("aria-label", `Delete ${meta.name}`);
+        deleteBtn.addEventListener("click", () => {
+            void doDeleteSlot(meta.name);
+        });
+        row.append(img, info, loadBtn, exportBtn, deleteBtn);
+        return row;
+    };
+    const refreshSlotsWindow = () => {
+        if (!storageAvailable || !slotsList)
+            return;
+        const slots = (0, slots_1.listSlots)(window.localStorage);
+        if (slotsCount)
+            slotsCount.textContent = `${slots.length} / ${slots_1.MAX_SLOTS}`;
+        slotsEmpty?.classList.toggle("d-none", slots.length > 0);
+        slotsList.replaceChildren(...slots.map(renderSlotRow));
+    };
+    const openSlotsWindow = () => {
+        if (!storageAvailable) {
+            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            return;
+        }
+        refreshSlotsWindow();
+        slotsModal.show();
+    };
+    const doLoadSlot = async (name, opts) => {
+        const slot = storageAvailable
+            ? (0, slots_1.loadSlot)(window.localStorage, name)
+            : null;
+        if (!slot) {
+            editor.showVimFeedback(`E486: No saved map named "${name}"`);
+            return;
+        }
+        if (!opts.force && (0, slots_1.isDirty)(baselineCode, editor.getMapData())) {
+            const ok = await askConfirm("Load saved map?", `"${name}" will replace the current map. Unsaved changes will be lost — export first to keep them.`, "Load");
+            if (!ok)
+                return;
+        }
+        try {
+            editor.importMap(slot.code);
+        }
+        catch (e) {
+            editor.showVimFeedback(`Failed to load "${name}": ${e instanceof Error ? e.message : String(e)}`);
+            return;
+        }
+        currentSlotName = name;
+        currentSavedAt = slot.savedAt;
+        baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
+        syncSlotIndicator();
+        editor.showVimFeedback(`"${name}" loaded`);
+        slotsModal.hide();
+    };
+    const doDeleteSlot = async (name) => {
+        const ok = await askConfirm("Delete saved map?", `"${name}" will be permanently deleted. Export it to a file first if you want to keep it.`, "Delete");
+        if (!ok)
+            return;
+        if (storageAvailable)
+            (0, slots_1.deleteSlot)(window.localStorage, name);
+        refreshSlotsWindow();
+    };
+    menuLoad?.addEventListener("click", openSlotsWindow);
+    editor.onOpenSlotsRequest = () => openSlotsWindow();
+    editor.onLoadSlotRequest = (name) => {
+        void doLoadSlot(name, { force: true });
+    };
+    if (!storageAvailable && menuLoad) {
+        menuLoad.setAttribute("disabled", "");
+        menuLoad.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
+    }
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY = {
         ArrowDown: "down",

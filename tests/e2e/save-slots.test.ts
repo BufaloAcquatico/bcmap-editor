@@ -27,7 +27,24 @@ const slotNames = (page: Page): Promise<string[]> =>
         );
     });
 
-const paintLongGrassCenter = async (page: Page) => {
+const openSlotsWindow = async (page: Page) => {
+    await page.click("#menuMapToggle");
+    await page.click("#menuLoad");
+    await expect(page.locator("#slotsModal")).toBeVisible();
+};
+
+const slotRow = (page: Page, name: string) =>
+    page.locator("#slotsList .list-group-item", { hasText: name });
+
+const allGrass = (page: Page): Promise<boolean> =>
+    page.evaluate(() => {
+        const tiles: string = (window as any).editor.getMapData().Tiles;
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles.charCodeAt(i) !== 210) return false;
+        }
+        return true;
+    });
+const paintLongGrassCenter = async (page: Page, xFrac = 0.5) => {
     await page.fill("#searchInput", "LongGrass");
     await page.waitForTimeout(100);
     await page.click('#tileCategories .sprite-item[title="Long Grass"]');
@@ -35,7 +52,7 @@ const paintLongGrassCenter = async (page: Page) => {
     const box = await canvas.boundingBox();
     if (!box) throw new Error("no canvas box");
     await canvas.click({
-        position: { x: box.width / 2, y: box.height / 2 },
+        position: { x: box.width * xFrac, y: box.height / 2 },
     });
     await page.waitForTimeout(100);
 };
@@ -133,4 +150,95 @@ test("Save menu opens the modal prefilled and saves", async ({
     await expect(modal).toBeHidden();
     expect(await slotNames(page)).toEqual(["garage", "garage 2"]);
     await expect(page.locator("#statusSlotName")).toHaveText("garage 2");
+});
+
+test("Load window lists slots with thumbnails, names and times", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await openSlotsWindow(page);
+    await expect(page.locator("#slotsCount")).toHaveText("1 / 30");
+    const row = slotRow(page, "alpha");
+    await expect(row).toBeVisible();
+    const src = await row.locator("img").getAttribute("src");
+    expect(src?.startsWith("data:image/jpeg;base64,")).toBe(true);
+    await expect(row.locator(".text-muted")).toContainText(/ago|just now/);
+});
+
+test(":e loads a slot directly; dirty :e without ! reports E37", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await runCommand(page, "w beta");
+    await paintLongGrassCenter(page, 0.25);
+    await runCommand(page, "e alpha");
+    await expect(page.locator("#statusVimMode")).toContainText("E37");
+    await runCommand(page, "e! alpha");
+    expect(await allGrass(page)).toBe(true);
+    await expect(page.locator("#statusSlotName")).toHaveText("alpha");
+});
+
+test("Load through the window confirms over unsaved work", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await runCommand(page, "w beta");
+    await paintLongGrassCenter(page, 0.25);
+    await openSlotsWindow(page);
+    const row = slotRow(page, "alpha");
+    await row.getByRole("button", { name: "Load" }).click();
+    const confirm = page.locator("#confirmModal");
+    await expect(confirm).toBeVisible();
+    // Cancel keeps the current map and the window open.
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    await expect(confirm).toBeHidden();
+    await expect(page.locator("#statusSlotName")).toHaveText("beta [+]");
+    // Confirming replaces the map and adopts the slot name.
+    await row.getByRole("button", { name: "Load" }).click();
+    await expect(confirm).toBeVisible();
+    await page.locator("#btnConfirmOk").click();
+    await expect(confirm).toBeHidden();
+    await expect(page.locator("#slotsModal")).toBeHidden();
+    expect(await allGrass(page)).toBe(true);
+    await expect(page.locator("#statusSlotName")).toHaveText("alpha");
+});
+
+test("Export downloads the slot file", async ({ page }: { page: Page }) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await openSlotsWindow(page);
+    const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        slotRow(page, "alpha").getByRole("button", { name: "Export" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe("alpha.txt");
+});
+
+test("Delete removes the slot after confirm", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await openSlotsWindow(page);
+    await slotRow(page, "alpha")
+        .getByRole("button", { name: "Delete alpha" })
+        .click();
+    await expect(page.locator("#confirmModal")).toBeVisible();
+    await page.locator("#btnConfirmOk").click();
+    await expect(slotRow(page, "alpha")).toHaveCount(0);
+    expect(await slotNames(page)).toEqual([]);
+    await expect(page.locator("#slotsCount")).toHaveText("0 / 30");
 });
