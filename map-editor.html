@@ -463,29 +463,6 @@
     </div>
   </div>
 
-  <!-- New Map Confirmation Modal -->
-  <div class="modal fade" id="newMapModal" tabindex="-1" role="dialog" aria-modal="true">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="bi bi-file-earmark-plus"></i> New Map</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <p>Create a new map? This will replace the current map with a default grass field.</p>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="newMapConfirm" required>
-            <label class="form-check-label" for="newMapConfirm">I understand this will discard unsaved changes</label>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-danger" id="btnNewConfirm" disabled><i class="bi bi-trash"></i> Create New</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Scripts (vendored; see head comment) -->
   <script src="assets/vendor/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
   <script src="assets/vendor/lz-string.min.js" integrity="sha384-0d+Gr7vM4Drod8E3hXKgciWJSWbjD/opKLLygI9ktiWbuvlDwQLzU46wJ9s5gsp7" crossorigin="anonymous"></script>
@@ -6304,24 +6281,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     });
-    // New map
+    // New map: a clean map resets instantly; unsaved work gets the shared
+    // destructive confirm. doNewMapFlow lives in the slots section below;
+    // safe to call here — handlers run long after init finishes.
     const btnNew = document.getElementById("btnNew");
-    const newMapModal = new bootstrap.Modal(document.getElementById("newMapModal"));
-    const newMapConfirm = document.getElementById("newMapConfirm");
-    const btnNewConfirm = document.getElementById("btnNewConfirm");
     btnNew?.addEventListener("click", () => {
-        newMapModal.show();
-    });
-    newMapConfirm?.addEventListener("change", () => {
-        btnNewConfirm.disabled = !newMapConfirm.checked;
-    });
-    btnNewConfirm?.addEventListener("click", () => {
-        // State reset lives in the slots section below (doNewMap); safe to
-        // call here — handlers run long after init finishes.
-        doNewMap();
-        newMapModal.hide();
-        newMapConfirm.checked = false;
-        btnNewConfirm.disabled = true;
+        void doNewMapFlow({ force: false });
     });
     // Import
     const btnImport = document.getElementById("btnImport");
@@ -6605,6 +6570,14 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.newMap();
         forgetSlotState();
     };
+    const doNewMapFlow = async (opts) => {
+        if (!opts.force && (0, slots_1.isDirty)(baselineCode, editor.getMapData())) {
+            const ok = await askConfirm("Start a new map?", "The current map has unsaved changes — they will be lost. Save or export first to keep them.", "New Map");
+            if (!ok)
+                return;
+        }
+        doNewMap();
+    };
     const downloadTextFile = (filename, text) => {
         const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
@@ -6660,7 +6633,9 @@ document.addEventListener("DOMContentLoaded", () => {
         downloadTextFile(`${mapName}.txt`, editor.exportMap(mapName));
     };
     editor.onSaveSlotRequest = (name) => doSaveSlot(name);
-    editor.onNewMapRequest = () => doNewMap();
+    editor.onNewMapRequest = () => {
+        void doNewMapFlow({ force: true });
+    };
     editor.onImportRequest = () => openImportModal();
     editor.onSlotStateRequest = () => ({
         available: storageAvailable,

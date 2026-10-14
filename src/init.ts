@@ -69,33 +69,12 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // New map
+    // New map: a clean map resets instantly; unsaved work gets the shared
+    // destructive confirm. doNewMapFlow lives in the slots section below;
+    // safe to call here — handlers run long after init finishes.
     const btnNew = document.getElementById("btnNew");
-    const newMapModal = new bootstrap.Modal(
-        document.getElementById("newMapModal")!,
-    );
-    const newMapConfirm = document.getElementById(
-        "newMapConfirm",
-    ) as HTMLInputElement;
-    const btnNewConfirm = document.getElementById(
-        "btnNewConfirm",
-    ) as HTMLButtonElement;
-
     btnNew?.addEventListener("click", () => {
-        newMapModal.show();
-    });
-
-    newMapConfirm?.addEventListener("change", () => {
-        btnNewConfirm.disabled = !newMapConfirm.checked;
-    });
-
-    btnNewConfirm?.addEventListener("click", () => {
-        // State reset lives in the slots section below (doNewMap); safe to
-        // call here — handlers run long after init finishes.
-        doNewMap();
-        newMapModal.hide();
-        newMapConfirm.checked = false;
-        btnNewConfirm.disabled = true;
+        void doNewMapFlow({ force: false });
     });
 
     // Import
@@ -400,6 +379,18 @@ document.addEventListener("DOMContentLoaded", () => {
         forgetSlotState();
     };
 
+    const doNewMapFlow = async (opts: { force: boolean }) => {
+        if (!opts.force && isDirty(baselineCode, editor.getMapData())) {
+            const ok = await askConfirm(
+                "Start a new map?",
+                "The current map has unsaved changes — they will be lost. Save or export first to keep them.",
+                "New Map",
+            );
+            if (!ok) return;
+        }
+        doNewMap();
+    };
+
     const downloadTextFile = (filename: string, text: string) => {
         const blob = new Blob([text], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
@@ -456,7 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
         downloadTextFile(`${mapName}.txt`, editor.exportMap(mapName));
     };
     editor.onSaveSlotRequest = (name: string) => doSaveSlot(name);
-    editor.onNewMapRequest = () => doNewMap();
+    editor.onNewMapRequest = () => {
+        void doNewMapFlow({ force: true });
+    };
     editor.onImportRequest = () => openImportModal();
     editor.onSlotStateRequest = () => ({
         available: storageAvailable,

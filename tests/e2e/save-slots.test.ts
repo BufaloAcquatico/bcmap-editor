@@ -320,6 +320,47 @@ test(":enew refuses a dirty map without ! and resets with it", async ({
     await expect(page.locator("#statusSlotName")).toHaveText("");
 });
 
+test("New resets a clean map with no dialog", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await runCommand(page, "w beta");
+    await page.click("#menuMapToggle");
+    await page.click("#btnNew");
+    // Clean: resets instantly, the confirm never appears.
+    await page.waitForTimeout(300);
+    await expect(page.locator("#confirmModal")).toBeHidden();
+    expect(await allGrass(page)).toBe(true);
+    await expect(page.locator("#statusSlotName")).toHaveText("");
+});
+
+test("New confirms over unsaved work", async ({ page }: { page: Page }) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await page.click("#menuMapToggle");
+    await page.click("#btnNew");
+    const confirm = page.locator("#confirmModal");
+    await expect(confirm).toBeVisible();
+    await confirm.getByRole("button", { name: "Cancel" }).click();
+    await expect(confirm).toBeHidden();
+    // Still dirty, still alpha.
+    expect(await allGrass(page)).toBe(false);
+    await expect(page.locator("#statusSlotName")).toHaveText("alpha [+]");
+    // Confirming resets to a blank map with no slot.
+    await page.click("#menuMapToggle");
+    await page.click("#btnNew");
+    await expect(confirm).toBeVisible();
+    await page.locator("#btnConfirmOk").click();
+    await expect(confirm).toBeHidden();
+    expect(await allGrass(page)).toBe(true);
+    await expect(page.locator("#statusSlotName")).toHaveText("");
+});
+
 test("reloading a clean tab skips the unsaved-work prompt", async ({
     page,
 }: {
