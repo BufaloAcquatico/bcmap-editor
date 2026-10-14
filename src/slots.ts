@@ -19,12 +19,13 @@ export const STORE_VERSION = 1;
 /** Hard cap: worst-case full house stays well under a quarter of quota. */
 export const MAX_SLOTS = 30;
 export const MAX_NAME_LENGTH = 40;
-export const SLOT_FULL_MESSAGE =
-    "Slot list full (30/30) — delete a saved map or export one to a file first";
+export const SLOT_FULL_MESSAGE = `Slot list full (${MAX_SLOTS}/${MAX_SLOTS}) — delete a saved map or export one to a file first`;
 export const INVALID_NAME_MESSAGE =
     "Invalid map name — use letters, numbers, dash and space (max 40).";
 export const STORAGE_FULL_MESSAGE =
     "Browser storage is full — export a map to a file to free space.";
+export const STORAGE_UNAVAILABLE_MESSAGE =
+    "Browser storage is unavailable here — export to a file instead.";
 
 export interface SlotEntry {
     code: string;
@@ -146,8 +147,7 @@ export function loadSlot(
 /**
  * Store a slot. Overwriting is case-insensitive and keeps the original
  * casing; a genuinely new name past MAX_SLOTS is refused (overwrites always
- * succeed). Storage failures surface as {ok: false}, never throw — except
- * nothing here throws at all.
+ * succeed). Storage failures surface as {ok: false}; nothing here throws.
  */
 export function saveSlot(
     storage: MinimalStorage,
@@ -226,7 +226,7 @@ export function formatRelativeTime(savedAt: number, now: number): string {
     if (weeks < 5) return `${weeks}w ago`;
     const months = Math.floor(days / 30);
     if (months < 12) return `${months}mo ago`;
-    return `${Math.floor(days / 365)}y ago`;
+    return `${Math.max(1, Math.floor(days / 365))}y ago`;
 }
 
 /** Absolute timestamp in the client's locale and timezone. */

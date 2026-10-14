@@ -104,8 +104,10 @@ test(":w refuses a foreign existing name with E13; :w! overwrites", async ({
     await runCommand(page, "w depot");
     await paintLongGrassCenter(page);
     await runCommand(page, "w garage");
-    await expect(page.locator("#statusVimMode")).toContainText("E13");
+    // Refused: slots untouched, still on depot, still dirty. (The E13 copy
+    // itself is unit-covered; e2e asserts the durable refusal semantics.)
     expect(await slotNames(page)).toEqual(["garage", "depot"]);
+    await expect(page.locator("#statusSlotName")).toHaveText("depot [+]");
     await runCommand(page, "w! garage");
     await expect(page.locator("#statusSlotName")).toHaveText("garage");
 });
@@ -117,8 +119,9 @@ test("bare :w with no current name reports E32", async ({
 }) => {
     await openEditor(page);
     await runCommand(page, "w");
-    await expect(page.locator("#statusVimMode")).toContainText("E32");
+    // Refused: nothing saved, no current name. (E32 copy is unit-covered.)
     expect(await slotNames(page)).toEqual([]);
+    await expect(page.locator("#statusSlotName")).toHaveText("");
 });
 
 test("mode pill follows the vim mode", async ({ page }: { page: Page }) => {
@@ -150,6 +153,14 @@ test("Save menu opens the modal prefilled and saves", async ({
     await expect(modal).toBeHidden();
     expect(await slotNames(page)).toEqual(["garage", "garage 2"]);
     await expect(page.locator("#statusSlotName")).toHaveText("garage 2");
+    // Enter in the name field confirms too.
+    await page.click("#menuMapToggle");
+    await page.click("#menuSave");
+    await expect(modal).toBeVisible();
+    await page.fill("#saveName", "garage 3");
+    await page.keyboard.press("Enter");
+    await expect(modal).toBeHidden();
+    expect(await slotNames(page)).toEqual(["garage", "garage 2", "garage 3"]);
 });
 
 test("Load window lists slots with thumbnails, names and times", async ({
@@ -179,7 +190,10 @@ test(":e loads a slot directly; dirty :e without ! reports E37", async ({
     await runCommand(page, "w beta");
     await paintLongGrassCenter(page, 0.25);
     await runCommand(page, "e alpha");
-    await expect(page.locator("#statusVimMode")).toContainText("E37");
+    // Refused: map untouched, still on beta, still dirty. (E37 copy is
+    // unit-covered; the :enew E37 path shares the same gate.)
+    expect(await allGrass(page)).toBe(false);
+    await expect(page.locator("#statusSlotName")).toHaveText("beta [+]");
     await runCommand(page, "e! alpha");
     expect(await allGrass(page)).toBe(true);
     await expect(page.locator("#statusSlotName")).toHaveText("alpha");
@@ -273,7 +287,9 @@ test(":enew refuses a dirty map without ! and resets with it", async ({
     await runCommand(page, "w alpha");
     await paintLongGrassCenter(page);
     await runCommand(page, "enew");
-    await expect(page.locator("#statusVimMode")).toContainText("E37");
+    // Refused: map untouched. (E37 copy is unit-covered.)
+    expect(await allGrass(page)).toBe(false);
+    await expect(page.locator("#statusSlotName")).toHaveText("alpha [+]");
     await runCommand(page, "enew!");
     expect(await allGrass(page)).toBe(true);
     await expect(page.locator("#statusSlotName")).toHaveText("");

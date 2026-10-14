@@ -233,6 +233,7 @@ describe("time formatters", () => {
             "3w ago",
         );
         expect(formatRelativeTime(NOW - 60 * 86_400_000, NOW)).toBe("2mo ago");
+        expect(formatRelativeTime(NOW - 360 * 86_400_000, NOW)).toBe("1y ago");
         expect(formatRelativeTime(NOW - 400 * 86_400_000, NOW)).toBe("1y ago");
     });
 

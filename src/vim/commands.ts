@@ -4,7 +4,11 @@
 // unit-testable without the DOM. The registry below is also the single
 // source for help text.
 
-import { sanitizeName, SLOT_FULL_MESSAGE } from "../slots";
+import {
+    sanitizeName,
+    SLOT_FULL_MESSAGE,
+    STORAGE_UNAVAILABLE_MESSAGE,
+} from "../slots";
 
 export interface CommandActions {
     /** Save the current map to a browser slot (`:w [name]`, `:w!`). */
@@ -107,8 +111,6 @@ const E32 = "E32: No file name";
 const E37 = "E37: No write since last change (add ! to override)";
 const INVALID_NAME =
     "E486: Invalid map name — use letters, numbers, dash and space (max 40).";
-const STORAGE_UNAVAILABLE =
-    "Browser storage is unavailable here — export to a file instead.";
 
 /** Split command line into a lowercase name and its arguments. */
 export function parseCommand(input: string): { name: string; args: string[] } {
@@ -164,7 +166,7 @@ export function runCommand(
         case "w":
         case "write": {
             if (!state.available)
-                return { ok: false, error: STORAGE_UNAVAILABLE };
+                return { ok: false, error: STORAGE_UNAVAILABLE_MESSAGE };
             const raw = args.join(" ");
             const checked = raw ? checkSlotName(raw) : null;
             if (checked !== null && typeof checked !== "string") return checked;
@@ -192,7 +194,7 @@ export function runCommand(
             const checked = checkSlotName(raw);
             if (typeof checked !== "string") return checked;
             if (!state.available)
-                return { ok: false, error: STORAGE_UNAVAILABLE };
+                return { ok: false, error: STORAGE_UNAVAILABLE_MESSAGE };
             if (!state.hasSlot(raw)) {
                 return {
                     ok: false,

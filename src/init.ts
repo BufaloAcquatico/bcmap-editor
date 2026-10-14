@@ -9,6 +9,7 @@ import { createHelpRenderer } from "./helpCard";
 import { fadeIn, MOTION_MS, MOTION_QUICK_MS } from "./anim";
 import {
     MAX_SLOTS,
+    STORAGE_UNAVAILABLE_MESSAGE,
     deleteSlot,
     formatAbsoluteTime,
     formatRelativeTime,
@@ -390,14 +391,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const doSaveSlot = (rawName: string): void => {
         if (!storageAvailable) {
-            editor.showVimFeedback(
-                "Browser storage is unavailable here — export to a file instead.",
-            );
+            editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
+        const now = Date.now();
         const result = saveSlot(window.localStorage, rawName, {
             code: editor.exportMap(rawName),
-            savedAt: Date.now(),
+            savedAt: now,
             thumbnail: editor.captureMapThumbnail(),
         });
         if (!result.ok) {
@@ -405,7 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         currentSlotName = result.name;
-        currentSavedAt = Date.now();
+        currentSavedAt = now;
         baselineCode = snapshotMap(editor.getMapData());
         syncSlotIndicator();
         editor.showVimFeedback(`"${result.name}" saved`);
@@ -415,9 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editor.onExportMapRequest = (name?: string) => {
         if (name) {
             if (!storageAvailable) {
-                editor.showVimFeedback(
-                    "Browser storage is unavailable here — export to a file instead.",
-                );
+                editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
                 return;
             }
             const slot = loadSlot(window.localStorage, name);
@@ -478,9 +476,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     menuSave?.addEventListener("click", () => {
         if (!storageAvailable) {
-            editor.showVimFeedback(
-                "Browser storage is unavailable here — export to a file instead.",
-            );
+            editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
         resetSaveModal();
@@ -500,6 +496,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (clean !== saveName.value) saveName.value = clean;
         if (saveArmedReplace !== null && saveName.value !== saveArmedReplace) {
             resetSaveModal();
+        }
+    });
+    saveName?.addEventListener("keydown", (e) => {
+        // Enter confirms, like the primary button.
+        if (e.key === "Enter") {
+            e.preventDefault();
+            btnSaveConfirm?.click();
         }
     });
     btnSaveConfirm?.addEventListener("click", () => {
@@ -528,10 +531,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (!storageAvailable && menuSave) {
         menuSave.setAttribute("disabled", "");
-        menuSave.setAttribute(
-            "title",
-            "Browser storage is unavailable here — export to a file instead.",
-        );
+        menuSave.setAttribute("title", STORAGE_UNAVAILABLE_MESSAGE);
     }
     syncSlotIndicator();
 
@@ -648,9 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const openSlotsWindow = () => {
         if (!storageAvailable) {
-            editor.showVimFeedback(
-                "Browser storage is unavailable here — export to a file instead.",
-            );
+            editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
         refreshSlotsWindow();
@@ -707,10 +705,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     if (!storageAvailable && menuLoad) {
         menuLoad.setAttribute("disabled", "");
-        menuLoad.setAttribute(
-            "title",
-            "Browser storage is unavailable here — export to a file instead.",
-        );
+        menuLoad.setAttribute("title", STORAGE_UNAVAILABLE_MESSAGE);
     }
 
     // Warn on tab close/reload with unsaved work. Browsers show their own

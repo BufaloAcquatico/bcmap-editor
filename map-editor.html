@@ -380,8 +380,9 @@
     </div>
   </div>
 
-  <!-- Save Map Modal -->
-  <div class="modal fade" id="saveModal" tabindex="-1" role="dialog" aria-modal="true">
+  <!-- Save Map Modal (no fade: keyboard users confirm within the
+       fade-in window, and Bootstrap ignores hide() mid-transition). -->
+  <div class="modal" id="saveModal" tabindex="-1" role="dialog" aria-modal="true">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
@@ -3299,7 +3300,7 @@ function railroadStyleName(neighbors) {
 // keeps this importable in a node test env where localStorage is undefined.
 // Type-only import: erased at compile time, so the embed script needs no
 // new require mapping for this module.
-window.STORAGE_FULL_MESSAGE = window.INVALID_NAME_MESSAGE = window.SLOT_FULL_MESSAGE = window.MAX_NAME_LENGTH = window.MAX_SLOTS = window.STORE_VERSION = window.SLOTS_STORAGE_KEY = void 0;
+window.STORAGE_UNAVAILABLE_MESSAGE = window.STORAGE_FULL_MESSAGE = window.INVALID_NAME_MESSAGE = window.SLOT_FULL_MESSAGE = window.MAX_NAME_LENGTH = window.MAX_SLOTS = window.STORE_VERSION = window.SLOTS_STORAGE_KEY = void 0;
 window.sanitizeName = sanitizeName;
 window.isStorageAvailable = isStorageAvailable;
 window.listSlots = listSlots;
@@ -3315,9 +3316,10 @@ window.STORE_VERSION = 1;
 /** Hard cap: worst-case full house stays well under a quarter of quota. */
 window.MAX_SLOTS = 30;
 window.MAX_NAME_LENGTH = 40;
-window.SLOT_FULL_MESSAGE = "Slot list full (30/30) — delete a saved map or export one to a file first";
+window.SLOT_FULL_MESSAGE = `Slot list full (${window.MAX_SLOTS}/${window.MAX_SLOTS}) — delete a saved map or export one to a file first`;
 window.INVALID_NAME_MESSAGE = "Invalid map name — use letters, numbers, dash and space (max 40).";
 window.STORAGE_FULL_MESSAGE = "Browser storage is full — export a map to a file to free space.";
+window.STORAGE_UNAVAILABLE_MESSAGE = "Browser storage is unavailable here — export to a file instead.";
 /**
  * Reduce a raw name to the storable form: letters, numbers, dash and space
  * only, single internal spaces, no leading/trailing dashes or spaces, max
@@ -3412,8 +3414,7 @@ function loadSlot(storage, name) {
 /**
  * Store a slot. Overwriting is case-insensitive and keeps the original
  * casing; a genuinely new name past MAX_SLOTS is refused (overwrites always
- * succeed). Storage failures surface as {ok: false}, never throw — except
- * nothing here throws at all.
+ * succeed). Storage failures surface as {ok: false}; nothing here throws.
  */
 function saveSlot(storage, rawName, entry) {
     const name = sanitizeName(rawName);
@@ -3486,7 +3487,7 @@ function formatRelativeTime(savedAt, now) {
     const months = Math.floor(days / 30);
     if (months < 12)
         return `${months}mo ago`;
-    return `${Math.floor(days / 365)}y ago`;
+    return `${Math.max(1, Math.floor(days / 365))}y ago`;
 }
 /** Absolute timestamp in the client's locale and timezone. */
 function formatAbsoluteTime(savedAt) {
@@ -3972,7 +3973,6 @@ const E13 = "E13: File exists (add ! to override)";
 const E32 = "E32: No file name";
 const E37 = "E37: No write since last change (add ! to override)";
 const INVALID_NAME = "E486: Invalid map name — use letters, numbers, dash and space (max 40).";
-const STORAGE_UNAVAILABLE = "Browser storage is unavailable here — export to a file instead.";
 /** Split command line into a lowercase name and its arguments. */
 function parseCommand(input) {
     const trimmed = input.trim().replace(/^:+/, "").trim();
@@ -4021,7 +4021,7 @@ function runCommand(input, actions, state) {
         case "w":
         case "write": {
             if (!state.available)
-                return { ok: false, error: STORAGE_UNAVAILABLE };
+                return { ok: false, error: slots_1.STORAGE_UNAVAILABLE_MESSAGE };
             const raw = args.join(" ");
             const checked = raw ? checkSlotName(raw) : null;
             if (checked !== null && typeof checked !== "string")
@@ -4050,7 +4050,7 @@ function runCommand(input, actions, state) {
             if (typeof checked !== "string")
                 return checked;
             if (!state.available)
-                return { ok: false, error: STORAGE_UNAVAILABLE };
+                return { ok: false, error: slots_1.STORAGE_UNAVAILABLE_MESSAGE };
             if (!state.hasSlot(raw)) {
                 return {
                     ok: false,
@@ -6580,12 +6580,13 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const doSaveSlot = (rawName) => {
         if (!storageAvailable) {
-            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            editor.showVimFeedback(slots_1.STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
+        const now = Date.now();
         const result = (0, slots_1.saveSlot)(window.localStorage, rawName, {
             code: editor.exportMap(rawName),
-            savedAt: Date.now(),
+            savedAt: now,
             thumbnail: editor.captureMapThumbnail(),
         });
         if (!result.ok) {
@@ -6593,7 +6594,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
         currentSlotName = result.name;
-        currentSavedAt = Date.now();
+        currentSavedAt = now;
         baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
         syncSlotIndicator();
         editor.showVimFeedback(`"${result.name}" saved`);
@@ -6602,7 +6603,7 @@ document.addEventListener("DOMContentLoaded", () => {
     editor.onExportMapRequest = (name) => {
         if (name) {
             if (!storageAvailable) {
-                editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+                editor.showVimFeedback(slots_1.STORAGE_UNAVAILABLE_MESSAGE);
                 return;
             }
             const slot = (0, slots_1.loadSlot)(window.localStorage, name);
@@ -6655,7 +6656,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     menuSave?.addEventListener("click", () => {
         if (!storageAvailable) {
-            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            editor.showVimFeedback(slots_1.STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
         resetSaveModal();
@@ -6677,6 +6678,13 @@ document.addEventListener("DOMContentLoaded", () => {
             saveName.value = clean;
         if (saveArmedReplace !== null && saveName.value !== saveArmedReplace) {
             resetSaveModal();
+        }
+    });
+    saveName?.addEventListener("keydown", (e) => {
+        // Enter confirms, like the primary button.
+        if (e.key === "Enter") {
+            e.preventDefault();
+            btnSaveConfirm?.click();
         }
     });
     btnSaveConfirm?.addEventListener("click", () => {
@@ -6702,7 +6710,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (!storageAvailable && menuSave) {
         menuSave.setAttribute("disabled", "");
-        menuSave.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
+        menuSave.setAttribute("title", slots_1.STORAGE_UNAVAILABLE_MESSAGE);
     }
     syncSlotIndicator();
     // Saved Maps window: list, load, export, delete (delete is UI-only).
@@ -6804,7 +6812,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const openSlotsWindow = () => {
         if (!storageAvailable) {
-            editor.showVimFeedback("Browser storage is unavailable here — export to a file instead.");
+            editor.showVimFeedback(slots_1.STORAGE_UNAVAILABLE_MESSAGE);
             return;
         }
         refreshSlotsWindow();
@@ -6852,7 +6860,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     if (!storageAvailable && menuLoad) {
         menuLoad.setAttribute("disabled", "");
-        menuLoad.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
+        menuLoad.setAttribute("title", slots_1.STORAGE_UNAVAILABLE_MESSAGE);
     }
     // Warn on tab close/reload with unsaved work. Browsers show their own
     // generic text and require prior interaction; the [+] marker teaches
