@@ -340,6 +340,7 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <div id="importDirtyWarning" class="alert alert-warning d-none" role="alert">The current map has unsaved changes — importing replaces it. Save or export first to keep it.</div>
           <div class="mb-3">
             <label for="importCode" class="form-label">Paste Map Code (LZString compressed)</label>
             <textarea id="importCode" class="form-control" rows="8" style="font-family: monospace; font-size: 0.75rem;"></textarea>
@@ -6308,9 +6309,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // Import
     const btnImport = document.getElementById("btnImport");
     const importModal = new bootstrap.Modal(document.getElementById("importModal"));
-    btnImport?.addEventListener("click", () => {
+    const importDirtyWarning = document.getElementById("importDirtyWarning");
+    const openImportModal = () => {
+        // Warn when the current map has unsaved work; Confirm still
+        // proceeds (informed consent in one click). baselineCode lives in
+        // the slots section below — read at click time, long after init.
+        importDirtyWarning?.classList.toggle("d-none", !(0, slots_1.isDirty)(baselineCode, editor.getMapData()));
         importModal.show();
-    });
+    };
+    btnImport?.addEventListener("click", openImportModal);
     const btnImportConfirm = document.getElementById("btnImportConfirm");
     const importCode = document.getElementById("importCode");
     btnImportConfirm?.addEventListener("click", () => {
@@ -6611,7 +6618,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     editor.onSaveSlotRequest = (name) => doSaveSlot(name);
     editor.onNewMapRequest = () => doNewMap();
-    editor.onImportRequest = () => importModal.show();
+    editor.onImportRequest = () => openImportModal();
     editor.onSlotStateRequest = () => ({
         available: storageAvailable,
         currentName: currentSlotName,
@@ -6847,6 +6854,15 @@ document.addEventListener("DOMContentLoaded", () => {
         menuLoad.setAttribute("disabled", "");
         menuLoad.setAttribute("title", "Browser storage is unavailable here — export to a file instead.");
     }
+    // Warn on tab close/reload with unsaved work. Browsers show their own
+    // generic text and require prior interaction; the [+] marker teaches
+    // what "unsaved" means. Never fires for a clean map.
+    window.addEventListener("beforeunload", (e) => {
+        if (!(0, slots_1.isDirty)(baselineCode, editor.getMapData()))
+            return;
+        e.preventDefault();
+        e.returnValue = "";
+    });
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY = {
         ArrowDown: "down",

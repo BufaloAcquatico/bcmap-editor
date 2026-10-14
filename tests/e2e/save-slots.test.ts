@@ -242,3 +242,69 @@ test("Delete removes the slot after confirm", async ({
     expect(await slotNames(page)).toEqual([]);
     await expect(page.locator("#slotsCount")).toHaveText("0 / 30");
 });
+
+const openImportModal = async (page: Page) => {
+    await page.click("#menuMapToggle");
+    await page.click("#btnImport");
+    await expect(page.locator("#importModal")).toBeVisible();
+};
+
+test("Import modal warns about unsaved work only when dirty", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await openImportModal(page);
+    await expect(page.locator("#importDirtyWarning")).toBeHidden();
+    await page.locator("#importModal .btn-secondary").click();
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await openImportModal(page);
+    await expect(page.locator("#importDirtyWarning")).toBeVisible();
+});
+
+test(":enew refuses a dirty map without ! and resets with it", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await runCommand(page, "w alpha");
+    await paintLongGrassCenter(page);
+    await runCommand(page, "enew");
+    await expect(page.locator("#statusVimMode")).toContainText("E37");
+    await runCommand(page, "enew!");
+    expect(await allGrass(page)).toBe(true);
+    await expect(page.locator("#statusSlotName")).toHaveText("");
+});
+
+test("reloading a clean tab skips the unsaved-work prompt", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    let seen = "";
+    page.on("dialog", (dialog) => {
+        seen = dialog.type();
+    });
+    await page.reload();
+    expect(seen).toBe("");
+});
+
+test("reloading a dirty tab raises the unsaved-work prompt", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await paintLongGrassCenter(page);
+    let seen = "";
+    page.on("dialog", async (dialog) => {
+        seen = dialog.type();
+        await dialog.accept();
+    });
+    await page.reload();
+    expect(seen).toBe("beforeunload");
+});

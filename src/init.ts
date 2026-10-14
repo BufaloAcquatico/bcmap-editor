@@ -102,9 +102,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const importModal = new bootstrap.Modal(
         document.getElementById("importModal")!,
     );
-    btnImport?.addEventListener("click", () => {
+    const importDirtyWarning = document.getElementById("importDirtyWarning");
+    const openImportModal = () => {
+        // Warn when the current map has unsaved work; Confirm still
+        // proceeds (informed consent in one click). baselineCode lives in
+        // the slots section below — read at click time, long after init.
+        importDirtyWarning?.classList.toggle(
+            "d-none",
+            !isDirty(baselineCode, editor.getMapData()),
+        );
         importModal.show();
-    });
+    };
+    btnImport?.addEventListener("click", openImportModal);
 
     const btnImportConfirm = document.getElementById("btnImportConfirm");
     const importCode = document.getElementById(
@@ -424,7 +433,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     editor.onSaveSlotRequest = (name: string) => doSaveSlot(name);
     editor.onNewMapRequest = () => doNewMap();
-    editor.onImportRequest = () => importModal.show();
+    editor.onImportRequest = () => openImportModal();
     editor.onSlotStateRequest = () => ({
         available: storageAvailable,
         currentName: currentSlotName,
@@ -703,6 +712,15 @@ document.addEventListener("DOMContentLoaded", () => {
             "Browser storage is unavailable here — export to a file instead.",
         );
     }
+
+    // Warn on tab close/reload with unsaved work. Browsers show their own
+    // generic text and require prior interaction; the [+] marker teaches
+    // what "unsaved" means. Never fires for a clean map.
+    window.addEventListener("beforeunload", (e) => {
+        if (!isDirty(baselineCode, editor.getMapData())) return;
+        e.preventDefault();
+        e.returnValue = "";
+    });
 
     // Arrow key → visual-grid direction (the router pre-filters to these).
     const GRID_DIRECTION_BY_ARROW_KEY: Record<
