@@ -39,6 +39,7 @@ test("one undo press reverts one painted tile (button)", async ({
     await expect(page.locator("#btnRedo")).toBeDisabled();
 
     // A single undo press reverts the whole stroke
+    await page.click("#menuEditToggle");
     await page.click("#btnUndo");
     await page.waitForTimeout(100);
     const afterUndo = await tilesOf(page);
@@ -50,6 +51,7 @@ test("one undo press reverts one painted tile (button)", async ({
     await expect(page.locator("#btnRedo")).toBeEnabled();
 
     // Redo re-applies it
+    await page.click("#menuEditToggle");
     await page.click("#btnRedo");
     await page.waitForTimeout(100);
     expect(await tilesOf(page)).toBe(before);

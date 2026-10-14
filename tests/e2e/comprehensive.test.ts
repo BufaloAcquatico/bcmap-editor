@@ -191,17 +191,20 @@ test("click-to-paint object layer", async ({ page }: { page: Page }) => {
 
 test("zoom and pan controls work", async ({ page }: { page: Page }) => {
     await page.goto("http://localhost:8080/map-editor.html");
-    await page.waitForSelector("#btnZoomIn");
+    await page.waitForSelector("#menuViewToggle");
 
     // Test zoom in
+    await page.click("#menuViewToggle");
     await page.click("#btnZoomIn");
     await page.waitForTimeout(100);
 
     // Test zoom out
+    await page.click("#menuViewToggle");
     await page.click("#btnZoomOut");
     await page.waitForTimeout(100);
 
     // Test zoom reset
+    await page.click("#menuViewToggle");
     await page.click("#btnZoomReset");
     await page.waitForTimeout(100);
 
@@ -483,13 +486,14 @@ test("grid toggles via button and G keybind", async ({
     page: Page;
 }) => {
     await page.goto("http://localhost:8080/map-editor.html");
-    await page.waitForSelector("#btnToggleGrid");
+    await page.waitForSelector("#menuViewToggle");
 
     const gridVisible = () =>
         page.evaluate(() => (window as any).editor.getGridVisible());
 
     expect(await gridVisible()).toBe(true);
 
+    await page.click("#menuViewToggle");
     await page.click("#btnToggleGrid");
     expect(await gridVisible()).toBe(false);
 

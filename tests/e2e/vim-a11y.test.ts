@@ -33,9 +33,9 @@ test("picker items are real buttons with accessible names", async ({
     await expect(header).toHaveAttribute("aria-expanded", /true|false/);
 });
 
-test("toolbar buttons wear the default Bootstrap size", async ({ page }) => {
+test("menu toggles wear the default Bootstrap size", async ({ page }) => {
     await openEditor(page);
-    const btn = page.locator("#btnNew");
+    const btn = page.locator("#menuMapToggle");
     const size = await btn.evaluate((el) => {
         const s = getComputedStyle(el);
         return { font: s.fontSize, pad: `${s.paddingTop} ${s.paddingLeft}` };
@@ -305,6 +305,7 @@ test("modal focus tracks as chrome with dialog help", async ({
 }) => {
     await openEditor(page);
     const help = page.locator("#controlsHelp");
+    await page.locator("#menuMapToggle").click();
     await page.locator("#btnImport").click();
     await page.locator("#importCode").click();
     expect(await page.evaluate(() => (window as any).appSurface.get())).toBe(

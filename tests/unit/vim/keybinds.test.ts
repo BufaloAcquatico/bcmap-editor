@@ -150,6 +150,45 @@ describe("installEditorKeybinds", () => {
         expect(actions.redo).toHaveBeenCalledTimes(2);
     });
 
+    it("leaves menu-navigation keys to open Bootstrap dropdowns", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
+            selectTileLayer: vi.fn(),
+            selectObjectLayer: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            handleSidebarKey: vi.fn(() => true),
+        };
+        const bindings = installEditorKeybinds(actions);
+        const dispatch = createKeybindDispatcher(bindings);
+
+        const inMenu = {
+            tagName: "BUTTON",
+            closest: (sel: string) => (sel === ".dropdown" ? {} : null),
+        };
+        // Arrows move between menu items; hjkl must not walk the cursor
+        // underneath an open menu either.
+        dispatch(keyEvent("ArrowDown", {}, inMenu));
+        dispatch(keyEvent("j", {}, inMenu));
+        expect(actions.handleVimKey).not.toHaveBeenCalled();
+
+        const onMap = {
+            tagName: "CANVAS",
+            closest: (_sel: string) => null,
+        };
+        dispatch(keyEvent("ArrowDown", {}, onMap));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(1);
+    });
+
     it("wires +, = to zoom in and - to zoom out", () => {
         const actions = {
             toggleGrid: vi.fn(),

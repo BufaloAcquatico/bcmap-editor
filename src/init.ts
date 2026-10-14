@@ -189,6 +189,10 @@ document.addEventListener("DOMContentLoaded", () => {
         syncGridButton();
     });
 
+    // Map menu: the Keyboard Shortcuts item toggles the same help card as `?`.
+    const menuShortcuts = document.getElementById("menuShortcuts");
+    menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
+
     // Undo/Redo (buttons + keybinds)
     const btnUndo = document.getElementById(
         "btnUndo",

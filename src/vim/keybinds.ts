@@ -231,6 +231,18 @@ function isInteractiveTarget(e: KeyboardEvent): boolean {
 }
 
 /**
+ * True when the key event targets a Bootstrap dropdown (toggle or open
+ * menu). Menu navigation keys belong to the menu: without this, arrowing
+ * through an open menu would also walk the vim cursor underneath it.
+ * Optional-chained so plain-object fake targets in node tests read as
+ * "not a menu".
+ */
+function isMenuTarget(e: KeyboardEvent): boolean {
+    const target = e.target as HTMLElement | null;
+    return !!target?.closest?.(".dropdown");
+}
+
+/**
  * True when focus sits inside the picker sidebar (a sprite button or a
  * category header). The sidebar router binding runs first and may decline,
  * so G/?/undo keep working no matter where focus is.
@@ -468,7 +480,8 @@ export function installEditorKeybinds(
                 !e.ctrlKey &&
                 !e.metaKey &&
                 !e.altKey &&
-                !isEditableTarget(e),
+                !isEditableTarget(e) &&
+                !isMenuTarget(e),
             run: (e) => {
                 // Matched keys are vim-owned (motions/counts); prevent the
                 // browser default (e.g. arrow-key page scroll) regardless.
