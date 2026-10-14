@@ -363,17 +363,12 @@ document.addEventListener("DOMContentLoaded", () => {
         // declared below — read here at call time, long after init.
         const saveItem = document.getElementById("menuSave");
         if (saveItem) {
-            if (storageAvailable && currentSlotName !== null) {
+            if (storageAvailable) {
                 saveItem.removeAttribute("disabled");
                 saveItem.removeAttribute("title");
             } else {
                 saveItem.setAttribute("disabled", "");
-                saveItem.setAttribute(
-                    "title",
-                    storageAvailable
-                        ? "Nothing to overwrite yet — use Save As… first."
-                        : STORAGE_UNAVAILABLE_MESSAGE,
-                );
+                saveItem.setAttribute("title", STORAGE_UNAVAILABLE_MESSAGE);
             }
         }
         if (!slotNameEl) return;
@@ -508,11 +503,14 @@ document.addEventListener("DOMContentLoaded", () => {
         setSaveMessage(null);
     };
     menuSave?.addEventListener("click", () => {
+        // With no name yet Save falls through to Save As…, like a
+        // desktop app.
         if (currentSlotName) doSaveSlot(currentSlotName);
+        else openSaveAsModal();
     });
     // Save As… modal: prefill with the current slot name; filter typing to
     // the store charset; an existing foreign name flips to replace-confirm.
-    menuSaveAs?.addEventListener("click", () => {
+    const openSaveAsModal = () => {
         if (!storageAvailable) {
             editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
             return;
@@ -528,7 +526,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Focus is enough when select() is unavailable.
             }
         }
-    });
+    };
+    menuSaveAs?.addEventListener("click", openSaveAsModal);
     saveName?.addEventListener("input", () => {
         const clean = sanitizeName(saveName.value);
         if (clean !== saveName.value) saveName.value = clean;

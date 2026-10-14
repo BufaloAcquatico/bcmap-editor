@@ -163,20 +163,27 @@ test("Save As menu opens the modal prefilled and saves", async ({
     expect(await slotNames(page)).toEqual(["garage", "garage 2", "garage 3"]);
 });
 
-test("Save is disabled with no name and overwrites without a dialog", async ({
+test("Save falls back to Save As with no name, overwrites otherwise", async ({
     page,
 }: {
     page: Page;
 }) => {
     await openEditor(page);
-    await expect(page.locator("#menuSave")).toBeDisabled();
-    await runCommand(page, "w alpha");
     await expect(page.locator("#menuSave")).toBeEnabled();
+    await page.click("#menuMapToggle");
+    await page.click("#menuSave");
+    // No current name: the Save As modal opens instead.
+    const modal = page.locator("#saveModal");
+    await expect(modal).toBeVisible();
+    await page.fill("#saveName", "alpha");
+    await page.keyboard.press("Enter");
+    await expect(modal).toBeHidden();
+    expect(await slotNames(page)).toEqual(["alpha"]);
+    // Named now: Save overwrites straight through, no dialog.
     await paintLongGrassCenter(page);
     await page.click("#menuMapToggle");
     await page.click("#menuSave");
-    // No modal, no confirm: straight overwrite of the current slot.
-    await expect(page.locator("#saveModal")).toBeHidden();
+    await expect(modal).toBeHidden();
     await expect(page.locator("#statusSlotName")).toHaveText("alpha");
     expect(await slotNames(page)).toEqual(["alpha"]);
 });
