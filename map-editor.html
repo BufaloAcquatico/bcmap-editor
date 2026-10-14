@@ -268,8 +268,9 @@
         <button id="menuMapToggle" class="menubar-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Map</button>
         <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="menuMapToggle">
           <li><button id="btnNew" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-file-earmark-plus me-2"></i>New Map…</button></li>
-          <li><button id="menuSave" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-floppy me-2"></i>Save…<span class="text-muted ms-auto ps-4 small">:w</span></button></li>
-          <li><button id="menuLoad" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-hdd me-2"></i>Load Saved Map…<span class="text-muted ms-auto ps-4 small">:e</span></button></li>
+          <li><button id="menuSave" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-floppy me-2"></i>Save<span class="text-muted ms-auto ps-4 small">:w</span></button></li>
+          <li><button id="menuSaveAs" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-floppy-fill me-2"></i>Save As…</button></li>
+          <li><button id="menuLoad" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-hdd me-2"></i>Load…<span class="text-muted ms-auto ps-4 small">:e</span></button></li>
           <li><button id="btnImport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-upload me-2"></i>Import Map Code…</button></li>
           <li><button id="btnExport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-download me-2"></i>Export to File…</button></li>
           <li><hr class="dropdown-divider"></li>
@@ -6564,6 +6565,21 @@ document.addEventListener("DOMContentLoaded", () => {
     let baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
     const slotNameEl = document.getElementById("statusSlotName");
     const syncSlotIndicator = () => {
+        // Save is only meaningful once the map has a slot name; menuSave is
+        // declared below — read here at call time, long after init.
+        const saveItem = document.getElementById("menuSave");
+        if (saveItem) {
+            if (storageAvailable && currentSlotName !== null) {
+                saveItem.removeAttribute("disabled");
+                saveItem.removeAttribute("title");
+            }
+            else {
+                saveItem.setAttribute("disabled", "");
+                saveItem.setAttribute("title", storageAvailable
+                    ? "Nothing to overwrite yet — use Save As… first."
+                    : slots_1.STORAGE_UNAVAILABLE_MESSAGE);
+            }
+        }
         if (!slotNameEl)
             return;
         if (!currentSlotName) {
@@ -6656,9 +6672,11 @@ document.addEventListener("DOMContentLoaded", () => {
         isFull: storageAvailable &&
             (0, slots_1.listSlots)(window.localStorage).length >= slots_1.MAX_SLOTS,
     });
-    // Save modal: prefill with the current slot name; filter typing to the
-    // store charset; an existing foreign name flips to replace-confirm.
+    // Save writes straight back to the current slot (desktop Save); Save
+    // As… opens the name modal. Save stays disabled until the map has a
+    // name — synced in syncSlotIndicator on every state transition.
     const menuSave = document.getElementById("menuSave");
+    const menuSaveAs = document.getElementById("menuSaveAs");
     const saveModal = new bootstrap.Modal(document.getElementById("saveModal"));
     const saveName = document.getElementById("saveName");
     const saveMessage = document.getElementById("saveMessage");
@@ -6683,6 +6701,12 @@ document.addEventListener("DOMContentLoaded", () => {
         setSaveMessage(null);
     };
     menuSave?.addEventListener("click", () => {
+        if (currentSlotName)
+            doSaveSlot(currentSlotName);
+    });
+    // Save As… modal: prefill with the current slot name; filter typing to
+    // the store charset; an existing foreign name flips to replace-confirm.
+    menuSaveAs?.addEventListener("click", () => {
         if (!storageAvailable) {
             editor.showVimFeedback(slots_1.STORAGE_UNAVAILABLE_MESSAGE);
             return;
@@ -6736,9 +6760,11 @@ document.addEventListener("DOMContentLoaded", () => {
         doSaveSlot(name);
         saveModal.hide();
     });
-    if (!storageAvailable && menuSave) {
-        menuSave.setAttribute("disabled", "");
-        menuSave.setAttribute("title", slots_1.STORAGE_UNAVAILABLE_MESSAGE);
+    // Save enables itself via syncSlotIndicator once the map has a name;
+    // Save As… only depends on storage availability, fixed here.
+    if (!storageAvailable && menuSaveAs) {
+        menuSaveAs.setAttribute("disabled", "");
+        menuSaveAs.setAttribute("title", slots_1.STORAGE_UNAVAILABLE_MESSAGE);
     }
     syncSlotIndicator();
     // Saved Maps window: list, load, export, delete (delete is UI-only).

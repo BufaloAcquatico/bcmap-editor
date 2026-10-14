@@ -136,7 +136,7 @@ test("mode pill follows the vim mode", async ({ page }: { page: Page }) => {
     await expect(pill).toHaveClass(/mode-normal/);
 });
 
-test("Save menu opens the modal prefilled and saves", async ({
+test("Save As menu opens the modal prefilled and saves", async ({
     page,
 }: {
     page: Page;
@@ -144,7 +144,7 @@ test("Save menu opens the modal prefilled and saves", async ({
     await openEditor(page);
     await runCommand(page, "w garage");
     await page.click("#menuMapToggle");
-    await page.click("#menuSave");
+    await page.click("#menuSaveAs");
     const modal = page.locator("#saveModal");
     await expect(modal).toBeVisible();
     await expect(page.locator("#saveName")).toHaveValue("garage");
@@ -155,12 +155,30 @@ test("Save menu opens the modal prefilled and saves", async ({
     await expect(page.locator("#statusSlotName")).toHaveText("garage 2");
     // Enter in the name field confirms too.
     await page.click("#menuMapToggle");
-    await page.click("#menuSave");
+    await page.click("#menuSaveAs");
     await expect(modal).toBeVisible();
     await page.fill("#saveName", "garage 3");
     await page.keyboard.press("Enter");
     await expect(modal).toBeHidden();
     expect(await slotNames(page)).toEqual(["garage", "garage 2", "garage 3"]);
+});
+
+test("Save is disabled with no name and overwrites without a dialog", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await expect(page.locator("#menuSave")).toBeDisabled();
+    await runCommand(page, "w alpha");
+    await expect(page.locator("#menuSave")).toBeEnabled();
+    await paintLongGrassCenter(page);
+    await page.click("#menuMapToggle");
+    await page.click("#menuSave");
+    // No modal, no confirm: straight overwrite of the current slot.
+    await expect(page.locator("#saveModal")).toBeHidden();
+    await expect(page.locator("#statusSlotName")).toHaveText("alpha");
+    expect(await slotNames(page)).toEqual(["alpha"]);
 });
 
 test("Load window lists slots with thumbnails, names and times", async ({

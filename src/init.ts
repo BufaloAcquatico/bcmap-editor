@@ -359,6 +359,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const slotNameEl = document.getElementById("statusSlotName");
     const syncSlotIndicator = () => {
+        // Save is only meaningful once the map has a slot name; menuSave is
+        // declared below — read here at call time, long after init.
+        const saveItem = document.getElementById("menuSave");
+        if (saveItem) {
+            if (storageAvailable && currentSlotName !== null) {
+                saveItem.removeAttribute("disabled");
+                saveItem.removeAttribute("title");
+            } else {
+                saveItem.setAttribute("disabled", "");
+                saveItem.setAttribute(
+                    "title",
+                    storageAvailable
+                        ? "Nothing to overwrite yet — use Save As… first."
+                        : STORAGE_UNAVAILABLE_MESSAGE,
+                );
+            }
+        }
         if (!slotNameEl) return;
         if (!currentSlotName) {
             slotNameEl.textContent = "";
@@ -457,9 +474,11 @@ document.addEventListener("DOMContentLoaded", () => {
             listSlots(window.localStorage).length >= MAX_SLOTS,
     });
 
-    // Save modal: prefill with the current slot name; filter typing to the
-    // store charset; an existing foreign name flips to replace-confirm.
+    // Save writes straight back to the current slot (desktop Save); Save
+    // As… opens the name modal. Save stays disabled until the map has a
+    // name — synced in syncSlotIndicator on every state transition.
     const menuSave = document.getElementById("menuSave");
+    const menuSaveAs = document.getElementById("menuSaveAs");
     const saveModal = new bootstrap.Modal(
         document.getElementById("saveModal")!,
     );
@@ -489,6 +508,11 @@ document.addEventListener("DOMContentLoaded", () => {
         setSaveMessage(null);
     };
     menuSave?.addEventListener("click", () => {
+        if (currentSlotName) doSaveSlot(currentSlotName);
+    });
+    // Save As… modal: prefill with the current slot name; filter typing to
+    // the store charset; an existing foreign name flips to replace-confirm.
+    menuSaveAs?.addEventListener("click", () => {
         if (!storageAvailable) {
             editor.showVimFeedback(STORAGE_UNAVAILABLE_MESSAGE);
             return;
@@ -543,9 +567,11 @@ document.addEventListener("DOMContentLoaded", () => {
         doSaveSlot(name);
         saveModal.hide();
     });
-    if (!storageAvailable && menuSave) {
-        menuSave.setAttribute("disabled", "");
-        menuSave.setAttribute("title", STORAGE_UNAVAILABLE_MESSAGE);
+    // Save enables itself via syncSlotIndicator once the map has a name;
+    // Save As… only depends on storage availability, fixed here.
+    if (!storageAvailable && menuSaveAs) {
+        menuSaveAs.setAttribute("disabled", "");
+        menuSaveAs.setAttribute("title", STORAGE_UNAVAILABLE_MESSAGE);
     }
     syncSlotIndicator();
 
