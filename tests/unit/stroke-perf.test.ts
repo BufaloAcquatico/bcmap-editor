@@ -97,10 +97,7 @@ describe("Drag-stroke benchmark (40-cell worst case)", () => {
         // End-to-end smoke with synchronous renders. Budget is deliberately
         // lax (10x typical) — it trips on structural blowups, not noise.
         const e = editor as any;
-        e.history.beginStroke(
-            editor.getMapData().Tiles,
-            editor.getMapData().Objects,
-        );
+        e.history.beginStroke(e.snapshot());
         const start = performance.now();
         for (let i = 0; i < 40; i++) {
             e.paintAt({ X: i, Y: 1 });
@@ -112,10 +109,7 @@ describe("Drag-stroke benchmark (40-cell worst case)", () => {
 
     it("undo of a 40-cell stroke stays in budget", () => {
         const e = editor as any;
-        e.history.beginStroke(
-            editor.getMapData().Tiles,
-            editor.getMapData().Objects,
-        );
+        e.history.beginStroke(e.snapshot());
         for (let i = 0; i < 40; i++) {
             e.paintAt({ X: i, Y: 2 });
         }

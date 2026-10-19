@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { transformBundle } from "../../scripts/embed-js.js";
+import fs from "fs";
+import path from "path";
+import { transformBundle, files } from "../../scripts/embed-js.js";
 
 // Mimics tsc CommonJS output for editor.ts imports/exports.
 const SAMPLE = `"use strict";
@@ -60,5 +62,45 @@ describe("embed-js transformBundle", () => {
         const declarations =
             deduped.match(/^const catalog_1 = window;$/gm) || [];
         expect(declarations.length).toBe(1);
+    });
+});
+
+/** Every .ts under src except ambient declarations, as bundle .js paths. */
+function srcBundleModules(): string[] {
+    const root = path.join(__dirname, "..", "..", "src");
+    const out: string[] = [];
+    const walk = (dir: string) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) walk(full);
+            else if (
+                entry.name.endsWith(".ts") &&
+                !entry.name.endsWith(".d.ts")
+            ) {
+                out.push(
+                    path
+                        .relative(root, full)
+                        .replace(/\\/g, "/")
+                        .replace(/\.ts$/, ".js"),
+                );
+            }
+        }
+    };
+    walk(root);
+    return out.sort();
+}
+
+describe("embed-js bundle manifest", () => {
+    it("bundles every src module (a missing entry ships a broken bundle)", () => {
+        expect([...files].sort()).toEqual(srcBundleModules());
+    });
+
+    it("loads each module after the ones it depends on at load time", () => {
+        const at = (f: string) => files.indexOf(f);
+        // effects.js computes its RLE constants once at load via bitstring.js.
+        expect(at("bitstring.js")).toBeLessThan(at("effects.js"));
+        expect(at("effects.js")).toBeLessThan(at("mapdata.js"));
+        expect(at("effects.js")).toBeLessThan(at("picker.js"));
+        expect(at("effects.js")).toBeLessThan(at("editor.js"));
     });
 });

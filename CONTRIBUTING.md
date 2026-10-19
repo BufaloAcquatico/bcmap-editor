@@ -39,12 +39,22 @@ every load — check there first if a retune seems to do nothing.
 # Download assets (drives from the shared catalog, with throttling)
 npm run download-assets
 
+# Verify every catalog asset is present and non-empty, without downloading
+npm run download-assets -- --verify
+
 # Options: skip existing files by default; add --force to re-download
 #   --force            re-download every asset
 #   --concurrency=N    parallel requests (default 2)
 #   --delay=MS         delay between requests (default 150)
 #   --retries=N        retries per asset (default 3)
+#   --verify           check the local tree against the catalog, then exit
 ```
+
+Sprites are pinned to a single Bondage Club release
+(`BASE_URL` in `scripts/download-assets.ts`, currently **R133**). Only the
+latest hosted release resolves on the asset server, so when the game
+publishes a new version, bump that pin and re-run the downloader with
+`--force`, then confirm with `--verify`.
 
 The catalog in `src/catalog.ts` is the single source of truth: pickers,
 renderer, importer, and this script all read it, so a game addition

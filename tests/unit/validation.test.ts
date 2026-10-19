@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../src/editor";
 import { compressToBase64 } from "lz-string";
+import { encodeEffects } from "../../src/effects";
 
 // Mock DOM for testing
 const mockCtx = {
@@ -171,18 +172,20 @@ describe("Validation and Edge Cases", () => {
         expect((imported as any).admin).toBeUndefined();
     });
 
-    it("should preserve well-typed Effects and Fog on import", () => {
+    it("should decode well-typed Effects and preserve Fog on import", () => {
+        const effects = new Array(1600).fill(10);
+        effects[5] = 14; // TintRed
         const raw = {
             Type: "Always",
             Tiles: String.fromCharCode(210).repeat(1600),
             Objects: String.fromCharCode(100).repeat(1600),
-            Effects: "abc",
+            Effects: encodeEffects(effects),
             Fog: true,
         };
         const code = compressToBase64(JSON.stringify(raw));
         editor.importMap(code);
         const imported = editor.getMapData();
-        expect(imported.Effects).toBe("abc");
+        expect(imported.Effects).toEqual(effects);
         expect(imported.Fog).toBe(true);
     });
 

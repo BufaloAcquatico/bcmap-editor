@@ -8,17 +8,28 @@ import {
     type TileDef,
 } from "./catalog";
 import { RAILROAD_DIRECTIONS, WALL_EFFECT_INDICES } from "./constants";
-import { MapHistory } from "./history";
 import {
+    BLANK_EFFECT_ID,
+    EFFECT_BY_ID,
+    EFFECT_CATALOG,
+    type EffectDef,
+    effectColorCss,
+} from "./effects";
+import { MapHistory, type MapSnapshot } from "./history";
+import {
+    MAP_CELL_COUNT,
     createDefaultMap,
+    effectsToGrid,
     GRASS_TILE_ID,
+    gridToEffects,
+    hasVisibleEffects,
     MAP_HEIGHT,
     MAP_WIDTH,
     type MapData,
     parseMapData,
     serializeMap,
 } from "./mapdata";
-import { MapPicker } from "./picker";
+import { MapPicker, type PickerLayer } from "./picker";
 import { appSurface } from "./appSurface";
 import {
     advanceToward,
@@ -89,6 +100,9 @@ const YANK_FLASH_FILL = "rgba(255, 255, 255, 0.15)";
 const REGION_BORDER_WIDTH = 2;
 const FEEDBACK_MS = 1500;
 const PAN_OVERSCROLL_TILES = 15;
+// Default lighting brush: ShadowLight (BC's `AssetsMapDataEffects[1]`), so the
+// lighting layer starts on a visible effect rather than the eraser.
+const DEFAULT_LIGHTING_EFFECT_ID = 11;
 
 export class BCMapEditor {
     private mapData: MapData;
@@ -97,9 +111,12 @@ export class BCMapEditor {
     private zoom = 1.0;
     private maxZoom = MAX_ZOOM;
     private minZoom = MIN_ZOOM; // min zoom
-    private currentLayer: "tile" | "object" = "tile";
+    private currentLayer: PickerLayer = "tile";
     private selectedTile: TileDef | null = null;
     private selectedObject: ObjectDef | null = null;
+    private selectedEffect: EffectDef | null = null;
+    /** Whether the lighting overlay is drawn. Toggling it is undoable. */
+    private showEffects = true;
     private isDragging = false;
     private lastMousePos = { x: 0, y: 0 };
     private hoveredTile: Point | null = null;
@@ -122,12 +139,11 @@ export class BCMapEditor {
     private history = new MapHistory();
     /** One entry per gesture (mouse) or key-repeat burst (vim): closes on idle timeout or explicit flush. */
     private session = new EditSession({
-        begin: () =>
-            this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),
+        begin: () => this.history.beginStroke(this.snapshot()),
         markDirty: () => this.history.markDirty(),
         end: () => this.history.endStroke(),
     });
-    /** Copy buffer from `y`, holding both layers; `p` pastes it. */
+    /** Copy buffer from `y`, holding all three layers; `p` pastes it. */
     private yankBuffer: YankBuffer | null = null;
     /** Set by init.ts: slot save/load, dialogs and export (`:w`, `:e`, …). */
     public onSaveSlotRequest: ((name: string) => void) | null = null;
@@ -147,6 +163,7 @@ export class BCMapEditor {
     private picker = new MapPicker({
         onSelectTile: (tile) => this.setSelectedTile(tile),
         onSelectObject: (obj) => this.setSelectedObject(obj),
+        onSelectEffect: (effect) => this.setSelectedEffect(effect),
     });
     private objectMarginTiles = 0;
     /**
@@ -418,6 +435,57 @@ export class BCMapEditor {
         this.session.runEdit(mutate);
     }
 
+    /** Capture the whole editable state as an immutable undo snapshot. */
+    private snapshot(): MapSnapshot {
+        return {
+            tiles: this.mapData.Tiles,
+            objects: this.mapData.Objects,
+            effects: effectsToGrid(this.mapData.Effects),
+            showEffects: this.showEffects,
+        };
+    }
+
+    /** Restore every layer (and the lighting visibility) from a snapshot. */
+    private applySnapshot(snapshot: MapSnapshot): void {
+        this.mapData.Tiles = snapshot.tiles;
+        this.mapData.Objects = snapshot.objects;
+        this.mapData.Effects = gridToEffects(snapshot.effects);
+        this.showEffects = snapshot.showEffects;
+    }
+
+    /**
+     * Lighting as a full per-cell string, blanks filled in. Used by yank so a
+     * captured effect char always exists even on an unlit map.
+     */
+    private effectsGrid(): string {
+        return (
+            effectsToGrid(this.mapData.Effects) ||
+            String.fromCharCode(BLANK_EFFECT_ID).repeat(MAP_CELL_COUNT)
+        );
+    }
+
+    /**
+     * Write the lighting layer at one cell. Keeps the model invariant that
+     * `MapData.Effects` is either absent or holds at least one non-Blank cell,
+     * so erasing the last effect back to Blank drops the grid entirely (and
+     * the map stops exporting an "@" lighting part).
+     */
+    private setEffectAt(index: number, id: number): boolean {
+        const current = this.mapData.Effects
+            ? this.mapData.Effects[index]
+            : BLANK_EFFECT_ID;
+        if (current === id) return false;
+        const grid =
+            this.mapData.Effects ??
+            new Array<number>(MAP_CELL_COUNT).fill(BLANK_EFFECT_ID);
+        grid[index] = id;
+        this.mapData.Effects =
+            id !== BLANK_EFFECT_ID || hasVisibleEffects(grid)
+                ? grid
+                : undefined;
+        return true;
+    }
+
     /**
      * Write one cell of the active layer with the current picker selection
      * (Grass tile / Blank object are ordinary brushes: erasing is painting).
@@ -427,6 +495,12 @@ export class BCMapEditor {
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * MAP_WIDTH;
+        if (this.currentLayer === "effect") {
+            const id = this.selectedEffect?.ID ?? BLANK_EFFECT_ID;
+            const changed = this.setEffectAt(index, id);
+            if (changed) this.requestRender();
+            return changed;
+        }
         if (this.currentLayer === "object") {
             const ch = this.selectedObject
                 ? String.fromCharCode(this.selectedObject.ID)
@@ -500,11 +574,12 @@ export class BCMapEditor {
         if (painted) this.flashCommit(region);
     }
 
-    /** `y`: capture the region's content of both layers. */
+    /** `y`: capture the region's content of all three layers. */
     private captureYankRegion(region: Region): void {
         this.yankBuffer = captureRegion(
             this.mapData.Tiles,
             this.mapData.Objects,
+            this.effectsGrid(),
             region,
             MAP_WIDTH,
             MAP_HEIGHT,
@@ -514,7 +589,7 @@ export class BCMapEditor {
         this.flashCommit(region, "yank");
     }
 
-    /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
+    /** `p`: paste the yank buffer (all three layers) anchored at the cursor. */
     private pasteYank(at: Point): void {
         const buffer = this.yankBuffer;
         if (!buffer) {
@@ -532,6 +607,7 @@ export class BCMapEditor {
                             at.Y + row,
                             buffer.tiles[charIndex],
                             buffer.objects[charIndex],
+                            buffer.effects[charIndex],
                         )
                     ) {
                         changed = true;
@@ -544,7 +620,7 @@ export class BCMapEditor {
 
     /**
      * `p` in visual mode: tile the yank buffer over the region from its
-     * top-left, repeating and trimming to fit, both layers exactly as
+     * top-left, repeating and trimming to fit, all three layers exactly as
      * stored. One undo entry. A region smaller than the buffer trims.
      */
     private pasteYankTiled(region: Region): void {
@@ -569,6 +645,7 @@ export class BCMapEditor {
                             region.from.Y + row,
                             buffer.tiles[charIndex],
                             buffer.objects[charIndex],
+                            buffer.effects[charIndex],
                         )
                     ) {
                         painted = true;
@@ -601,12 +678,13 @@ export class BCMapEditor {
         this.requestRender();
     }
 
-    /** Write one cell of both layers explicitly (paste path). */
+    /** Write one cell of every layer explicitly (paste path). */
     private writeBothLayers(
         x: number,
         y: number,
         tileChar: string,
         objectChar: string,
+        effectChar: string,
     ): boolean {
         if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return false;
         const index = x + y * MAP_WIDTH;
@@ -626,6 +704,13 @@ export class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                 objectChar +
                 this.mapData.Objects.substring(index + 1);
+            changed = true;
+        }
+        if (
+            effectChar !== undefined &&
+            effectChar !== "" &&
+            this.setEffectAt(index, effectChar.charCodeAt(0))
+        ) {
             changed = true;
         }
         if (changed) this.requestRender();
@@ -1137,6 +1222,26 @@ export class BCMapEditor {
             }
         }
 
+        // Lighting overlay: the game's static effects, one filled rect per
+        // non-Blank cell, over the objects (BC draws effects last). Gated by
+        // the lighting visibility toggle; Blank and unknown IDs draw nothing.
+        const effectGrid = this.mapData.Effects;
+        if (this.showEffects && effectGrid) {
+            for (let y = firstTileY; y <= lastTileY; y++) {
+                for (let x = firstTileX; x <= lastTileX; x++) {
+                    const color = effectColorCss(effectGrid[x + y * MAP_WIDTH]);
+                    if (!color) continue;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(
+                        startX + x * tileSize,
+                        startY + y * tileSize,
+                        tileSize,
+                        tileSize,
+                    );
+                }
+            }
+        }
+
         // Render grid (dark, semi-transparent)
         if (this.showGrid) {
             ctx.strokeStyle = GRID_COLOR;
@@ -1595,6 +1700,7 @@ export class BCMapEditor {
                 openImport: () => this.onImportRequest?.(),
                 toggleHelp: () => this.toggleHelp(),
                 toggleGrid: () => this.toggleGrid(),
+                toggleEffects: () => this.toggleEffects(),
                 drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
             },
             state,
@@ -1641,7 +1747,12 @@ export class BCMapEditor {
         const el = document.getElementById("statusSelection");
         if (!el) return;
         let text: string;
-        if (this.currentLayer === "object" && this.selectedObject) {
+        if (this.currentLayer === "effect" && this.selectedEffect) {
+            text =
+                this.selectedEffect.ID === BLANK_EFFECT_ID
+                    ? "Selection: Lighting Off (Erase)"
+                    : `Selection: Lighting/${this.selectedEffect.Style}`;
+        } else if (this.currentLayer === "object" && this.selectedObject) {
             if (this.selectedObject.Style === "Blank") {
                 text = "Selection: Blank (Erase)";
             } else {
@@ -1662,11 +1773,17 @@ export class BCMapEditor {
         if (!this.selectedObject) {
             this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;
         }
+        if (!this.selectedEffect) {
+            this.selectedEffect =
+                EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ??
+                EFFECT_CATALOG[0] ??
+                null;
+        }
         this.updateStatusSelection();
         this.syncPickerSelection();
     }
 
-    public setCurrentLayer(layer: "tile" | "object"): void {
+    public setCurrentLayer(layer: PickerLayer): void {
         // Same layer: nothing to do. Keyboard ([ / ]) and clicks can
         // arrive redundantly; skipping avoids a full picker rebuild (and
         // its selection reset) for no change.
@@ -1685,17 +1802,28 @@ export class BCMapEditor {
         this.updateStatusSelection();
         this.syncPickerSelection();
     }
+    public setSelectedEffect(effect: EffectDef | null): void {
+        this.selectedEffect = effect;
+        this.updateStatusSelection();
+        this.syncPickerSelection();
+    }
     public getSelectedTile(): TileDef | null {
         return this.selectedTile;
     }
     public getSelectedObject(): ObjectDef | null {
         return this.selectedObject;
     }
+    public getSelectedEffect(): EffectDef | null {
+        return this.selectedEffect;
+    }
     public exportMap(name: string): string {
         return serializeMap({
             Type: this.mapData.Type,
             Tiles: this.mapData.Tiles,
             Objects: this.mapData.Objects,
+            CellData: this.mapData.CellData,
+            Effects: this.mapData.Effects,
+            Fog: this.mapData.Fog,
         });
     }
     public importMap(code: string): void {
@@ -1778,51 +1906,67 @@ export class BCMapEditor {
             }
         }
         const objId = this.mapData.Objects.charCodeAt(index);
-        if (objId === BLANK_OBJECT_ID) return;
-        const obj = this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
-        if (!obj || obj.Style === "Blank") return;
-        const variant = this.resolveVariantImageName(x, y, obj);
-        const baseKey = obj.Type + "/" + obj.Style;
-        const img =
-            this.objectImageCache.get(obj.Type + "/" + variant) ??
-            this.objectImageCache.get(baseKey);
-        const left = obj.Left ?? 0;
-        const top = obj.Top ?? 0;
-        const width = obj.Width ?? 1;
-        const height = obj.Height ?? 1;
-        const adjDrawX = drawX + left * cell;
-        const adjDrawW = cell * width;
-        const adjDrawY = drawY + top * cell;
-        const adjDrawH = cell * height;
-        const rotation = obj.Rotation ?? 0;
-        if (rotation !== 0) {
-            ctx.save();
-            ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
-            ctx.rotate((rotation * Math.PI) / 180);
-            ctx.translate(
-                -(adjDrawX + adjDrawW / 2),
-                -(adjDrawY + adjDrawH / 2),
-            );
+        const obj =
+            objId === BLANK_OBJECT_ID
+                ? null
+                : (this.objectMap.get(objId) ?? this.fullObjectMap.get(objId));
+        if (obj && obj.Style !== "Blank") {
+            const variant = this.resolveVariantImageName(x, y, obj);
+            const baseKey = obj.Type + "/" + obj.Style;
+            const img =
+                this.objectImageCache.get(obj.Type + "/" + variant) ??
+                this.objectImageCache.get(baseKey);
+            const left = obj.Left ?? 0;
+            const top = obj.Top ?? 0;
+            const width = obj.Width ?? 1;
+            const height = obj.Height ?? 1;
+            const adjDrawX = drawX + left * cell;
+            const adjDrawW = cell * width;
+            const adjDrawY = drawY + top * cell;
+            const adjDrawH = cell * height;
+            const rotation = obj.Rotation ?? 0;
+            if (rotation !== 0) {
+                ctx.save();
+                ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
+                ctx.rotate((rotation * Math.PI) / 180);
+                ctx.translate(
+                    -(adjDrawX + adjDrawW / 2),
+                    -(adjDrawY + adjDrawH / 2),
+                );
+            }
+            if (img && img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+            } else {
+                // Fallback to color if image not loaded
+                ctx.fillStyle = this.getObjectColor(obj.Type);
+                ctx.fillRect(
+                    adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN,
+                    adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN,
+                    adjDrawW * OBJECT_DRAW_SIZE,
+                    adjDrawH * OBJECT_DRAW_SIZE,
+                );
+            }
+            if (rotation !== 0) ctx.restore();
         }
-        if (img && img.complete && img.naturalWidth > 0) {
-            ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
-        } else {
-            // Fallback to color if image not loaded
-            ctx.fillStyle = this.getObjectColor(obj.Type);
-            ctx.fillRect(
-                adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN,
-                adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN,
-                adjDrawW * OBJECT_DRAW_SIZE,
-                adjDrawH * OBJECT_DRAW_SIZE,
-            );
+        // Lighting overlay last, matching the game's tiles → objects →
+        // effects draw order. Thumbnails always show lighting (independent of
+        // the live overlay toggle), so saved maps preview their lighting.
+        const effectId = this.mapData.Effects?.[index];
+        const effectColor =
+            effectId !== undefined ? effectColorCss(effectId) : null;
+        if (effectColor) {
+            ctx.fillStyle = effectColor;
+            ctx.fillRect(drawX, drawY, cell, cell);
         }
-        if (rotation !== 0) ctx.restore();
     }
+
     public newMap(): void {
         this.mapData = createDefaultMap();
         this.history.clearRedo();
         this.selectedTile = this.tileMap.get(GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;
+        this.selectedEffect =
+            EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
         this.vim.clearCursor();
@@ -1848,24 +1992,16 @@ export class BCMapEditor {
         // the stroke's own entry, and endStroke's rollback skips it by
         // identity — pre-flushing would steal the wrong entry (the vim `u`
         // path flushes via the controller's flushEdits intent).
-        const prev = this.history.undo([
-            this.mapData.Tiles,
-            this.mapData.Objects,
-        ]);
+        const prev = this.history.undo(this.snapshot());
         if (!prev) return;
-        this.mapData.Tiles = prev[0];
-        this.mapData.Objects = prev[1];
+        this.applySnapshot(prev);
         this.requestRender();
     }
 
     public redo(): void {
-        const next = this.history.redo([
-            this.mapData.Tiles,
-            this.mapData.Objects,
-        ]);
+        const next = this.history.redo(this.snapshot());
         if (!next) return;
-        this.mapData.Tiles = next[0];
-        this.mapData.Objects = next[1];
+        this.applySnapshot(next);
         this.requestRender();
     }
 
@@ -1880,6 +2016,22 @@ export class BCMapEditor {
 
     public getGridVisible(): boolean {
         return this.showGrid;
+    }
+
+    /**
+     * Toggle the lighting overlay. Toggling is reversible and therefore
+     * undoable: the pre-toggle state goes on the history stack as a one-shot
+     * commit, so undo restores both the lighting layer and its visibility.
+     */
+    public toggleEffects(): void {
+        const before = this.snapshot();
+        this.showEffects = !this.showEffects;
+        this.history.commit(before);
+        this.render();
+    }
+
+    public getEffectsVisible(): boolean {
+        return this.showEffects;
     }
 
     public toggleHelp(): void {
@@ -1907,6 +2059,7 @@ export class BCMapEditor {
         this.picker.syncSelection(
             this.selectedTile?.ID ?? null,
             this.selectedObject?.ID ?? null,
+            this.selectedEffect?.ID ?? null,
         );
     }
 
@@ -1915,7 +2068,11 @@ export class BCMapEditor {
     }
 
     public populatePickers(): void {
-        this.picker.populate(this.tileCatalog, this.objectCatalog);
+        this.picker.populate(
+            this.tileCatalog,
+            this.objectCatalog,
+            EFFECT_CATALOG,
+        );
         this.syncPickerSelection();
     }
 
@@ -1946,7 +2103,7 @@ export class BCMapEditor {
     public isKnownTileId(id: number): boolean {
         return this.fullTileMap.has(id);
     }
-    public getCurrentLayer(): string {
+    public getCurrentLayer(): PickerLayer {
         return this.currentLayer;
     }
 }

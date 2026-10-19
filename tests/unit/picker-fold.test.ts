@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../src/editor";
+import { EFFECT_CATALOG } from "../../src/effects";
 
 const created: any[] = [];
 
@@ -50,6 +51,13 @@ mockElements["tileCategories"] = {
     querySelectorAll: vi.fn(() => []),
 };
 mockElements["objectCategories"] = {
+    style: {},
+    innerHTML: "",
+    replaceChildren: vi.fn(),
+    appendChild: vi.fn(),
+    querySelectorAll: vi.fn(() => []),
+};
+mockElements["effectCategories"] = {
     style: {},
     innerHTML: "",
     replaceChildren: vi.fn(),
@@ -124,7 +132,9 @@ describe("Foldable pickers", () => {
 
     it("lists the Banners section last in the object picker", () => {
         editor.populatePickers();
-        const tileCount = (editor as any).picker.tileCategoryEls.length;
+        const picker = (editor as any).picker;
+        const tileCount = picker.tileCategoryEls.length;
+        const objectCount = picker.objectCategoryEls.length;
         const headers = created.filter(
             (el: any) =>
                 typeof el.className === "string" &&
@@ -142,7 +152,7 @@ describe("Foldable pickers", () => {
                         el.textContent !== "",
                 ).textContent;
         const objectNames = headers
-            .slice(tileCount)
+            .slice(tileCount, tileCount + objectCount)
             .map((h: any) => labelOf(h));
         expect(objectNames.length).toBeGreaterThan(0);
         expect(objectNames[objectNames.length - 1]).toBe("Banners");
@@ -226,6 +236,33 @@ describe("Foldable pickers", () => {
         const icons = created.filter((el) => el.className === "sprite-item");
         expect(icons).toHaveLength(3);
         expect(icons[0].title).toBe("Blank (Erase)");
+    });
+
+    it("builds the eight lighting effects as swatches, Blank as the eraser", () => {
+        (editor as any).picker.populate([], [], EFFECT_CATALOG);
+        const effectItems = created.filter(
+            (el) => el.className === "sprite-item effect-item",
+        );
+        expect(effectItems).toHaveLength(8);
+        // Blank is first and reuses the object eraser icon.
+        expect(effectItems[0].innerHTML).toContain("picker-eraser-icon");
+        // Coloured effects carry a swatch span holding their rgba colour.
+        const swatch = effectItems[1].appendChild.mock.calls[0][0];
+        expect(swatch.className).toBe("effect-swatch");
+        expect(swatch.style.backgroundColor).toBe("rgba(0, 0, 0, 0.2)");
+        expect(effectItems[7].title).toBe("Glow Yellow");
+    });
+
+    it("picks a lighting effect through the picker delegate", () => {
+        (editor as any).picker.populate([], [], EFFECT_CATALOG);
+        const effectItems = created.filter(
+            (el) => el.className === "sprite-item effect-item",
+        );
+        const click = effectItems[3].addEventListener.mock.calls.find(
+            (c: any[]) => c[0] === "click",
+        )[1];
+        click({ detail: 0 });
+        expect(editor.getSelectedEffect()?.ID).toBe(13);
     });
 
     it("matches raw-style and prettified queries alike", () => {

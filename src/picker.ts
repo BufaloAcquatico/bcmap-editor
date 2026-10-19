@@ -8,6 +8,7 @@
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 
 import type { ObjectDef, TileDef } from "./catalog";
+import { effectColorCss, type EffectDef } from "./effects";
 import { appSurface } from "./appSurface";
 import {
     fadeIn,
@@ -17,7 +18,7 @@ import {
     MOTION_QUICK_MS,
 } from "./anim";
 
-export type PickerLayer = "tile" | "object";
+export type PickerLayer = "tile" | "object" | "effect";
 
 /**
  * Display-only category overrides by object ID. The catalog data keeps
@@ -139,6 +140,7 @@ export function rotationTransform(obj: { Rotation?: number }): string {
 export interface PickerDelegate {
     onSelectTile(tile: TileDef): void;
     onSelectObject(obj: ObjectDef): void;
+    onSelectEffect(effect: EffectDef): void;
 }
 
 interface CategoryEntry {
@@ -168,20 +170,31 @@ export class MapPicker {
     private searchTerm = "";
     private tileCategoryEls: CategoryEntry[] = [];
     private objectCategoryEls: CategoryEntry[] = [];
+    private effectCategoryEls: CategoryEntry[] = [];
     private tilePickerItemById = new Map<number, HTMLElement>();
     private objectPickerItemById = new Map<number, HTMLElement>();
+    private effectPickerItemById = new Map<number, HTMLElement>();
 
     constructor(private delegate: PickerDelegate) {}
 
-    populate(tileCatalog: TileDef[], objectCatalog: ObjectDef[]): void {
+    populate(
+        tileCatalog: TileDef[],
+        objectCatalog: ObjectDef[],
+        effectCatalog: readonly EffectDef[] = [],
+    ): void {
         const tileCategories = document.getElementById("tileCategories");
         const objectCategories = document.getElementById("objectCategories");
         if (!tileCategories || !objectCategories) return;
+        // The lighting container is optional so non-editor DOMs (tests,
+        // embeds) that only carry the tile/object pickers still work.
+        const effectCategories = document.getElementById("effectCategories");
 
         this.tileCategoryEls = [];
         this.objectCategoryEls = [];
+        this.effectCategoryEls = [];
         this.tilePickerItemById.clear();
         this.objectPickerItemById.clear();
+        this.effectPickerItemById.clear();
 
         const tileGroups = new Map<string, TileDef[]>();
         tileCatalog.forEach((t) => {
@@ -269,8 +282,8 @@ export class MapPicker {
                     );
                 } else {
                     // Static compile-time SVG constant only (no interpolation
-                    // of catalog or user data); the single sanctioned
-                    // innerHTML use in this file.
+                    // of catalog or user data); the sanctioned innerHTML uses
+                    // in this file (Blank object + Blank lighting).
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
                     item.setAttribute?.("aria-label", "Blank (erase objects)");
@@ -291,10 +304,64 @@ export class MapPicker {
             objectCategories.appendChild(container);
         });
 
+        // Lighting layer: one flat section of the eight lighting effects.
+        // Coloured effects show a swatch (over the button's checkered
+        // backdrop, so translucent overlays read correctly); Blank reuses the
+        // eraser icon to mean "no lighting".
+        if (effectCategories) {
+            effectCategories.replaceChildren();
+            if (effectCatalog.length > 0) {
+                const { header, entry } = this.createCategoryHeader("Lighting");
+                this.effectCategoryEls.push(entry);
+                const container = entry.content;
+                effectCatalog.forEach((effect) => {
+                    const item = document.createElement("button");
+                    item.type = "button";
+                    item.className = "sprite-item effect-item";
+                    item.tabIndex = -1;
+                    item.setAttribute?.("aria-pressed", "false");
+                    const color = effectColorCss(effect.ID);
+                    if (color) {
+                        const swatch = document.createElement("span");
+                        swatch.className = "effect-swatch";
+                        swatch.style.backgroundColor = color;
+                        item.appendChild(swatch);
+                        const label = displayNameFor(effect.Style);
+                        item.title = label;
+                        item.setAttribute?.(
+                            "aria-label",
+                            `Select lighting ${label}`,
+                        );
+                    } else {
+                        item.innerHTML = BLANK_ERASER_ICON;
+                        item.title = "Off (Erase)";
+                        item.setAttribute?.("aria-label", "Erase lighting");
+                    }
+                    item.addEventListener("click", (e: MouseEvent) => {
+                        this.delegate.onSelectEffect(effect);
+                        // Keyboard activation (Enter/Space) commits and
+                        // returns to the map; pointer clicks stay for
+                        // multi-pick browse.
+                        if (e.detail === 0) {
+                            document.getElementById("mapCanvas")?.focus?.();
+                            appSurface.set("map");
+                        }
+                    });
+                    container.appendChild(item);
+                    this.effectPickerItemById.set(effect.ID, item);
+                });
+                effectCategories.appendChild(header);
+                effectCategories.appendChild(container);
+            }
+        }
+
         this.tileCategoryEls.forEach((entry) =>
             this.setCategoryCollapsed(entry, true, false),
         );
         this.objectCategoryEls.forEach((entry) =>
+            this.setCategoryCollapsed(entry, true, false),
+        );
+        this.effectCategoryEls.forEach((entry) =>
             this.setCategoryCollapsed(entry, true, false),
         );
         this.updateVisibility();
@@ -316,7 +383,9 @@ export class MapPicker {
         const entries =
             this.layer === "tile"
                 ? this.tileCategoryEls
-                : this.objectCategoryEls;
+                : this.layer === "object"
+                  ? this.objectCategoryEls
+                  : this.effectCategoryEls;
         entries.forEach((entry) => {
             const items = entry.content.querySelectorAll(".sprite-item");
             let matches = 0;
@@ -348,6 +417,7 @@ export class MapPicker {
     syncSelection(
         selectedTileId: number | null,
         selectedObjectId: number | null,
+        selectedEffectId: number | null = null,
     ): void {
         this.tilePickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedTileId === id);
@@ -361,6 +431,13 @@ export class MapPicker {
             el.setAttribute?.(
                 "aria-pressed",
                 selectedObjectId === id ? "true" : "false",
+            );
+        });
+        this.effectPickerItemById.forEach((el, id) => {
+            el.classList?.toggle("selected", selectedEffectId === id);
+            el.setAttribute?.(
+                "aria-pressed",
+                selectedEffectId === id ? "true" : "false",
             );
         });
     }
@@ -385,13 +462,20 @@ export class MapPicker {
     focusResume(
         selectedTileId: number | null,
         selectedObjectId: number | null,
+        selectedEffectId: number | null = null,
     ): boolean {
-        const selectedId =
-            this.layer === "tile" ? selectedTileId : selectedObjectId;
-        const byId =
-            this.layer === "tile"
-                ? this.tilePickerItemById
-                : this.objectPickerItemById;
+        const isTile = this.layer === "tile";
+        const isObject = this.layer === "object";
+        const selectedId = isTile
+            ? selectedTileId
+            : isObject
+              ? selectedObjectId
+              : selectedEffectId;
+        const byId = isTile
+            ? this.tilePickerItemById
+            : isObject
+              ? this.objectPickerItemById
+              : this.effectPickerItemById;
         if (selectedId !== null && selectedId !== undefined) {
             const el = byId.get(selectedId);
             const entry = el ? this.entryForNode(el) : null;
@@ -594,7 +678,9 @@ export class MapPicker {
     private activeEntries(): CategoryEntry[] {
         return this.layer === "tile"
             ? this.tileCategoryEls
-            : this.objectCategoryEls;
+            : this.layer === "object"
+              ? this.objectCategoryEls
+              : this.effectCategoryEls;
     }
 
     private entryForNode(node: HTMLElement | null): CategoryEntry | null {
@@ -611,14 +697,26 @@ export class MapPicker {
         const tileCategories = document.getElementById("tileCategories");
         const objectCategories = document.getElementById("objectCategories");
         if (!tileCategories || !objectCategories) return;
+        const effectCategories = document.getElementById("effectCategories");
+        const show = (el: HTMLElement) => {
+            el.style.display = "";
+            fadeIn(el);
+        };
+        const hide = (el: HTMLElement) => {
+            el.style.display = "none";
+        };
         if (this.layer === "tile") {
-            tileCategories.style.display = "";
-            objectCategories.style.display = "none";
-            fadeIn(tileCategories);
+            show(tileCategories);
+            hide(objectCategories);
+            if (effectCategories) hide(effectCategories);
+        } else if (this.layer === "object") {
+            hide(tileCategories);
+            show(objectCategories);
+            if (effectCategories) hide(effectCategories);
         } else {
-            tileCategories.style.display = "none";
-            objectCategories.style.display = "";
-            fadeIn(objectCategories);
+            hide(tileCategories);
+            hide(objectCategories);
+            if (effectCategories) show(effectCategories);
         }
     }
 

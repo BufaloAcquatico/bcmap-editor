@@ -79,7 +79,7 @@ test("yank blinks the region white over the quick tier", async ({
     await page.waitForFunction(() => (window as any).editor.flash === null);
 });
 
-test("y yanks both layers and p pastes them", async ({
+test("y yanks all three layers and p pastes them", async ({
     page,
 }: {
     page: Page;

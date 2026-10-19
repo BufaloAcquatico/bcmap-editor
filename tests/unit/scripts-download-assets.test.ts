@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+    tileJobs,
+    objectJobs,
     objectVariantJobs,
     wallEffectJobs,
 } from "../../scripts/download-assets";
@@ -7,6 +9,8 @@ import {
     railroadVariantStyles,
     WALL_EFFECT_INDICES,
 } from "../../src/constants";
+import { FULL_TILE_CATALOG, FULL_OBJECT_CATALOG } from "../../src/catalog";
+import path from "node:path";
 
 describe("download-assets job builders", () => {
     it("covers exactly the shared WallEffect indices", () => {
@@ -16,7 +20,7 @@ describe("download-assets job builders", () => {
         );
         expect(jobs.length).toBe(26);
         for (const job of jobs) {
-            expect(job.url).toContain("/MapTile/WallEffect/");
+            expect(job.url).toContain("/Tiles/WallEffect/");
             expect(job.dest).toContain("WallEffect");
             expect(job.dest.endsWith(".png")).toBe(true);
         }
@@ -52,6 +56,32 @@ describe("download-assets job builders", () => {
         for (const job of jobs) {
             expect(job.url.startsWith("https://")).toBe(true);
             expect(job.dest.endsWith(".png")).toBe(true);
+        }
+    });
+
+    it("covers every tile catalog entry (picker linkage)", () => {
+        const dests = new Set(tileJobs().map((j) => j.dest));
+        for (const tile of FULL_TILE_CATALOG) {
+            // dests are absolute; compare the relative tail under assets/.
+            const tail = path.join("tiles", tile.Type, `${tile.Style}.png`);
+            const found = [...dests].some((d) => d.endsWith(tail));
+            expect(
+                found,
+                `no download job for tile ${tile.Type}/${tile.Style}`,
+            ).toBe(true);
+        }
+    });
+
+    it("covers every non-Blank object catalog entry (picker linkage)", () => {
+        const dests = new Set(objectJobs().map((j) => j.dest));
+        for (const obj of FULL_OBJECT_CATALOG) {
+            if (obj.Style === "Blank") continue;
+            const tail = path.join("objects", obj.Type, `${obj.Style}.png`);
+            const found = [...dests].some((d) => d.endsWith(tail));
+            expect(
+                found,
+                `no download job for object ${obj.Type}/${obj.Style}`,
+            ).toBe(true);
         }
     });
 });

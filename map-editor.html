@@ -95,6 +95,17 @@
       outline-offset: -2px;
       background-color: #2a2a4a;
     }
+    /* Lighting picker items: a flat colour swatch on a neutral grey backdrop
+       so translucent overlays (shadows, tints) read correctly; Blank keeps
+       the eraser icon like the object layer (and no backdrop, like it). */
+    .effect-item { padding: 0; }
+    .effect-item:has(.effect-swatch) { background-color: #495057; }
+    .effect-swatch {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 3px;
+    }
 
     #mapCanvas { 
       display: block; 
@@ -173,9 +184,9 @@
     .form-control, .form-select { background-color: #0f0f23; border-color: #2a2a4a; color: #eaeaea; }
     .form-control:focus, .form-select:focus { background-color: #0f0f23; border-color: #0d6efd; color: #eaeaea; box-shadow: 0 0 0 0.25rem rgba(13,110,253,0.25); }
     .search-box { width: 100%; }
-    /* Layer switch: a two-state segmented control, not tabs - everything
+    /* Layer switch: a three-state segmented control, not tabs - everything
        below it belongs to the same sidebar. The thumb slides between the
-       two options over the shared motion token (reduced motion kills it
+       options over the shared motion token (reduced motion kills it
        via the global block above). */
     .layer-switch {
       position: relative;
@@ -190,7 +201,7 @@
       position: absolute;
       top: 3px;
       left: 3px;
-      width: calc(50% - 3px);
+      width: calc(33.3333% - 2px);
       height: calc(100% - 6px);
       background: #fff;
       border-radius: 999px;
@@ -198,6 +209,9 @@
     }
     .layer-switch:has(#layerObject:checked) .layer-switch-thumb {
       transform: translateX(100%);
+    }
+    .layer-switch:has(#layerEffect:checked) .layer-switch-thumb {
+      transform: translateX(200%);
     }
     .layer-switch-option {
       flex: 1;
@@ -286,11 +300,6 @@
           <li><button id="btnRedo" class="dropdown-item d-flex align-items-center" type="button" disabled><i class="bi bi-arrow-clockwise me-2"></i>Redo<span class="text-muted ms-auto ps-4 small">Ctrl+Y</span></button></li>
         </ul>
       </div>
-    </div>
-    <div class="d-flex gap-2 align-items-center">
-      <div class="zoom-display text-light">
-        Zoom: <span id="zoomLevel">100%</span>
-      </div>
       <div class="dropdown">
         <button id="menuViewToggle" class="menubar-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">View</button>
         <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="menuViewToggle">
@@ -299,7 +308,13 @@
           <li><button id="btnZoomReset" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-arrows-fullscreen me-2"></i>Reset Zoom</button></li>
           <li><hr class="dropdown-divider"></li>
           <li><button id="btnToggleGrid" class="dropdown-item d-flex align-items-center active" type="button"><i class="bi bi-grid me-2"></i>Toggle Grid<span class="text-muted ms-auto ps-4 small">G</span></button></li>
+          <li><button id="btnToggleEffects" class="dropdown-item d-flex align-items-center active" type="button"><i class="bi bi-lightbulb me-2"></i>Toggle Lighting<span class="text-muted ms-auto ps-4 small">L</span></button></li>
         </ul>
+      </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <div class="zoom-display text-light">
+        Zoom: <span id="zoomLevel">100%</span>
       </div>
     </div>
   </div>
@@ -314,11 +329,13 @@
         <label class="layer-switch-option" for="layerTile" title="Tile Layer"><i class="bi bi-grid-3x3-gap"></i> Tile</label>
         <input type="radio" class="btn-check" name="layer" id="layerObject" value="object" autocomplete="off">
         <label class="layer-switch-option" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
+        <input type="radio" class="btn-check" name="layer" id="layerEffect" value="effect" autocomplete="off">
+        <label class="layer-switch-option" for="layerEffect" title="Lighting Layer"><i class="bi bi-lightbulb"></i> Light</label>
       </div>
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
-          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects... (/ · Enter → results · Tab → map)" aria-label="Search tiles and objects">
+          <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects/lighting... (/ · Enter → results · Tab → map)" aria-label="Search tiles, objects and lighting">
         </div>
       </div>
       <div class="flex-1 overflow-auto" id="sidebarContent">
@@ -326,6 +343,8 @@
         <div id="tileCategories"></div>
         <!-- Object Picker Sections -->
         <div id="objectCategories"></div>
+        <!-- Lighting Picker Section -->
+        <div id="effectCategories"></div>
       </div>
     </aside>
 
@@ -646,6 +665,197 @@ window.AppSurfaceStore = AppSurfaceStore;
  * listener corrects it for mouse, touch and Tab-order moves.
  */
 window.appSurface = new AppSurfaceStore();
+
+"use strict";
+// BCMap Editor - minimal port of Bondage Club's BitString module.
+//
+// The game encodes per-cell map effects as a packed bit string (see
+// `BondageClub/Scripts/BitString.js`) and base64-encodes it. To read and
+// write game-compatible effect data we must reproduce that packing exactly,
+// so this is a faithful (but trimmed) port of the sections we use: unsigned
+// writes/reads plus a single-bit helper. Behaviour and byte layout match the
+// original; the extensive invariant checks from upstream are dropped.
+//
+// Layout: a sequence of 16-bit little-endian code units, packed with values
+// written lowest-bit-first. Base64 is applied byte-wise (low byte then high
+// byte) via `btoa`/`atob`, exactly like the game's `_BitStringHelperInternal`.
+window.BitStringReader = window.BitStringWriter = void 0;
+window.getBitsCountForUnsigned = getBitsCountForUnsigned;
+window.maxUnsignedInBits = maxUnsignedInBits;
+const CHAR_BITS = 16;
+const CHAR_MASK = 0xffff;
+const SAFE_INTEGER_BITS = 53;
+/** Minimal bits needed to store an unsigned value (0 => 0 bits). */
+function getBitsCountForUnsigned(value) {
+    return value === 0 ? 0 : Math.floor(Math.log2(value)) + 1;
+}
+/** Largest unsigned value that fits in `bits` bits. */
+function maxUnsignedInBits(bits) {
+    return Math.pow(2, bits) - 1;
+}
+/** Packs variable-width unsigned integers into a little-endian bit stream. */
+class BitStringWriter {
+    constructor() {
+        this.buffer = [];
+        this.freeBitsLastChar = 0;
+    }
+    writeUnsigned(value, bits) {
+        if (bits < 0 || bits > SAFE_INTEGER_BITS) {
+            throw new Error(`BitStringWriter: invalid bit width ${bits}`);
+        }
+        if (value < 0) {
+            throw new Error(`BitStringWriter: negative value ${value}`);
+        }
+        if (value > maxUnsignedInBits(bits)) {
+            throw new Error(`BitStringWriter: value ${value} does not fit in ${bits} bits`);
+        }
+        // Zero-width fields are a no-op (the value must be 0, checked above).
+        if (bits === 0)
+            return this;
+        // 1. Fill the free bits of the current last code unit.
+        if (this.freeBitsLastChar > 0) {
+            const bitsToWrite = Math.min(this.freeBitsLastChar, bits);
+            this.freeBitsLastChar -= bitsToWrite;
+            const last = this.buffer.length - 1;
+            this.buffer[last] +=
+                (value & maxUnsignedInBits(bitsToWrite)) *
+                    Math.pow(2, this.freeBitsLastChar);
+            bits -= bitsToWrite;
+            value = Math.floor(value / Math.pow(2, bitsToWrite));
+        }
+        // 2. Emit whole code units.
+        while (bits >= CHAR_BITS) {
+            this.buffer.push(value & CHAR_MASK);
+            this.freeBitsLastChar = 0;
+            bits -= CHAR_BITS;
+            value = Math.floor(value / Math.pow(2, CHAR_BITS));
+        }
+        // 3. Emit the remaining bits into a fresh last code unit.
+        if (bits > 0) {
+            this.freeBitsLastChar = CHAR_BITS - bits;
+            this.buffer.push(value * Math.pow(2, this.freeBitsLastChar));
+        }
+        return this;
+    }
+    writeBool(value) {
+        if (this.freeBitsLastChar <= 0) {
+            this.buffer.push(0);
+            this.freeBitsLastChar = CHAR_BITS;
+        }
+        this.freeBitsLastChar -= 1;
+        if (value) {
+            this.buffer[this.buffer.length - 1] += Math.pow(2, this.freeBitsLastChar);
+        }
+        return this;
+    }
+    toBase64() {
+        return u16ArrayToBase64(this.buffer);
+    }
+}
+window.BitStringWriter = BitStringWriter;
+/** Reads unsigned integers back out of a bit stream written by the game. */
+class BitStringReader {
+    constructor(buffer) {
+        this.buffer = buffer;
+        this.charPos = 0;
+        this.bitPosLastChar = 0;
+    }
+    static fromBase64(b64) {
+        const str = base64ToU16String(b64);
+        return str === null ? null : new BitStringReader(str);
+    }
+    /** Bits still readable (not counting already-consumed ones). */
+    get bitsAvailable() {
+        return ((this.buffer.length - this.charPos) * CHAR_BITS -
+            this.bitPosLastChar);
+    }
+    readUnsigned(bits) {
+        if (bits === 0)
+            return 0;
+        if (bits < 0 || bits > SAFE_INTEGER_BITS) {
+            throw new Error(`BitStringReader: invalid bit width ${bits}`);
+        }
+        if (this.bitsAvailable < bits) {
+            throw new Error(`BitStringReader: requested ${bits} bits, only ${this.bitsAvailable} available`);
+        }
+        const requested = bits;
+        const bitsToReadLastChar = Math.min(bits, CHAR_BITS - this.bitPosLastChar);
+        let acc = this.readBitsLastChar(bitsToReadLastChar);
+        let accBitRead = bitsToReadLastChar;
+        bits -= bitsToReadLastChar;
+        while (bits >= CHAR_BITS) {
+            acc += this.readFullChar() * Math.pow(2, accBitRead);
+            accBitRead += CHAR_BITS;
+            bits -= CHAR_BITS;
+        }
+        if (bits > 0) {
+            acc += this.readBitsLastChar(bits) * Math.pow(2, accBitRead);
+            accBitRead += bits;
+        }
+        if (accBitRead !== requested) {
+            throw new Error("BitStringReader: internal read mismatch");
+        }
+        return acc;
+    }
+    readBool() {
+        if (this.charPos >= this.buffer.length) {
+            throw new Error("BitStringReader: no more bits to read");
+        }
+        const skipLowBits = CHAR_BITS - this.bitPosLastChar - 1;
+        const bit = (this.buffer.charCodeAt(this.charPos) >> skipLowBits) & 1;
+        this.advanceBits(1);
+        return bit === 1;
+    }
+    /** Reads `bits` (< CHAR_BITS) from the current code unit. */
+    readBitsLastChar(bits) {
+        if (bits > CHAR_BITS - this.bitPosLastChar) {
+            throw new Error("BitStringReader: read past current code unit");
+        }
+        const mask = maxUnsignedInBits(bits);
+        const skipLowBits = CHAR_BITS - this.bitPosLastChar - bits;
+        const res = (this.buffer.charCodeAt(this.charPos) >> skipLowBits) & mask;
+        this.advanceBits(bits);
+        return res;
+    }
+    readFullChar() {
+        if (this.bitPosLastChar !== 0 || this.charPos >= this.buffer.length) {
+            throw new Error("BitStringReader: unaligned full read");
+        }
+        const res = this.buffer.charCodeAt(this.charPos);
+        this.charPos += 1;
+        return res;
+    }
+    advanceBits(bits) {
+        const pos = this.bitPosLastChar + bits;
+        this.bitPosLastChar = pos % CHAR_BITS;
+        this.charPos += Math.floor(pos / CHAR_BITS);
+    }
+}
+window.BitStringReader = BitStringReader;
+/** 16-bit code units -> base64, one code unit per two little-endian bytes. */
+function u16ArrayToBase64(buffer) {
+    let byteString = "";
+    for (const codeUnit of buffer) {
+        byteString += String.fromCharCode(codeUnit & 0xff);
+        byteString += String.fromCharCode((codeUnit >> 8) & 0xff);
+    }
+    return btoa(byteString);
+}
+/** Inverse of {@link u16ArrayToBase64}; null on malformed base64. */
+function base64ToU16String(b64) {
+    let byteString;
+    try {
+        byteString = atob(b64);
+    }
+    catch {
+        return null;
+    }
+    let out = "";
+    for (let i = 0; i + 1 < byteString.length; i += 2) {
+        out += String.fromCharCode(byteString.charCodeAt(i) | (byteString.charCodeAt(i + 1) << 8));
+    }
+    return out;
+}
 
 "use strict";
 // BCMap Editor - Tile and object catalog
@@ -2062,7 +2272,7 @@ window.FULL_OBJECT_CATALOG = [
 ];
 
 "use strict";
-// BCMap Editor - shared game-data constants (Bondage Club R132).
+// BCMap Editor - shared game-data constants (Bondage Club R133).
 //
 // Used by both the editor runtime (src/editor.ts, bundled into
 // map-editor.html by scripts/embed-js.js) and scripts/download-assets.ts.
@@ -2098,6 +2308,203 @@ function railroadVariantStyles() {
         styles.push("Railroad" + suffix);
     }
     return styles;
+}
+
+"use strict";
+// BCMap Editor - Bondage Club static lighting ("effects") catalog and codec.
+//
+// BC stores one lighting effect per map cell (shadow / colour tint / glow),
+// plus a "Blank" entry for no effect. The per-cell grid is compressed with
+// the game's effects codec (RLE over remapped IDs) and base64-encoded into
+// the map code; see BondageClub/Scripts/Map.js `MapEffectsCodecs[0]`. This
+// module mirrors that codec and the effect table so the editor can render,
+// edit and export lighting losslessly.
+//
+// Source: BondageClub/Assets/MapData.js `AssetsMapDataEffects` (R133).
+window.EFFECT_BY_ID = window.BLANK_EFFECT_ID = window.EFFECT_CATALOG = void 0;
+window.isKnownEffectId = isKnownEffectId;
+window.effectColorCss = effectColorCss;
+window.encodeEffects = encodeEffects;
+window.decodeEffects = decodeEffects;
+const bitstring_1 = window;
+/** The eight static-lighting effects, in BC's declared order. */
+window.EFFECT_CATALOG = [
+    { ID: 10, Style: "Blank", Color: [0, 0, 0, 0] },
+    { ID: 11, Style: "ShadowLight", Color: [0, 0, 0, 0.2] },
+    { ID: 12, Style: "ShadowMedium", Color: [0, 0, 0, 0.5] },
+    { ID: 13, Style: "ShadowDark", Color: [0, 0, 0, 0.8] },
+    { ID: 14, Style: "TintRed", Color: [255, 0, 0, 0.3] },
+    { ID: 15, Style: "TintBlue", Color: [0, 0, 255, 0.3] },
+    { ID: 16, Style: "TintGreen", Color: [0, 255, 0, 0.3] },
+    { ID: 17, Style: "GlowYellow", Color: [255, 255, 0, 0.3] },
+];
+/** No-effect ID. Cells equal to this render as empty lighting. */
+window.BLANK_EFFECT_ID = 10;
+window.EFFECT_BY_ID = new Map(window.EFFECT_CATALOG.map((effect) => [effect.ID, effect]));
+/** True when `id` is a known lighting effect (including "Blank"). */
+function isKnownEffectId(id) {
+    return window.EFFECT_BY_ID.has(id);
+}
+/** CSS `rgba(...)` string for an effect overlay, or null for "Blank"/unknown. */
+function effectColorCss(id) {
+    const effect = window.EFFECT_BY_ID.get(id);
+    if (!effect)
+        return null;
+    const [r, g, b, a] = effect.Color;
+    if (a <= 0)
+        return null;
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+// --- effects codec (MapEffectsCodecs v0) -------------------------------------
+/** Version tag written before the effects body (BC's MAP_SYNC_VERSION_BIT_SIZE). */
+const MAP_SYNC_VERSION_BIT_SIZE = 8;
+const EFFECTS_CODEC_VERSION = 0;
+// RLE runs: blank cells tolerate long runs (8-bit count), filled cells short
+// ones (4-bit count). +2 because a run encodes lengths >= 2 only.
+const RLE_BITS_EMPTY = 8;
+const RLE_MAX_EMPTY = (0, bitstring_1.maxUnsignedInBits)(RLE_BITS_EMPTY) + 2;
+const RLE_COUNT_BITS_EMPTY = (0, bitstring_1.getBitsCountForUnsigned)(RLE_MAX_EMPTY);
+const RLE_BITS_FILLED = 4;
+const RLE_MAX_FILLED = (0, bitstring_1.maxUnsignedInBits)(RLE_BITS_FILLED) + 2;
+const RLE_COUNT_BITS_FILLED = (0, bitstring_1.getBitsCountForUnsigned)(RLE_MAX_FILLED);
+// Width fields (in bits) for the dynamic settings header.
+const BIT_LEN_BITS = 6;
+const ARRAY_LEN_IN_BYTES_BITS = 2;
+function buildSettings(effectIds) {
+    const unique = [...new Set(effectIds)].sort((a, b) => a - b);
+    const effectIdMin = unique[0] ?? 0;
+    const effectIdShiftedMax = (unique[unique.length - 1] ?? 0) - effectIdMin;
+    const shiftedToRemap = new Map();
+    const remapToShifted = new Map();
+    unique.forEach((id, remapId) => {
+        const shifted = id - effectIdMin;
+        shiftedToRemap.set(shifted, remapId);
+        remapToShifted.set(remapId, shifted);
+    });
+    return {
+        baseIdBits: (0, bitstring_1.getBitsCountForUnsigned)(effectIdMin),
+        shiftedIdBits: (0, bitstring_1.getBitsCountForUnsigned)(effectIdShiftedMax),
+        remappedIdBits: (0, bitstring_1.getBitsCountForUnsigned)(unique.length - 1),
+        effectIdMin,
+        effectIdsShifted: unique.map((id) => id - effectIdMin),
+        shiftedToRemap,
+        remapToShifted,
+        effectsLength: effectIds.length,
+    };
+}
+function rleSettings(effectId) {
+    return effectId === window.BLANK_EFFECT_ID
+        ? { maxRun: RLE_MAX_EMPTY, rleCountBits: RLE_COUNT_BITS_EMPTY }
+        : { maxRun: RLE_MAX_FILLED, rleCountBits: RLE_COUNT_BITS_FILLED };
+}
+function runLength(start, effectIds) {
+    const id = effectIds[start];
+    let index = start + 1;
+    while (index < effectIds.length && effectIds[index] === id)
+        index++;
+    return index - start;
+}
+function writeArrayLength(length, writer) {
+    const lenBytes = Math.ceil((0, bitstring_1.getBitsCountForUnsigned)(length) / 8) | 0;
+    writer.writeUnsigned(lenBytes, ARRAY_LEN_IN_BYTES_BITS);
+    writer.writeUnsigned(length, lenBytes * 8);
+}
+function readArrayLength(reader) {
+    const lenBytes = reader.readUnsigned(ARRAY_LEN_IN_BYTES_BITS);
+    return reader.readUnsigned(lenBytes * 8);
+}
+function writeArray(array, elementBits, writer) {
+    writeArrayLength(array.length, writer);
+    for (const value of array)
+        writer.writeUnsigned(value, elementBits);
+}
+function readArray(reader, elementBits, maxLen) {
+    const len = readArrayLength(reader);
+    if (len > maxLen)
+        throw new Error(`effects: array too long (${len})`);
+    const out = [];
+    for (let i = 0; i < len; i++)
+        out.push(reader.readUnsigned(elementBits));
+    return out;
+}
+/**
+ * Encode a per-cell effect-ID list into BC's base64 effects string.
+ *
+ * The list is expected to be one entry per map cell (any length); the game's
+ * decoder validates the length against 40x40 on read.
+ */
+function encodeEffects(effectIds) {
+    const writer = new bitstring_1.BitStringWriter();
+    writer.writeUnsigned(EFFECTS_CODEC_VERSION, MAP_SYNC_VERSION_BIT_SIZE);
+    const settings = buildSettings(effectIds);
+    writer.writeUnsigned(settings.baseIdBits, BIT_LEN_BITS);
+    writer.writeUnsigned(settings.shiftedIdBits, BIT_LEN_BITS);
+    writer.writeUnsigned(settings.remappedIdBits, BIT_LEN_BITS);
+    writer.writeUnsigned(settings.effectIdMin, settings.baseIdBits);
+    writeArray(settings.effectIdsShifted, settings.shiftedIdBits, writer);
+    writeArrayLength(settings.effectsLength, writer);
+    let i = 0;
+    while (i < effectIds.length) {
+        const id = effectIds[i];
+        writer.writeUnsigned(settings.shiftedToRemap.get(id - settings.effectIdMin) ?? 0, settings.remappedIdBits);
+        const { maxRun, rleCountBits } = rleSettings(id);
+        const run = Math.min(runLength(i, effectIds), maxRun);
+        if (run >= 2) {
+            writer.writeBool(true);
+            writer.writeUnsigned(run - 2, rleCountBits);
+            i += run;
+        }
+        else {
+            writer.writeBool(false);
+            i++;
+        }
+    }
+    return writer.toBase64();
+}
+/**
+ * Decode a BC base64 effects string into a per-cell effect-ID list. Returns
+ * null (rather than throwing) on any malformed/incompatible input, so callers
+ * can fall back to all-blank lighting.
+ */
+function decodeEffects(encoded, expectedLength) {
+    if (!encoded)
+        return null;
+    const reader = bitstring_1.BitStringReader.fromBase64(encoded);
+    if (!reader)
+        return null;
+    try {
+        const version = reader.readUnsigned(MAP_SYNC_VERSION_BIT_SIZE);
+        if (version !== EFFECTS_CODEC_VERSION)
+            return null;
+        const baseIdBits = reader.readUnsigned(BIT_LEN_BITS);
+        const shiftedIdBits = reader.readUnsigned(BIT_LEN_BITS);
+        const remappedIdBits = reader.readUnsigned(BIT_LEN_BITS);
+        const effectIdMin = reader.readUnsigned(baseIdBits);
+        const effectIdsShifted = readArray(reader, shiftedIdBits, window.EFFECT_CATALOG.length);
+        const effectsLength = readArrayLength(reader);
+        if (effectsLength !== expectedLength)
+            return null;
+        const remapToShifted = new Map();
+        effectIdsShifted.forEach((shifted, remapId) => remapToShifted.set(remapId, shifted));
+        const out = [];
+        while (out.length < effectsLength) {
+            const remappedId = reader.readUnsigned(remappedIdBits);
+            const effectId = (remapToShifted.get(remappedId) ?? 0) + effectIdMin;
+            const isRle = reader.readBool();
+            const run = isRle
+                ? reader.readUnsigned(rleSettings(effectId).rleCountBits) + 2
+                : 1;
+            for (let i = 0; i < run; i++)
+                out.push(effectId);
+        }
+        // A well-formed writer never overshoots, but tolerate a hostile or
+        // truncated tail by trimming to the declared length (BC ignores the
+        // extra cells anyway: rendering only indexes 0..1599).
+        return out.slice(0, effectsLength);
+    }
+    catch {
+        return null;
+    }
 }
 
 "use strict";
@@ -2163,6 +2570,8 @@ window.SURFACE_HELP_KEYS = {
         "-",
         "[",
         "]",
+        "G",
+        "L",
         "Esc",
     ],
     picker: ["arrows", "Enter", "Tab", "/", "Esc", "?"],
@@ -2296,17 +2705,20 @@ function createHelpRenderer(deps) {
 }
 
 "use strict";
-// BCMap Editor - stroke-coalesced undo/redo over whole-map snapshots.
+// BCMap Editor - stroke-coalesced undo/redo over whole-editor snapshots.
 //
-// A snapshot is the [Tiles, Objects] pair. A whole press/drag stroke shares
-// one undo entry: beginStroke() pushes the pre-stroke state once, paint
-// calls markDirty(), and endStroke() rolls the entry back when the stroke
-// changed nothing, so empty presses never cost an undo step.
+// A snapshot captures every piece of map state the user can edit: the tile and
+// object layer strings, the lighting grid, and whether the lighting overlay is
+// visible (toggling it is undoable too). A whole press/drag stroke shares one
+// undo entry: beginStroke() pushes the pre-stroke state once, paint calls
+// markDirty(), and endStroke() rolls the entry back when the stroke changed
+// nothing, so empty presses never cost an undo step. One-shot actions (the
+// lighting toggle) use commit() instead of a stroke.
 //
-// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged. The
-// editor owns the MapData and applies snapshots; this class only manages
-// the stacks. onChange fires whenever stack state changes so the UI can
-// sync undo/redo button states.
+// Snapshots are plain immutable values (all strings/booleans), so the stacks
+// never alias live editor state. The editor owns the MapData and applies
+// snapshots; onChange fires whenever stack state changes so the UI can sync
+// undo/redo button states.
 window.MapHistory = void 0;
 class MapHistory {
     constructor(cap = 1000) {
@@ -2322,13 +2734,12 @@ class MapHistory {
     notify() {
         this.onChange?.();
     }
-    beginStroke(tiles, objects) {
+    beginStroke(snapshot) {
         this.strokeOpen = true;
         this.strokeDirty = false;
         this.strokeSavedRedo = this.redoStack;
-        const entry = [tiles, objects];
-        this.strokeEntry = entry;
-        this.undoStack.push(entry);
+        this.strokeEntry = snapshot;
+        this.undoStack.push(snapshot);
         this.undoStack = this.undoStack.slice(-this.cap);
         this.redoStack = [];
         this.notify();
@@ -2362,6 +2773,17 @@ class MapHistory {
         }
         this.strokeEntry = null;
         this.strokeSavedRedo = [];
+    }
+    /**
+     * Push a one-shot undo entry (pre-action state) for a discrete change such
+     * as toggling the lighting overlay. Unlike a stroke this always keeps the
+     * entry (there is no "changed nothing" case).
+     */
+    commit(snapshot) {
+        this.undoStack.push(snapshot);
+        this.undoStack = this.undoStack.slice(-this.cap);
+        this.redoStack = [];
+        this.notify();
     }
     canUndo() {
         return this.undoStack.length > 0;
@@ -2439,42 +2861,101 @@ function lineCells(from, to) {
 "use strict";
 // BCMap Editor - map data model and import/export.
 //
-// Pure functions over the 40x40 two-layer map format (LZString-compressed,
-// same as ropeybot). No DOM access: the editor owns rendering and view
-// state, and calls into these for serialization plus strict validation.
+// Pure functions over the 40x40 map format. No DOM access: the editor owns
+// rendering and view state, and calls into these for serialization plus
+// strict validation.
 //
-// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
-window.GRASS_TILE_ID = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
+// Wire format (mirrors Bondage Club R133):
+//   - Legacy part: LZString.compressToBase64(JSON of {Type, Tiles, Objects,
+//     Fog?, CellData?}).
+//   - Effects part (optional, R133 static lighting): "@" + base64 of BC's
+//     packed effects bit string. Game exports append it; the game also still
+//     reads a legacy `Effects` string field, which we accept on import.
+//
+// The editor model keeps lighting decoded as a per-cell `Effects` array, so
+// rendering and painting never touch the bit-packing. See src/effects.ts.
+window.GRASS_TILE_ID = window.MAP_CELL_COUNT = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
 window.createDefaultMap = createDefaultMap;
+window.hasVisibleEffects = hasVisibleEffects;
+window.effectsToGrid = effectsToGrid;
+window.gridToEffects = gridToEffects;
 window.serializeMap = serializeMap;
 window.parseMapData = parseMapData;
 const lz_string_1 = LZString;
 const catalog_1 = window;
+const effects_1 = window;
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
+window.MAP_CELL_COUNT = window.MAP_WIDTH * window.MAP_HEIGHT;
 window.GRASS_TILE_ID = 210;
 function createDefaultMap() {
     const grassChar = String.fromCharCode(window.GRASS_TILE_ID);
-    const tiles = grassChar.repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
-    const objects = String.fromCharCode(catalog_1.BLANK_OBJECT_ID).repeat(window.MAP_WIDTH * window.MAP_HEIGHT);
+    const tiles = grassChar.repeat(window.MAP_CELL_COUNT);
+    const objects = String.fromCharCode(catalog_1.BLANK_OBJECT_ID).repeat(window.MAP_CELL_COUNT);
     return {
         Type: "Always",
         Tiles: tiles,
         Objects: objects,
     };
 }
-/** Serialize map layers to an importable/exportable code string. */
+/** True when a lighting grid holds at least one non-Blank effect. */
+function hasVisibleEffects(effects) {
+    return !!effects && effects.some((id) => id !== effects_1.BLANK_EFFECT_ID);
+}
+/**
+ * Pack a decoded lighting grid into a per-cell char string (one char per
+ * cell, charCode = effect ID). Returns "" for no lighting. Used by the
+ * undo snapshots, which keep everything as immutable strings.
+ */
+function effectsToGrid(effects) {
+    if (!effects || effects.length === 0)
+        return "";
+    let out = "";
+    for (const id of effects)
+        out += String.fromCharCode(id);
+    return out;
+}
+/** Inverse of {@link effectsToGrid}; "" maps back to undefined (no lighting). */
+function gridToEffects(grid) {
+    if (!grid)
+        return undefined;
+    const out = new Array(grid.length);
+    for (let i = 0; i < grid.length; i++)
+        out[i] = grid.charCodeAt(i);
+    return out;
+}
+/** Serialize a map to an importable/exportable code string. */
 function serializeMap(data) {
-    return (0, lz_string_1.compressToBase64)(JSON.stringify(data));
+    const out = {
+        Type: data.Type,
+        Tiles: data.Tiles,
+        Objects: data.Objects,
+    };
+    if (data.Fog)
+        out.Fog = true;
+    if (data.CellData && Object.keys(data.CellData).length > 0) {
+        out.CellData = data.CellData;
+    }
+    const legacy = (0, lz_string_1.compressToBase64)(JSON.stringify(out));
+    if (hasVisibleEffects(data.Effects)) {
+        return legacy + "@" + (0, effects_1.encodeEffects)(data.Effects);
+    }
+    return legacy;
 }
 /**
  * Parse and strictly validate an import code, returning a fresh MapData.
  * Rejects unknown map types, non-string or wrong-length layers, and IDs
- * outside the known game catalogs. Unknown/extra fields are dropped;
- * Effects/Fog carry over only when well-typed.
+ * outside the known game catalogs. Unknown/extra fields are dropped.
+ * Lighting is read from the combined "@" part when present, otherwise from a
+ * legacy JSON `Effects` string; unknown effect IDs are sanitized to Blank.
  */
 function parseMapData(code, isKnownTileId, isKnownObjectId) {
-    const jsonStr = (0, lz_string_1.decompressFromBase64)(code);
+    // The combined format is `<legacy>@<effects>`; LZString ignores trailing
+    // data, but we split first so we can decode the effects part ourselves.
+    const sep = code.indexOf("@");
+    const legacyCode = sep >= 0 ? code.slice(0, sep) : code;
+    const effectsPart = sep >= 0 ? code.slice(sep + 1) : null;
+    const jsonStr = (0, lz_string_1.decompressFromBase64)(legacyCode);
     if (!jsonStr)
         throw new Error("Invalid map code");
     const parsed = JSON.parse(jsonStr);
@@ -2482,13 +2963,15 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
         throw new Error("Invalid map format");
     }
     const { Type, Tiles, Objects } = parsed;
+    const raw = parsed;
+    const rawCellData = raw.CellData;
     if (Type !== "Always" && Type !== "Hybrid" && Type !== "Never") {
         throw new Error("Invalid map type");
     }
     if (typeof Tiles !== "string" ||
         typeof Objects !== "string" ||
-        Tiles.length !== window.MAP_WIDTH * window.MAP_HEIGHT ||
-        Objects.length !== window.MAP_WIDTH * window.MAP_HEIGHT) {
+        Tiles.length !== window.MAP_CELL_COUNT ||
+        Objects.length !== window.MAP_CELL_COUNT) {
         throw new Error("Invalid map dimensions");
     }
     for (let i = 0; i < Tiles.length; i++) {
@@ -2501,12 +2984,47 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
             throw new Error("Invalid object ID at index " + i);
         }
     }
-    const raw = parsed;
     const next = { Type, Tiles, Objects };
-    if (typeof raw.Effects === "string")
-        next.Effects = raw.Effects;
     if (typeof raw.Fog === "boolean")
         next.Fog = raw.Fog;
+    // Lighting: the combined "@" part is authoritative; fall back to a legacy
+    // `Effects` string on the JSON object. Malformed data is dropped silently.
+    const rawEffects = effectsPart ?? (typeof raw.Effects === "string" ? raw.Effects : null);
+    if (rawEffects) {
+        const decoded = (0, effects_1.decodeEffects)(rawEffects, window.MAP_CELL_COUNT);
+        if (decoded) {
+            const sanitized = decoded.map((id) => (0, effects_1.isKnownEffectId)(id) ? id : effects_1.BLANK_EFFECT_ID);
+            // Keep the invariant that Effects is either absent or holds at
+            // least one non-Blank cell; sanitizing can blank an all-unknown
+            // grid, which should read as "no lighting".
+            if (hasVisibleEffects(sanitized))
+                next.Effects = sanitized;
+        }
+    }
+    // Carry over sign text (CellData). Validate shape; drop invalid entries.
+    // Matches BC's #sanitizeObjectConfigs: only Type === "Sign" with a string
+    // Text survive, sliced to the game's accepted maximum.
+    if (rawCellData && typeof rawCellData === "object") {
+        const cellData = {};
+        for (const [key, value] of Object.entries(rawCellData)) {
+            const index = Number(key);
+            if (!Number.isInteger(index) ||
+                index < 0 ||
+                index >= window.MAP_CELL_COUNT)
+                continue;
+            if (!value || typeof value !== "object")
+                continue;
+            const v = value;
+            if (v.Type !== "Sign" || typeof v.Text !== "string")
+                continue;
+            cellData[key] = {
+                Type: "Sign",
+                Text: v.Text.slice(0, 1600),
+            };
+        }
+        if (Object.keys(cellData).length > 0)
+            next.CellData = cellData;
+    }
     return next;
 }
 
@@ -2526,6 +3044,7 @@ window.displayNameFor = displayNameFor;
 window.blankFirst = blankFirst;
 window.orderObjectGroups = orderObjectGroups;
 window.rotationTransform = rotationTransform;
+
 const appSurface_1 = window;
 
 /**
@@ -2652,18 +3171,25 @@ class MapPicker {
         this.searchTerm = "";
         this.tileCategoryEls = [];
         this.objectCategoryEls = [];
+        this.effectCategoryEls = [];
         this.tilePickerItemById = new Map();
         this.objectPickerItemById = new Map();
+        this.effectPickerItemById = new Map();
     }
-    populate(tileCatalog, objectCatalog) {
+    populate(tileCatalog, objectCatalog, effectCatalog = []) {
         const tileCategories = document.getElementById("tileCategories");
         const objectCategories = document.getElementById("objectCategories");
         if (!tileCategories || !objectCategories)
             return;
+        // The lighting container is optional so non-editor DOMs (tests,
+        // embeds) that only carry the tile/object pickers still work.
+        const effectCategories = document.getElementById("effectCategories");
         this.tileCategoryEls = [];
         this.objectCategoryEls = [];
+        this.effectCategoryEls = [];
         this.tilePickerItemById.clear();
         this.objectPickerItemById.clear();
+        this.effectPickerItemById.clear();
         const tileGroups = new Map();
         tileCatalog.forEach((t) => {
             if (!tileGroups.has(t.Type))
@@ -2743,8 +3269,8 @@ class MapPicker {
                 }
                 else {
                     // Static compile-time SVG constant only (no interpolation
-                    // of catalog or user data); the single sanctioned
-                    // innerHTML use in this file.
+                    // of catalog or user data); the sanctioned innerHTML uses
+                    // in this file (Blank object + Blank lighting).
                     item.innerHTML = BLANK_ERASER_ICON;
                     item.title = "Blank (Erase)";
                     item.setAttribute?.("aria-label", "Blank (erase objects)");
@@ -2764,8 +3290,57 @@ class MapPicker {
             objectCategories.appendChild(header);
             objectCategories.appendChild(container);
         });
+        // Lighting layer: one flat section of the eight lighting effects.
+        // Coloured effects show a swatch (over the button's checkered
+        // backdrop, so translucent overlays read correctly); Blank reuses the
+        // eraser icon to mean "no lighting".
+        if (effectCategories) {
+            effectCategories.replaceChildren();
+            if (effectCatalog.length > 0) {
+                const { header, entry } = this.createCategoryHeader("Lighting");
+                this.effectCategoryEls.push(entry);
+                const container = entry.content;
+                effectCatalog.forEach((effect) => {
+                    const item = document.createElement("button");
+                    item.type = "button";
+                    item.className = "sprite-item effect-item";
+                    item.tabIndex = -1;
+                    item.setAttribute?.("aria-pressed", "false");
+                    const color = (0, effects_1.effectColorCss)(effect.ID);
+                    if (color) {
+                        const swatch = document.createElement("span");
+                        swatch.className = "effect-swatch";
+                        swatch.style.backgroundColor = color;
+                        item.appendChild(swatch);
+                        const label = displayNameFor(effect.Style);
+                        item.title = label;
+                        item.setAttribute?.("aria-label", `Select lighting ${label}`);
+                    }
+                    else {
+                        item.innerHTML = BLANK_ERASER_ICON;
+                        item.title = "Off (Erase)";
+                        item.setAttribute?.("aria-label", "Erase lighting");
+                    }
+                    item.addEventListener("click", (e) => {
+                        this.delegate.onSelectEffect(effect);
+                        // Keyboard activation (Enter/Space) commits and
+                        // returns to the map; pointer clicks stay for
+                        // multi-pick browse.
+                        if (e.detail === 0) {
+                            document.getElementById("mapCanvas")?.focus?.();
+                            appSurface_1.appSurface.set("map");
+                        }
+                    });
+                    container.appendChild(item);
+                    this.effectPickerItemById.set(effect.ID, item);
+                });
+                effectCategories.appendChild(header);
+                effectCategories.appendChild(container);
+            }
+        }
         this.tileCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true, false));
         this.objectCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true, false));
+        this.effectCategoryEls.forEach((entry) => this.setCategoryCollapsed(entry, true, false));
         this.updateVisibility();
     }
     /** Switch the visible layer, re-applying the stored search term. */
@@ -2782,7 +3357,9 @@ class MapPicker {
         const lowered = squash(term.trim());
         const entries = this.layer === "tile"
             ? this.tileCategoryEls
-            : this.objectCategoryEls;
+            : this.layer === "object"
+                ? this.objectCategoryEls
+                : this.effectCategoryEls;
         entries.forEach((entry) => {
             const items = entry.content.querySelectorAll(".sprite-item");
             let matches = 0;
@@ -2806,7 +3383,7 @@ class MapPicker {
             this.setCategoryCollapsed(entry, lowered === "" ? true : matches === 0, false);
         });
     }
-    syncSelection(selectedTileId, selectedObjectId) {
+    syncSelection(selectedTileId, selectedObjectId, selectedEffectId = null) {
         this.tilePickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedTileId === id);
             el.setAttribute?.("aria-pressed", selectedTileId === id ? "true" : "false");
@@ -2814,6 +3391,10 @@ class MapPicker {
         this.objectPickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedObjectId === id);
             el.setAttribute?.("aria-pressed", selectedObjectId === id ? "true" : "false");
+        });
+        this.effectPickerItemById.forEach((el, id) => {
+            el.classList?.toggle("selected", selectedEffectId === id);
+            el.setAttribute?.("aria-pressed", selectedEffectId === id ? "true" : "false");
         });
     }
     /**
@@ -2833,11 +3414,19 @@ class MapPicker {
      * else its category header, else first header. Always lands on a
      * visible node with a focus ring.
      */
-    focusResume(selectedTileId, selectedObjectId) {
-        const selectedId = this.layer === "tile" ? selectedTileId : selectedObjectId;
-        const byId = this.layer === "tile"
+    focusResume(selectedTileId, selectedObjectId, selectedEffectId = null) {
+        const isTile = this.layer === "tile";
+        const isObject = this.layer === "object";
+        const selectedId = isTile
+            ? selectedTileId
+            : isObject
+                ? selectedObjectId
+                : selectedEffectId;
+        const byId = isTile
             ? this.tilePickerItemById
-            : this.objectPickerItemById;
+            : isObject
+                ? this.objectPickerItemById
+                : this.effectPickerItemById;
         if (selectedId !== null && selectedId !== undefined) {
             const el = byId.get(selectedId);
             const entry = el ? this.entryForNode(el) : null;
@@ -3036,7 +3625,9 @@ class MapPicker {
     activeEntries() {
         return this.layer === "tile"
             ? this.tileCategoryEls
-            : this.objectCategoryEls;
+            : this.layer === "object"
+                ? this.objectCategoryEls
+                : this.effectCategoryEls;
     }
     entryForNode(node) {
         if (!node)
@@ -3048,15 +3639,31 @@ class MapPicker {
         const objectCategories = document.getElementById("objectCategories");
         if (!tileCategories || !objectCategories)
             return;
+        const effectCategories = document.getElementById("effectCategories");
+        const show = (el) => {
+            el.style.display = "";
+            (0, anim_1.fadeIn)(el);
+        };
+        const hide = (el) => {
+            el.style.display = "none";
+        };
         if (this.layer === "tile") {
-            tileCategories.style.display = "";
-            objectCategories.style.display = "none";
-            (0, anim_1.fadeIn)(tileCategories);
+            show(tileCategories);
+            hide(objectCategories);
+            if (effectCategories)
+                hide(effectCategories);
+        }
+        else if (this.layer === "object") {
+            hide(tileCategories);
+            show(objectCategories);
+            if (effectCategories)
+                hide(effectCategories);
         }
         else {
-            tileCategories.style.display = "none";
-            objectCategories.style.display = "";
-            (0, anim_1.fadeIn)(objectCategories);
+            hide(tileCategories);
+            hide(objectCategories);
+            if (effectCategories)
+                show(effectCategories);
         }
     }
     createCategoryHeader(name) {
@@ -3164,7 +3771,7 @@ const constants_1 = window;
 // `prefix` is the texture name stem, `single` the variant used when the
 // object has no same-ID neighbors.
 // NOTE: upstream spells the single-couch file "CouckPinkSmall" (typo); the
-// correctly-spelled name 404s on the R132 server, so the typo is used here.
+// correctly-spelled name 404s on the R133 server, so the typo is used here.
 // Railroad (750) is connectivity-based and handled separately; Velour rope
 // barrier (2033) reuses its base style name when single.
 window.EXPANDABLE_LEFT_RIGHT = new Map([
@@ -3457,6 +4064,9 @@ function snapshotMap(data) {
         Type: data.Type,
         Tiles: data.Tiles,
         Objects: data.Objects,
+        CellData: data.CellData,
+        Effects: data.Effects,
+        Fog: data.Fog,
     });
 }
 /** True when the map differs from a baseline taken by snapshotMap. */
@@ -3869,26 +4479,32 @@ class EditSession {
 window.EditSession = EditSession;
 
 "use strict";
-// BCMap Editor - yank buffer for copy/paste over both map layers.
+// BCMap Editor - yank buffer for copy/paste over the map layers.
 //
-// A yank always stores both layers of a rectangular region:
-// copy/y stores the visible content, paste/p restores exactly those
-// layers regardless of which layer is active at paste time. In visual
-// mode the yank tiles over the selected region, trimmed to fit.
+// A yank always stores all three layers of a rectangular region (tiles,
+// objects and lighting): copy/y stores the visible content, paste/p restores
+// exactly those layers regardless of which layer is active at paste time. In
+// visual mode the yank tiles over the selected region, trimmed to fit.
 window.captureRegion = captureRegion;
 window.normalizeYankSize = normalizeYankSize;
-/** Extract the region's cells from both layer strings, row-major. */
-function captureRegion(tiles, objects, region, width, height) {
+/**
+ * Extract the region's cells from the layer strings, row-major. `effects`
+ * must be a full per-cell grid (the editor fills blanks when a map has no
+ * lighting, so a captured effect char always exists).
+ */
+function captureRegion(tiles, objects, effects, region, width, height) {
     const w = region.to.X - region.from.X + 1;
     const h = region.to.Y - region.from.Y + 1;
     let capturedTiles = "";
     let capturedObjects = "";
+    let capturedEffects = "";
     for (let y = region.from.Y; y <= region.to.Y; y++) {
         for (let x = region.from.X; x <= region.to.X; x++) {
             const index = x + y * width;
             if (index >= 0 && index < tiles.length) {
                 capturedTiles += tiles[index];
                 capturedObjects += objects[index] ?? "";
+                capturedEffects += effects[index] ?? "";
             }
         }
     }
@@ -3898,6 +4514,7 @@ function captureRegion(tiles, objects, region, width, height) {
         height: h,
         tiles: capturedTiles,
         objects: capturedObjects,
+        effects: capturedEffects,
     };
 }
 /** "3x2" size label for the status bar, or null when the buffer is empty. */
@@ -3957,6 +4574,11 @@ window.COMMANDS = [
         name: "grid",
         syntax: ":grid",
         description: "Show or hide the grid",
+    },
+    {
+        name: "lighting",
+        syntax: ":lighting",
+        description: "Show or hide the lighting overlay",
     },
     {
         name: "line",
@@ -4078,6 +4700,9 @@ function runCommand(input, actions, state) {
         case "grid":
             actions.toggleGrid();
             return { ok: true };
+        case "lighting":
+            actions.toggleEffects();
+            return { ok: true };
         case "line": {
             if (args.length !== 2) {
                 return { ok: false, error: `E486: ${USAGE}` };
@@ -4171,7 +4796,7 @@ window.KEYBIND_HELP = [
     },
     {
         keys: "/",
-        description: "Search for tiles and objects",
+        description: "Search tiles, objects or lighting",
         scope: "map",
         group: "navigate",
     },
@@ -4200,6 +4825,12 @@ window.KEYBIND_HELP = [
         group: "navigate",
     },
     {
+        keys: "L",
+        description: "Show or hide the lighting",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "+ / =",
         description: "Zoom in",
         scope: "map",
@@ -4213,13 +4844,13 @@ window.KEYBIND_HELP = [
     },
     {
         keys: "[",
-        description: "Switch the sidebar to tiles",
+        description: "Switch to the previous layer",
         scope: "map",
         group: "navigate",
     },
     {
         keys: "]",
-        description: "Switch the sidebar to objects",
+        description: "Switch to the next layer",
         scope: "map",
         group: "navigate",
     },
@@ -4373,6 +5004,24 @@ function installEditorKeybinds(actions) {
             },
         },
         {
+            keys: "L",
+            description: "Show or hide the lighting",
+            scope: "map",
+            group: "navigate",
+            // Uppercase only (lowercase `l` is a vim motion). Text fields
+            // own their keys, mirroring G.
+            applies: (e) => e.key === "L" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleLighting();
+                return true;
+            },
+        },
+        {
             keys: "+ / =",
             description: "Zoom in",
             scope: "map",
@@ -4409,7 +5058,7 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "[",
-            description: "Switch the sidebar to tiles",
+            description: "Switch to the previous layer",
             scope: "map",
             group: "navigate",
             applies: (e) => e.key === "[" &&
@@ -4419,13 +5068,13 @@ function installEditorKeybinds(actions) {
                 !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
-                actions.selectTileLayer();
+                actions.selectPrevLayer();
                 return true;
             },
         },
         {
             keys: "]",
-            description: "Switch the sidebar to objects",
+            description: "Switch to the next layer",
             scope: "map",
             group: "navigate",
             applies: (e) => e.key === "]" &&
@@ -4435,7 +5084,7 @@ function installEditorKeybinds(actions) {
                 !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
-                actions.selectObjectLayer();
+                actions.selectNextLayer();
                 return true;
             },
         },
@@ -4604,7 +5253,7 @@ function installEditorKeybinds(actions) {
         },
         {
             keys: "/",
-            description: "Search for tiles and objects",
+            description: "Search tiles, objects or lighting",
             scope: "map",
             group: "navigate",
             applies: (e) => e.key === "/" &&
@@ -4624,6 +5273,7 @@ function installEditorKeybinds(actions) {
 "use strict";
 // BCMap Editor - TypeScript Source
 window.BCMapEditor = void 0;
+
 
 
 const history_1 = window;
@@ -4666,6 +5316,9 @@ const YANK_FLASH_FILL = "rgba(255, 255, 255, 0.15)";
 const REGION_BORDER_WIDTH = 2;
 const FEEDBACK_MS = 1500;
 const PAN_OVERSCROLL_TILES = 15;
+// Default lighting brush: ShadowLight (BC's `AssetsMapDataEffects[1]`), so the
+// lighting layer starts on a visible effect rather than the eraser.
+const DEFAULT_LIGHTING_EFFECT_ID = 11;
 class BCMapEditor {
     constructor(canvasId) {
         this.zoom = 1.0;
@@ -4674,6 +5327,9 @@ class BCMapEditor {
         this.currentLayer = "tile";
         this.selectedTile = null;
         this.selectedObject = null;
+        this.selectedEffect = null;
+        /** Whether the lighting overlay is drawn. Toggling it is undoable. */
+        this.showEffects = true;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
         this.hoveredTile = null;
@@ -4696,11 +5352,11 @@ class BCMapEditor {
         this.history = new history_1.MapHistory();
         /** One entry per gesture (mouse) or key-repeat burst (vim): closes on idle timeout or explicit flush. */
         this.session = new editSession_1.EditSession({
-            begin: () => this.history.beginStroke(this.mapData.Tiles, this.mapData.Objects),
+            begin: () => this.history.beginStroke(this.snapshot()),
             markDirty: () => this.history.markDirty(),
             end: () => this.history.endStroke(),
         });
-        /** Copy buffer from `y`, holding both layers; `p` pastes it. */
+        /** Copy buffer from `y`, holding all three layers; `p` pastes it. */
         this.yankBuffer = null;
         /** Set by init.ts: slot save/load, dialogs and export (`:w`, `:e`, …). */
         this.onSaveSlotRequest = null;
@@ -4720,6 +5376,7 @@ class BCMapEditor {
         this.picker = new picker_1.MapPicker({
             onSelectTile: (tile) => this.setSelectedTile(tile),
             onSelectObject: (obj) => this.setSelectedObject(obj),
+            onSelectEffect: (effect) => this.setSelectedEffect(effect),
         });
         this.objectMarginTiles = 0;
         /**
@@ -4955,6 +5612,51 @@ class BCMapEditor {
     applySessionEdit(mutate) {
         this.session.runEdit(mutate);
     }
+    /** Capture the whole editable state as an immutable undo snapshot. */
+    snapshot() {
+        return {
+            tiles: this.mapData.Tiles,
+            objects: this.mapData.Objects,
+            effects: (0, mapdata_1.effectsToGrid)(this.mapData.Effects),
+            showEffects: this.showEffects,
+        };
+    }
+    /** Restore every layer (and the lighting visibility) from a snapshot. */
+    applySnapshot(snapshot) {
+        this.mapData.Tiles = snapshot.tiles;
+        this.mapData.Objects = snapshot.objects;
+        this.mapData.Effects = (0, mapdata_1.gridToEffects)(snapshot.effects);
+        this.showEffects = snapshot.showEffects;
+    }
+    /**
+     * Lighting as a full per-cell string, blanks filled in. Used by yank so a
+     * captured effect char always exists even on an unlit map.
+     */
+    effectsGrid() {
+        return ((0, mapdata_1.effectsToGrid)(this.mapData.Effects) ||
+            String.fromCharCode(effects_1.BLANK_EFFECT_ID).repeat(mapdata_1.MAP_CELL_COUNT));
+    }
+    /**
+     * Write the lighting layer at one cell. Keeps the model invariant that
+     * `MapData.Effects` is either absent or holds at least one non-Blank cell,
+     * so erasing the last effect back to Blank drops the grid entirely (and
+     * the map stops exporting an "@" lighting part).
+     */
+    setEffectAt(index, id) {
+        const current = this.mapData.Effects
+            ? this.mapData.Effects[index]
+            : effects_1.BLANK_EFFECT_ID;
+        if (current === id)
+            return false;
+        const grid = this.mapData.Effects ??
+            new Array(mapdata_1.MAP_CELL_COUNT).fill(effects_1.BLANK_EFFECT_ID);
+        grid[index] = id;
+        this.mapData.Effects =
+            id !== effects_1.BLANK_EFFECT_ID || (0, mapdata_1.hasVisibleEffects)(grid)
+                ? grid
+                : undefined;
+        return true;
+    }
     /**
      * Write one cell of the active layer with the current picker selection
      * (Grass tile / Blank object are ordinary brushes: erasing is painting).
@@ -4964,6 +5666,13 @@ class BCMapEditor {
         if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        if (this.currentLayer === "effect") {
+            const id = this.selectedEffect?.ID ?? effects_1.BLANK_EFFECT_ID;
+            const changed = this.setEffectAt(index, id);
+            if (changed)
+                this.requestRender();
+            return changed;
+        }
         if (this.currentLayer === "object") {
             const ch = this.selectedObject
                 ? String.fromCharCode(this.selectedObject.ID)
@@ -5040,14 +5749,14 @@ class BCMapEditor {
         if (painted)
             this.flashCommit(region);
     }
-    /** `y`: capture the region's content of both layers. */
+    /** `y`: capture the region's content of all three layers. */
     captureYankRegion(region) {
-        this.yankBuffer = (0, yank_1.captureRegion)(this.mapData.Tiles, this.mapData.Objects, region, mapdata_1.MAP_WIDTH, mapdata_1.MAP_HEIGHT);
+        this.yankBuffer = (0, yank_1.captureRegion)(this.mapData.Tiles, this.mapData.Objects, this.effectsGrid(), region, mapdata_1.MAP_WIDTH, mapdata_1.MAP_HEIGHT);
         // A successful yank blinks the region white and exits visual
         // mode (the controller closes it right after this intent).
         this.flashCommit(region, "yank");
     }
-    /** `p`: paste the yank buffer (both layers) anchored at the cursor. */
+    /** `p`: paste the yank buffer (all three layers) anchored at the cursor. */
     pasteYank(at) {
         const buffer = this.yankBuffer;
         if (!buffer) {
@@ -5059,7 +5768,7 @@ class BCMapEditor {
             for (let row = 0; row < buffer.height; row++) {
                 for (let col = 0; col < buffer.width; col++) {
                     const charIndex = row * buffer.width + col;
-                    if (this.writeBothLayers(at.X + col, at.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
+                    if (this.writeBothLayers(at.X + col, at.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex], buffer.effects[charIndex])) {
                         changed = true;
                     }
                 }
@@ -5069,7 +5778,7 @@ class BCMapEditor {
     }
     /**
      * `p` in visual mode: tile the yank buffer over the region from its
-     * top-left, repeating and trimming to fit, both layers exactly as
+     * top-left, repeating and trimming to fit, all three layers exactly as
      * stored. One undo entry. A region smaller than the buffer trims.
      */
     pasteYankTiled(region) {
@@ -5087,7 +5796,7 @@ class BCMapEditor {
                 for (let col = 0; col < width; col++) {
                     const charIndex = (row % buffer.height) * buffer.width +
                         (col % buffer.width);
-                    if (this.writeBothLayers(region.from.X + col, region.from.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex])) {
+                    if (this.writeBothLayers(region.from.X + col, region.from.Y + row, buffer.tiles[charIndex], buffer.objects[charIndex], buffer.effects[charIndex])) {
                         painted = true;
                     }
                 }
@@ -5115,8 +5824,8 @@ class BCMapEditor {
         };
         this.requestRender();
     }
-    /** Write one cell of both layers explicitly (paste path). */
-    writeBothLayers(x, y, tileChar, objectChar) {
+    /** Write one cell of every layer explicitly (paste path). */
+    writeBothLayers(x, y, tileChar, objectChar, effectChar) {
         if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
             return false;
         const index = x + y * mapdata_1.MAP_WIDTH;
@@ -5134,6 +5843,11 @@ class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                     objectChar +
                     this.mapData.Objects.substring(index + 1);
+            changed = true;
+        }
+        if (effectChar !== undefined &&
+            effectChar !== "" &&
+            this.setEffectAt(index, effectChar.charCodeAt(0))) {
             changed = true;
         }
         if (changed)
@@ -5547,6 +6261,21 @@ class BCMapEditor {
                 }
             }
         }
+        // Lighting overlay: the game's static effects, one filled rect per
+        // non-Blank cell, over the objects (BC draws effects last). Gated by
+        // the lighting visibility toggle; Blank and unknown IDs draw nothing.
+        const effectGrid = this.mapData.Effects;
+        if (this.showEffects && effectGrid) {
+            for (let y = firstTileY; y <= lastTileY; y++) {
+                for (let x = firstTileX; x <= lastTileX; x++) {
+                    const color = (0, effects_1.effectColorCss)(effectGrid[x + y * mapdata_1.MAP_WIDTH]);
+                    if (!color)
+                        continue;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(startX + x * tileSize, startY + y * tileSize, tileSize, tileSize);
+                }
+            }
+        }
         // Render grid (dark, semi-transparent)
         if (this.showGrid) {
             ctx.strokeStyle = GRID_COLOR;
@@ -5914,6 +6643,7 @@ class BCMapEditor {
             openImport: () => this.onImportRequest?.(),
             toggleHelp: () => this.toggleHelp(),
             toggleGrid: () => this.toggleGrid(),
+            toggleEffects: () => this.toggleEffects(),
             drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
         }, state);
         if (!result.ok && result.error)
@@ -5958,7 +6688,13 @@ class BCMapEditor {
         if (!el)
             return;
         let text;
-        if (this.currentLayer === "object" && this.selectedObject) {
+        if (this.currentLayer === "effect" && this.selectedEffect) {
+            text =
+                this.selectedEffect.ID === effects_1.BLANK_EFFECT_ID
+                    ? "Selection: Lighting Off (Erase)"
+                    : `Selection: Lighting/${this.selectedEffect.Style}`;
+        }
+        else if (this.currentLayer === "object" && this.selectedObject) {
             if (this.selectedObject.Style === "Blank") {
                 text = "Selection: Blank (Erase)";
             }
@@ -5980,6 +6716,12 @@ class BCMapEditor {
         }
         if (!this.selectedObject) {
             this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
+        }
+        if (!this.selectedEffect) {
+            this.selectedEffect =
+                effects_1.EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ??
+                    effects_1.EFFECT_CATALOG[0] ??
+                    null;
         }
         this.updateStatusSelection();
         this.syncPickerSelection();
@@ -6004,17 +6746,28 @@ class BCMapEditor {
         this.updateStatusSelection();
         this.syncPickerSelection();
     }
+    setSelectedEffect(effect) {
+        this.selectedEffect = effect;
+        this.updateStatusSelection();
+        this.syncPickerSelection();
+    }
     getSelectedTile() {
         return this.selectedTile;
     }
     getSelectedObject() {
         return this.selectedObject;
     }
+    getSelectedEffect() {
+        return this.selectedEffect;
+    }
     exportMap(name) {
         return (0, mapdata_1.serializeMap)({
             Type: this.mapData.Type,
             Tiles: this.mapData.Tiles,
             Objects: this.mapData.Objects,
+            CellData: this.mapData.CellData,
+            Effects: this.mapData.Effects,
+            Fog: this.mapData.Fog,
         });
     }
     importMap(code) {
@@ -6088,46 +6841,57 @@ class BCMapEditor {
             }
         }
         const objId = this.mapData.Objects.charCodeAt(index);
-        if (objId === catalog_1.BLANK_OBJECT_ID)
-            return;
-        const obj = this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
-        if (!obj || obj.Style === "Blank")
-            return;
-        const variant = this.resolveVariantImageName(x, y, obj);
-        const baseKey = obj.Type + "/" + obj.Style;
-        const img = this.objectImageCache.get(obj.Type + "/" + variant) ??
-            this.objectImageCache.get(baseKey);
-        const left = obj.Left ?? 0;
-        const top = obj.Top ?? 0;
-        const width = obj.Width ?? 1;
-        const height = obj.Height ?? 1;
-        const adjDrawX = drawX + left * cell;
-        const adjDrawW = cell * width;
-        const adjDrawY = drawY + top * cell;
-        const adjDrawH = cell * height;
-        const rotation = obj.Rotation ?? 0;
-        if (rotation !== 0) {
-            ctx.save();
-            ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
-            ctx.rotate((rotation * Math.PI) / 180);
-            ctx.translate(-(adjDrawX + adjDrawW / 2), -(adjDrawY + adjDrawH / 2));
+        const obj = objId === catalog_1.BLANK_OBJECT_ID
+            ? null
+            : (this.objectMap.get(objId) ?? this.fullObjectMap.get(objId));
+        if (obj && obj.Style !== "Blank") {
+            const variant = this.resolveVariantImageName(x, y, obj);
+            const baseKey = obj.Type + "/" + obj.Style;
+            const img = this.objectImageCache.get(obj.Type + "/" + variant) ??
+                this.objectImageCache.get(baseKey);
+            const left = obj.Left ?? 0;
+            const top = obj.Top ?? 0;
+            const width = obj.Width ?? 1;
+            const height = obj.Height ?? 1;
+            const adjDrawX = drawX + left * cell;
+            const adjDrawW = cell * width;
+            const adjDrawY = drawY + top * cell;
+            const adjDrawH = cell * height;
+            const rotation = obj.Rotation ?? 0;
+            if (rotation !== 0) {
+                ctx.save();
+                ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
+                ctx.rotate((rotation * Math.PI) / 180);
+                ctx.translate(-(adjDrawX + adjDrawW / 2), -(adjDrawY + adjDrawH / 2));
+            }
+            if (img && img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+            }
+            else {
+                // Fallback to color if image not loaded
+                ctx.fillStyle = this.getObjectColor(obj.Type);
+                ctx.fillRect(adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN, adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN, adjDrawW * OBJECT_DRAW_SIZE, adjDrawH * OBJECT_DRAW_SIZE);
+            }
+            if (rotation !== 0)
+                ctx.restore();
         }
-        if (img && img.complete && img.naturalWidth > 0) {
-            ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+        // Lighting overlay last, matching the game's tiles → objects →
+        // effects draw order. Thumbnails always show lighting (independent of
+        // the live overlay toggle), so saved maps preview their lighting.
+        const effectId = this.mapData.Effects?.[index];
+        const effectColor = effectId !== undefined ? (0, effects_1.effectColorCss)(effectId) : null;
+        if (effectColor) {
+            ctx.fillStyle = effectColor;
+            ctx.fillRect(drawX, drawY, cell, cell);
         }
-        else {
-            // Fallback to color if image not loaded
-            ctx.fillStyle = this.getObjectColor(obj.Type);
-            ctx.fillRect(adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN, adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN, adjDrawW * OBJECT_DRAW_SIZE, adjDrawH * OBJECT_DRAW_SIZE);
-        }
-        if (rotation !== 0)
-            ctx.restore();
     }
     newMap() {
         this.mapData = (0, mapdata_1.createDefaultMap)();
         this.history.clearRedo();
         this.selectedTile = this.tileMap.get(mapdata_1.GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
+        this.selectedEffect =
+            effects_1.EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
         this.vim.clearCursor();
@@ -6152,25 +6916,17 @@ class BCMapEditor {
         // the stroke's own entry, and endStroke's rollback skips it by
         // identity — pre-flushing would steal the wrong entry (the vim `u`
         // path flushes via the controller's flushEdits intent).
-        const prev = this.history.undo([
-            this.mapData.Tiles,
-            this.mapData.Objects,
-        ]);
+        const prev = this.history.undo(this.snapshot());
         if (!prev)
             return;
-        this.mapData.Tiles = prev[0];
-        this.mapData.Objects = prev[1];
+        this.applySnapshot(prev);
         this.requestRender();
     }
     redo() {
-        const next = this.history.redo([
-            this.mapData.Tiles,
-            this.mapData.Objects,
-        ]);
+        const next = this.history.redo(this.snapshot());
         if (!next)
             return;
-        this.mapData.Tiles = next[0];
-        this.mapData.Objects = next[1];
+        this.applySnapshot(next);
         this.requestRender();
     }
     toggleGrid() {
@@ -6182,6 +6938,20 @@ class BCMapEditor {
     }
     getGridVisible() {
         return this.showGrid;
+    }
+    /**
+     * Toggle the lighting overlay. Toggling is reversible and therefore
+     * undoable: the pre-toggle state goes on the history stack as a one-shot
+     * commit, so undo restores both the lighting layer and its visibility.
+     */
+    toggleEffects() {
+        const before = this.snapshot();
+        this.showEffects = !this.showEffects;
+        this.history.commit(before);
+        this.render();
+    }
+    getEffectsVisible() {
+        return this.showEffects;
     }
     toggleHelp() {
         this.setHelpVisible(!this.showHelp);
@@ -6201,13 +6971,13 @@ class BCMapEditor {
         return this.vim.getMode() === "visual";
     }
     syncPickerSelection() {
-        this.picker.syncSelection(this.selectedTile?.ID ?? null, this.selectedObject?.ID ?? null);
+        this.picker.syncSelection(this.selectedTile?.ID ?? null, this.selectedObject?.ID ?? null, this.selectedEffect?.ID ?? null);
     }
     filterPickers(term) {
         this.picker.filter(term);
     }
     populatePickers() {
-        this.picker.populate(this.tileCatalog, this.objectCatalog);
+        this.picker.populate(this.tileCatalog, this.objectCatalog, effects_1.EFFECT_CATALOG);
         this.syncPickerSelection();
     }
     /** Picker instance (used by the sidebar keyboard router in init.ts). */
@@ -6268,11 +7038,29 @@ document.addEventListener("DOMContentLoaded", () => {
     // switch per interaction - no double-handling, no recursion.
     const layerTileRadio = document.getElementById("layerTile");
     const layerObjectRadio = document.getElementById("layerObject");
+    const layerEffectRadio = document.getElementById("layerEffect");
     const setLayer = (layer) => {
-        const radio = layer === "tile" ? layerTileRadio : layerObjectRadio;
+        const radio = layer === "tile"
+            ? layerTileRadio
+            : layer === "object"
+                ? layerObjectRadio
+                : layerEffectRadio;
         if (radio)
             radio.checked = true;
         editor.setCurrentLayer(layer);
+    };
+    // `[` / `]` step one layer at a time and stop at the ends (tiles on the
+    // left, lighting on the right). Directional, not absolute, so the third
+    // layer stays reachable; clamped so a key at an end is a no-op.
+    const LAYER_ORDER = [
+        "tile",
+        "object",
+        "effect",
+    ];
+    const stepLayer = (delta) => {
+        const index = LAYER_ORDER.indexOf(editor.getCurrentLayer());
+        const next = Math.min(LAYER_ORDER.length - 1, Math.max(0, index + delta));
+        setLayer(LAYER_ORDER[next]);
     };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
@@ -6390,6 +7178,17 @@ document.addEventListener("DOMContentLoaded", () => {
         editor.toggleGrid();
         syncGridButton();
     });
+    // Lighting toggle (button + L keybind + :lighting). Toggling is
+    // undoable, so the button state also resyncs on every history change.
+    const btnToggleEffects = document.getElementById("btnToggleEffects");
+    const syncLightingButton = () => {
+        btnToggleEffects?.classList.toggle("active", editor.getEffectsVisible());
+    };
+    btnToggleEffects?.addEventListener("click", () => {
+        editor.toggleEffects();
+        syncLightingButton();
+    });
+    syncLightingButton();
     // Map menu: the Keyboard Shortcuts item toggles the same help card as `?`.
     const menuShortcuts = document.getElementById("menuShortcuts");
     menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
@@ -6425,6 +7224,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     editor.onHistoryChange = () => {
         syncHistoryButtons();
+        // Undoing a lighting toggle flips the overlay back; keep the
+        // button in sync with the restored state.
+        syncLightingButton();
         // Every committed stroke can flip the dirty marker (defined in the
         // slots section below; runs only on edits, long after init).
         syncSlotIndicator();
@@ -6920,10 +7722,14 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleGrid();
             syncGridButton();
         },
+        toggleLighting: () => {
+            editor.toggleEffects();
+            syncLightingButton();
+        },
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
-        selectTileLayer: () => setLayer("tile"),
-        selectObjectLayer: () => setLayer("object"),
+        selectPrevLayer: () => stepLayer(-1),
+        selectNextLayer: () => stepLayer(1),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),
@@ -6933,7 +7739,7 @@ document.addEventListener("DOMContentLoaded", () => {
         focusPicker: () => {
             if (editor
                 .getPicker()
-                ?.focusResume(editor.getSelectedTile()?.ID ?? null, editor.getSelectedObject()?.ID ?? null)) {
+                ?.focusResume(editor.getSelectedTile()?.ID ?? null, editor.getSelectedObject()?.ID ?? null, editor.getSelectedEffect()?.ID ?? null)) {
                 appSurface_1.appSurface.set("picker");
             }
         },

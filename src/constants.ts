@@ -1,4 +1,4 @@
-// BCMap Editor - shared game-data constants (Bondage Club R132).
+// BCMap Editor - shared game-data constants (Bondage Club R133).
 //
 // Used by both the editor runtime (src/editor.ts, bundled into
 // map-editor.html by scripts/embed-js.js) and scripts/download-assets.ts.

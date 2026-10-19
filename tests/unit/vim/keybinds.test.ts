@@ -109,13 +109,14 @@ describe("createKeybindDispatcher", () => {
 });
 
 describe("installEditorKeybinds", () => {
-    it("wires G to grid, ? to help, Ctrl+Z to undo, Ctrl+Y and Ctrl+Shift+Z to redo", () => {
+    it("wires G to grid, L to lighting, ? to help, Ctrl+Z to undo, Ctrl+Y and Ctrl+Shift+Z to redo", () => {
         const actions = {
             toggleGrid: vi.fn(),
+            toggleLighting: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -137,6 +138,14 @@ describe("installEditorKeybinds", () => {
         expect(actions.handleVimKey).toHaveBeenCalledTimes(1);
         expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
 
+        dispatch(keyEvent("L"));
+        expect(actions.toggleLighting).toHaveBeenCalledTimes(1);
+
+        // Lowercase l stays a vim motion, never a lighting toggle.
+        dispatch(keyEvent("l"));
+        expect(actions.handleVimKey).toHaveBeenCalledTimes(2);
+        expect(actions.toggleLighting).toHaveBeenCalledTimes(1);
+
         dispatch(keyEvent("?"));
         expect(actions.toggleHelp).toHaveBeenCalledTimes(1);
 
@@ -155,8 +164,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -194,8 +203,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -234,8 +243,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -251,16 +260,16 @@ describe("installEditorKeybinds", () => {
         const dispatch = createKeybindDispatcher(bindings);
 
         dispatch(keyEvent("["));
-        expect(actions.selectTileLayer).toHaveBeenCalledTimes(1);
+        expect(actions.selectPrevLayer).toHaveBeenCalledTimes(1);
 
         dispatch(keyEvent("]"));
-        expect(actions.selectObjectLayer).toHaveBeenCalledTimes(1);
+        expect(actions.selectNextLayer).toHaveBeenCalledTimes(1);
 
         // Ctrl+[ / Cmd+] belong to the browser, not the editor.
         dispatch(keyEvent("[", { ctrlKey: true }));
         dispatch(keyEvent("]", { ctrlKey: true }));
-        expect(actions.selectTileLayer).toHaveBeenCalledTimes(1);
-        expect(actions.selectObjectLayer).toHaveBeenCalledTimes(1);
+        expect(actions.selectPrevLayer).toHaveBeenCalledTimes(1);
+        expect(actions.selectNextLayer).toHaveBeenCalledTimes(1);
     });
 
     it("ignores plain keys while a text field has focus", () => {
@@ -268,8 +277,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -298,8 +307,8 @@ describe("installEditorKeybinds", () => {
         expect(actions.toggleHelp).not.toHaveBeenCalled();
         expect(actions.zoomIn).not.toHaveBeenCalled();
         expect(actions.zoomOut).not.toHaveBeenCalled();
-        expect(actions.selectTileLayer).not.toHaveBeenCalled();
-        expect(actions.selectObjectLayer).not.toHaveBeenCalled();
+        expect(actions.selectPrevLayer).not.toHaveBeenCalled();
+        expect(actions.selectNextLayer).not.toHaveBeenCalled();
 
         dispatch(keyEvent("z", { ctrlKey: true }, input));
         dispatch(keyEvent("y", { ctrlKey: true }, input));
@@ -312,8 +321,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -343,8 +352,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -372,8 +381,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -403,8 +412,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -431,8 +440,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -458,8 +467,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -485,8 +494,8 @@ describe("installEditorKeybinds", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -508,10 +517,11 @@ describe("installEditorKeybinds", () => {
     it("describes every binding for the help registry", () => {
         const bindings = installEditorKeybinds({
             toggleGrid: vi.fn(),
+            toggleLighting: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -536,7 +546,7 @@ describe("installEditorKeybinds", () => {
                 "system",
             ]).toContain(binding.group);
         }
-        expect(bindings).toHaveLength(20);
+        expect(bindings).toHaveLength(21);
     });
 });
 
@@ -546,8 +556,8 @@ describe("Keybind registry help-sync", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -618,8 +628,8 @@ describe("Sidebar surface routing", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -645,8 +655,8 @@ describe("Sidebar surface routing", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -671,8 +681,8 @@ describe("Sidebar surface routing", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -705,8 +715,8 @@ describe("Sidebar surface routing", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),
@@ -736,8 +746,8 @@ describe("Sidebar surface routing", () => {
             toggleGrid: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
-            selectTileLayer: vi.fn(),
-            selectObjectLayer: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
             toggleHelp: vi.fn(),
             undo: vi.fn(),
             redo: vi.fn(),

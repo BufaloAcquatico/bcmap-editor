@@ -4,11 +4,11 @@ import https from "https";
 import { FULL_OBJECT_CATALOG, FULL_TILE_CATALOG } from "../src/catalog";
 import { railroadVariantStyles, WALL_EFFECT_INDICES } from "../src/constants";
 
-const BASE_URL =
-    "https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom";
+const BASE_URL = "https://www.bondage-europe.com/R133/BondageClub/Assets/Map";
 
 interface Options {
     force: boolean;
+    verify: boolean;
     concurrency: number;
     delayMs: number;
     retries: number;
@@ -18,12 +18,14 @@ function parseOptions(): Options {
     const args = process.argv.slice(2);
     const opts: Options = {
         force: false,
+        verify: false,
         concurrency: 2,
         delayMs: 150,
         retries: 3,
     };
     for (const arg of args) {
         if (arg === "--force") opts.force = true;
+        else if (arg === "--verify") opts.verify = true;
         else if (arg.startsWith("--concurrency="))
             opts.concurrency = Math.max(
                 1,
@@ -98,7 +100,7 @@ interface Job {
 export function wallEffectJobs(): Job[] {
     return WALL_EFFECT_INDICES.map((i) => ({
         label: `tiles/WallEffect/${i}`,
-        url: `https://www.bondage-europe.com/R132/BondageClub/Screens/Online/ChatRoom/MapTile/WallEffect/${i}.png`,
+        url: `${BASE_URL}/Tiles/WallEffect/${i}.png`,
         dest: path.join(
             __dirname,
             "..",
@@ -153,10 +155,10 @@ async function runPool(
     return { ok, skipped, failed };
 }
 
-function tileJobs(): Job[] {
+export function tileJobs(): Job[] {
     return FULL_TILE_CATALOG.map((tile) => ({
         label: `tiles/${tile.Type}/${tile.Style}`,
-        url: `${BASE_URL}/MapTile/${tile.Type}/${tile.Style}.png`,
+        url: `${BASE_URL}/Tiles/${tile.Type}/${tile.Style}.png`,
         dest: path.join(
             __dirname,
             "..",
@@ -168,14 +170,14 @@ function tileJobs(): Job[] {
     }));
 }
 
-function objectJobs(): Job[] {
+export function objectJobs(): Job[] {
     // Catalog types are the game types, which match the server folders, so
     // no remapping is needed between source URL and save path.
     return FULL_OBJECT_CATALOG.filter((obj) => obj.Style !== "Blank").map(
         (obj) => {
             return {
                 label: `objects/${obj.Type}/${obj.Style}`,
-                url: `${BASE_URL}/MapObject/${obj.Type}/${obj.Style}.png`,
+                url: `${BASE_URL}/Objects/${obj.Type}/${obj.Style}.png`,
                 dest: path.join(
                     __dirname,
                     "..",
@@ -191,7 +193,7 @@ function objectJobs(): Job[] {
 
 // Neighbor-variant textures for expanding objects (BC BuildImageName).
 // Each entry names the catalog Type (save folder) and the variant style.
-// Variants are served from the same MapObject/<assetType>/ folder as the
+// Variants are served from the same Objects/<assetType>/ folder as the
 // base sprite.
 interface VariantSpec {
     type: string;
@@ -207,7 +209,7 @@ const OBJECT_VARIANTS: VariantSpec[] = [
         variants: [
             // NOTE: upstream BC spells this file "CouckPinkSmall" (typo in
             // ChatRoomMap.ts BuildImageName); the correctly-spelled
-            // "CouchPinkSmall.png" does not exist on the R132 server (404).
+            // "CouchPinkSmall.png" does not exist on the R133 server (404).
             "CouckPinkSmall",
             "CouchPinkLeft",
             "CouchPinkMiddle",
@@ -243,14 +245,14 @@ const OBJECT_VARIANTS: VariantSpec[] = [
 export function objectVariantJobs(): Job[] {
     const jobs: Job[] = [];
     for (const spec of OBJECT_VARIANTS) {
-        // Variants are served from the same MapObject folder as the base
+        // Variants are served from the same Objects folder as the base
         // sprite of the group; catalog types match the server folders.
         const base = FULL_OBJECT_CATALOG.find((o) => o.ID === spec.baseId);
         const assetType = base ? base.Type : spec.type;
         for (const style of spec.variants) {
             jobs.push({
                 label: `objects/${spec.type}/${style}`,
-                url: `${BASE_URL}/MapObject/${assetType}/${style}.png`,
+                url: `${BASE_URL}/Objects/${assetType}/${style}.png`,
                 dest: path.join(
                     __dirname,
                     "..",
@@ -263,6 +265,43 @@ export function objectVariantJobs(): Job[] {
         }
     }
     return jobs;
+}
+
+async function verifyAssets(): Promise<void> {
+    const jobs = [
+        ...tileJobs(),
+        ...objectJobs(),
+        ...objectVariantJobs(),
+        ...wallEffectJobs(),
+    ];
+    const seen = new Set<string>();
+    const unique = jobs.filter((j) => {
+        if (seen.has(j.dest)) return false;
+        seen.add(j.dest);
+        return true;
+    });
+    const missing: Job[] = [];
+    const empty: Job[] = [];
+    for (const job of unique) {
+        if (!fs.existsSync(job.dest)) missing.push(job);
+        else if (fs.statSync(job.dest).size === 0) empty.push(job);
+    }
+    console.log(
+        `Verifying ${unique.length} unique assets (${jobs.length} jobs)...`,
+    );
+    if (missing.length === 0 && empty.length === 0) {
+        console.log("OK: all assets present and non-empty.");
+        return;
+    }
+    if (missing.length > 0) {
+        console.error(`\nMissing (${missing.length}):`);
+        missing.forEach((j) => console.error(`  ${j.label}  <-  ${j.dest}`));
+    }
+    if (empty.length > 0) {
+        console.error(`\nEmpty (${empty.length}):`);
+        empty.forEach((j) => console.error(`  ${j.label}  <-  ${j.dest}`));
+    }
+    process.exit(1);
 }
 
 async function main(): Promise<void> {
@@ -320,7 +359,8 @@ const isMainModule =
     typeof module !== "undefined" &&
     require.main === module;
 if (isMainModule) {
-    main().catch((err) => {
+    const opts = parseOptions();
+    (opts.verify ? verifyAssets() : main()).catch((err) => {
         console.error(err);
         process.exit(1);
     });

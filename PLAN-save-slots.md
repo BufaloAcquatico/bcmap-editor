@@ -55,7 +55,8 @@ opens slots (was import modal). Old paths survive one step away (`:export`,
   store (`bcmap.v1.slots` → `{version, slots: {name: {code, savedAt,
 thumbnail}}}` — single blob = atomic saves), CRUD + recency listing,
   per-slot corruption isolation, pure time formatters (`now` injected),
-  baseline snapshot + dirty compare on raw `{Type, Tiles, Objects}`.
+  baseline snapshot + dirty compare on raw
+  `{Type, Tiles, Objects, CellData, Effects, Fog}` (the full map payload).
 - **`src/editor.ts` (+1 method):** `captureMapThumbnail(maxPx = 240)` →
   JPEG dataURL, reusing sprite caches, expandable/railroad/wall-effect
   resolution and the missing-image color fallback. No render-path changes.

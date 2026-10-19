@@ -232,7 +232,7 @@ describe("VimController visual mode", () => {
         expect(region()).toBeNull();
     });
 
-    it("y yanks the region (both layers) and exits visual", () => {
+    it("y yanks the region (all three layers) and exits visual", () => {
         ctx.controller.handleKey("v");
         ctx.controller.handleKey("l");
         ctx.controller.handleKey("y");

@@ -349,7 +349,7 @@ describe("Editor visual mode + yank/paste", () => {
         expect(mockCtx.strokeRect).toHaveBeenCalled();
     });
 
-    it("y captures both layers and p restores them", () => {
+    it("y captures all three layers and p restores them", () => {
         // paint two distinct tiles side by side and an object at one cell
         editor.setCurrentLayer("tile");
         paintCells([5, 5], [6, 5]);

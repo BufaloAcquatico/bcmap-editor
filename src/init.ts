@@ -54,17 +54,43 @@ document.addEventListener("DOMContentLoaded", () => {
     const layerObjectRadio = document.getElementById(
         "layerObject",
     ) as HTMLInputElement | null;
-    const setLayer = (layer: "tile" | "object") => {
-        const radio = layer === "tile" ? layerTileRadio : layerObjectRadio;
+    const layerEffectRadio = document.getElementById(
+        "layerEffect",
+    ) as HTMLInputElement | null;
+    const setLayer = (layer: "tile" | "object" | "effect") => {
+        const radio =
+            layer === "tile"
+                ? layerTileRadio
+                : layer === "object"
+                  ? layerObjectRadio
+                  : layerEffectRadio;
         if (radio) radio.checked = true;
         editor.setCurrentLayer(layer);
+    };
+    // `[` / `]` step one layer at a time and stop at the ends (tiles on the
+    // left, lighting on the right). Directional, not absolute, so the third
+    // layer stays reachable; clamped so a key at an end is a no-op.
+    const LAYER_ORDER: readonly ("tile" | "object" | "effect")[] = [
+        "tile",
+        "object",
+        "effect",
+    ];
+    const stepLayer = (delta: number) => {
+        const index = LAYER_ORDER.indexOf(editor.getCurrentLayer());
+        const next = Math.min(
+            LAYER_ORDER.length - 1,
+            Math.max(0, index + delta),
+        );
+        setLayer(LAYER_ORDER[next]);
     };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
         radio.addEventListener("change", (e) => {
             const target = e.target as HTMLInputElement;
             if (target.checked) {
-                editor.setCurrentLayer(target.value as "tile" | "object");
+                editor.setCurrentLayer(
+                    target.value as "tile" | "object" | "effect",
+                );
             }
         });
     });
@@ -196,6 +222,21 @@ document.addEventListener("DOMContentLoaded", () => {
         syncGridButton();
     });
 
+    // Lighting toggle (button + L keybind + :lighting). Toggling is
+    // undoable, so the button state also resyncs on every history change.
+    const btnToggleEffects = document.getElementById("btnToggleEffects");
+    const syncLightingButton = () => {
+        btnToggleEffects?.classList.toggle(
+            "active",
+            editor.getEffectsVisible(),
+        );
+    };
+    btnToggleEffects?.addEventListener("click", () => {
+        editor.toggleEffects();
+        syncLightingButton();
+    });
+    syncLightingButton();
+
     // Map menu: the Keyboard Shortcuts item toggles the same help card as `?`.
     const menuShortcuts = document.getElementById("menuShortcuts");
     menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
@@ -236,6 +277,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     editor.onHistoryChange = () => {
         syncHistoryButtons();
+        // Undoing a lighting toggle flips the overlay back; keep the
+        // button in sync with the restored state.
+        syncLightingButton();
         // Every committed stroke can flip the dirty marker (defined in the
         // slots section below; runs only on edits, long after init).
         syncSlotIndicator();
@@ -768,10 +812,14 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleGrid();
             syncGridButton();
         },
+        toggleLighting: () => {
+            editor.toggleEffects();
+            syncLightingButton();
+        },
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
-        selectTileLayer: () => setLayer("tile"),
-        selectObjectLayer: () => setLayer("object"),
+        selectPrevLayer: () => stepLayer(-1),
+        selectNextLayer: () => stepLayer(1),
         toggleHelp: () => editor.toggleHelp(),
         undo: () => editor.undo(),
         redo: () => editor.redo(),
@@ -785,6 +833,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ?.focusResume(
                         editor.getSelectedTile()?.ID ?? null,
                         editor.getSelectedObject()?.ID ?? null,
+                        editor.getSelectedEffect()?.ID ?? null,
                     )
             ) {
                 appSurface.set("picker");

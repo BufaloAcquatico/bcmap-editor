@@ -1,17 +1,25 @@
-// BCMap Editor - stroke-coalesced undo/redo over whole-map snapshots.
+// BCMap Editor - stroke-coalesced undo/redo over whole-editor snapshots.
 //
-// A snapshot is the [Tiles, Objects] pair. A whole press/drag stroke shares
-// one undo entry: beginStroke() pushes the pre-stroke state once, paint
-// calls markDirty(), and endStroke() rolls the entry back when the stroke
-// changed nothing, so empty presses never cost an undo step.
+// A snapshot captures every piece of map state the user can edit: the tile and
+// object layer strings, the lighting grid, and whether the lighting overlay is
+// visible (toggling it is undoable too). A whole press/drag stroke shares one
+// undo entry: beginStroke() pushes the pre-stroke state once, paint calls
+// markDirty(), and endStroke() rolls the entry back when the stroke changed
+// nothing, so empty presses never cost an undo step. One-shot actions (the
+// lighting toggle) use commit() instead of a stroke.
 //
-// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged. The
-// editor owns the MapData and applies snapshots; this class only manages
-// the stacks. onChange fires whenever stack state changes so the UI can
-// sync undo/redo button states.
+// Snapshots are plain immutable values (all strings/booleans), so the stacks
+// never alias live editor state. The editor owns the MapData and applies
+// snapshots; onChange fires whenever stack state changes so the UI can sync
+// undo/redo button states.
 
-/** A whole-map snapshot: [Tiles, Objects] layer strings. */
-export type MapSnapshot = [tiles: string, objects: string];
+/** A whole-editor snapshot. `effects` is a per-cell char grid ("" = none). */
+export interface MapSnapshot {
+    tiles: string;
+    objects: string;
+    effects: string;
+    showEffects: boolean;
+}
 
 export class MapHistory {
     private undoStack: MapSnapshot[] = [];
@@ -29,13 +37,12 @@ export class MapHistory {
         this.onChange?.();
     }
 
-    beginStroke(tiles: string, objects: string): void {
+    beginStroke(snapshot: MapSnapshot): void {
         this.strokeOpen = true;
         this.strokeDirty = false;
         this.strokeSavedRedo = this.redoStack;
-        const entry: MapSnapshot = [tiles, objects];
-        this.strokeEntry = entry;
-        this.undoStack.push(entry);
+        this.strokeEntry = snapshot;
+        this.undoStack.push(snapshot);
         this.undoStack = this.undoStack.slice(-this.cap);
         this.redoStack = [];
         this.notify();
@@ -69,6 +76,18 @@ export class MapHistory {
         }
         this.strokeEntry = null;
         this.strokeSavedRedo = [];
+    }
+
+    /**
+     * Push a one-shot undo entry (pre-action state) for a discrete change such
+     * as toggling the lighting overlay. Unlike a stroke this always keeps the
+     * entry (there is no "changed nothing" case).
+     */
+    commit(snapshot: MapSnapshot): void {
+        this.undoStack.push(snapshot);
+        this.undoStack = this.undoStack.slice(-this.cap);
+        this.redoStack = [];
+        this.notify();
     }
 
     canUndo(): boolean {

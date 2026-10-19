@@ -17,7 +17,7 @@ import { RAILROAD_DIRECTIONS } from "./constants";
 // `prefix` is the texture name stem, `single` the variant used when the
 // object has no same-ID neighbors.
 // NOTE: upstream spells the single-couch file "CouckPinkSmall" (typo); the
-// correctly-spelled name 404s on the R132 server, so the typo is used here.
+// correctly-spelled name 404s on the R133 server, so the typo is used here.
 // Railroad (750) is connectivity-based and handled separately; Velour rope
 // barrier (2033) reuses its base style name when single.
 export const EXPANDABLE_LEFT_RIGHT = new Map<

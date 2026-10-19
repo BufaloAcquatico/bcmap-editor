@@ -8,10 +8,11 @@ project it originated in).
 ## Features
 
 - **40x40 Grid**: Classic grid-based map editing
-- **Two-Layer System**: Separate tile (background) and object (foreground) layers
+- **Three-Layer System**: Separate tile (background), object (foreground) and lighting (static effects) layers
 - **Full Game Catalog**: The complete in-game tile and object catalogs in the pickers, kept verbatim
+- **Static Lighting**: Paint the game's eight static lighting effects (shadows, colour tints, glow), undoable and exported with the map
 - **BC Asset Sprites**: Loads actual game sprites from downloaded BC assets
-- **Categorized Picker**: Tile and object pickers organized by category with search
+- **Categorized Picker**: Tile, object and lighting pickers organized by category with search
 - **Zoom & Pan**: Mouse wheel zoom anchored at the cursor, pan with right-drag
 - **On-canvas Controls**: Quick reference shown in the bottom-right corner of the map
 - **Import/Export**: LZString compressed map codes, compatible with game room maps
@@ -36,7 +37,7 @@ docker compose up -d
 1. Open `map-editor.html` in a web browser
 2. Select a tile from the left sidebar (tile layer is selected by default)
 3. Click on the map to paint (hold and drag to paint multiple tiles)
-4. Switch to object layer to paint objects/decoration
+4. Switch to object layer to paint objects/decoration, or the lighting layer to paint static lighting
 5. Pan with right-drag, zoom with the mouse wheel
 
 ## Controls
@@ -58,15 +59,16 @@ docker compose up -d
 | Paste what you copied | `p` |
 | Undo the last change | `u` |
 | **Navigate** |  |
-| Search for tiles and objects | `/` |
+| Search tiles, objects or lighting | `/` |
 | Move through the tile list | `arrows` |
 | Switch between the map and the sidebar | `Tab` |
 | Pick the tile | `Enter` |
 | Show or hide the grid | `G` |
+| Show or hide the lighting | `L` |
 | Zoom in | `+` / `=` |
 | Zoom out | `-` |
-| Switch the sidebar to tiles | `[` |
-| Switch the sidebar to objects | `]` |
+| Switch to the previous layer | `[` |
+| Switch to the next layer | `]` |
 | **Command** |  |
 | Type a command | `:` |
 | **System** |  |
@@ -91,6 +93,7 @@ Press `:` and type one of these commands:
 | `:import` | Import a map code |
 | `:help` | Show or hide this help |
 | `:grid` | Show or hide the grid |
+| `:lighting` | Show or hide the lighting overlay |
 | `:line x1,y1 x2,y2` | Draw a straight line of tiles |
 <!-- COMMANDS:END -->
 
@@ -102,11 +105,15 @@ click-drag or a quick burst of key presses — undoes as a single step.
 
 ## Map Format
 
-This editor uses the same LZString-compressed map codes as the game:
+This editor uses the same LZString-compressed map codes as Bondage Club
+R133:
 
 - Map data is compressed with lz-string and base64 encoded
+- When the map has static lighting, the code appends `@` and a base64
+  lighting part, exactly like the game's own export
 - Export saves as `<mapname>.txt` containing the map code
-- Import accepts any valid room-map code
+- Import accepts any valid room-map code, with or without the lighting part
+- Fog and sign text carried in an imported code are preserved on re-export
 
 ## Contributing
 

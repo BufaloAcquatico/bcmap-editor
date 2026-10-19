@@ -4,11 +4,18 @@ const path = require("path");
 const distDir = path.join(__dirname, "..", "dist");
 const htmlFile = path.join(__dirname, "..", "map-editor.html");
 
+// Load order matters: a module's top-level code may call another module's
+// exports (e.g. effects.js computes its RLE constants via bitstring.js), so
+// dependencies must appear before their dependents. Kept in rough
+// alphabetical order within that constraint. Exported so the unit suite can
+// assert it stays in sync with src/ (a missing entry ships a broken bundle).
 const files = [
     "anim.js",
     "appSurface.js",
+    "bitstring.js",
     "catalog.js",
     "constants.js",
+    "effects.js",
     "helpCard.js",
     "history.js",
     "line.js",
@@ -101,4 +108,4 @@ if (require.main === module) {
     main();
 }
 
-module.exports = { transformBundle };
+module.exports = { transformBundle, files };

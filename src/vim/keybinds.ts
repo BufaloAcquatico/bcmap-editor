@@ -97,7 +97,7 @@ export const KEYBIND_HELP: {
     },
     {
         keys: "/",
-        description: "Search for tiles and objects",
+        description: "Search tiles, objects or lighting",
         scope: "map",
         group: "navigate",
     },
@@ -126,6 +126,12 @@ export const KEYBIND_HELP: {
         group: "navigate",
     },
     {
+        keys: "L",
+        description: "Show or hide the lighting",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "+ / =",
         description: "Zoom in",
         scope: "map",
@@ -139,13 +145,13 @@ export const KEYBIND_HELP: {
     },
     {
         keys: "[",
-        description: "Switch the sidebar to tiles",
+        description: "Switch to the previous layer",
         scope: "map",
         group: "navigate",
     },
     {
         keys: "]",
-        description: "Switch the sidebar to objects",
+        description: "Switch to the next layer",
         scope: "map",
         group: "navigate",
     },
@@ -187,14 +193,16 @@ export function createKeybindDispatcher(
 
 export interface EditorKeybindActions {
     toggleGrid: () => void;
+    /** Show or hide the lighting overlay (`L`). */
+    toggleLighting: () => void;
     /** Zoom the map canvas in one step (`+` / `=`). */
     zoomIn: () => void;
     /** Zoom the map canvas out one step (`-`). */
     zoomOut: () => void;
-    /** Switch the picker to the tile layer (`[`). */
-    selectTileLayer: () => void;
-    /** Switch the picker to the object layer (`]`). */
-    selectObjectLayer: () => void;
+    /** Step the picker to the previous layer, clamped at tiles (`[`). */
+    selectPrevLayer: () => void;
+    /** Step the picker to the next layer, clamped at lighting (`]`). */
+    selectNextLayer: () => void;
     toggleHelp: () => void;
     undo: () => void;
     redo: () => void;
@@ -346,6 +354,25 @@ export function installEditorKeybinds(
             },
         },
         {
+            keys: "L",
+            description: "Show or hide the lighting",
+            scope: "map",
+            group: "navigate",
+            // Uppercase only (lowercase `l` is a vim motion). Text fields
+            // own their keys, mirroring G.
+            applies: (e) =>
+                e.key === "L" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleLighting();
+                return true;
+            },
+        },
+        {
             keys: "+ / =",
             description: "Zoom in",
             scope: "map",
@@ -384,7 +411,7 @@ export function installEditorKeybinds(
         },
         {
             keys: "[",
-            description: "Switch the sidebar to tiles",
+            description: "Switch to the previous layer",
             scope: "map",
             group: "navigate",
             applies: (e) =>
@@ -395,13 +422,13 @@ export function installEditorKeybinds(
                 !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
-                actions.selectTileLayer();
+                actions.selectPrevLayer();
                 return true;
             },
         },
         {
             keys: "]",
-            description: "Switch the sidebar to objects",
+            description: "Switch to the next layer",
             scope: "map",
             group: "navigate",
             applies: (e) =>
@@ -412,7 +439,7 @@ export function installEditorKeybinds(
                 !isEditableTarget(e),
             run: (e) => {
                 e.preventDefault();
-                actions.selectObjectLayer();
+                actions.selectNextLayer();
                 return true;
             },
         },
@@ -589,7 +616,7 @@ export function installEditorKeybinds(
         },
         {
             keys: "/",
-            description: "Search for tiles and objects",
+            description: "Search tiles, objects or lighting",
             scope: "map",
             group: "navigate",
             applies: (e) =>

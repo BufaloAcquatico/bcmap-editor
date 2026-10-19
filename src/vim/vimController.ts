@@ -26,7 +26,7 @@ export interface VimIntents {
     paintAt: (at: GridPos) => void;
     /** Paint the current selection over every cell of the region. */
     paintRegion: (region: Region) => void;
-    /** Capture the region into the yank buffer (both layers). */
+    /** Capture the region into the yank buffer (all three layers). */
     yankRegion: (region: Region) => void;
     /** Paste the yank buffer at the given anchor cell (clipped by editor). */
     pasteYank: (at: GridPos) => void;

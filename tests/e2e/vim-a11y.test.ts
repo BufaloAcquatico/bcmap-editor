@@ -251,7 +251,7 @@ test("modals expose dialog roles", async ({ page }: { page: Page }) => {
     );
     await expect(page.locator("#searchInput")).toHaveAttribute(
         "aria-label",
-        "Search tiles and objects",
+        "Search tiles, objects and lighting",
     );
 });
 
@@ -387,19 +387,34 @@ test("layer switch thumb does not animate under reduced motion", async ({
     await expect(page.locator("#layerObject")).toBeChecked();
 });
 
-test("[ and ] switch the picker layer from the keyboard", async ({ page }) => {
+test("[ and ] step through the picker layers, clamped at the ends", async ({
+    page,
+}) => {
     await openEditor(page);
     await page.locator("#mapCanvas").click();
     const tileRadio = page.locator("#layerTile");
     const objectRadio = page.locator("#layerObject");
+    const effectRadio = page.locator("#layerEffect");
     await expect(tileRadio).toBeChecked();
+    // ] steps right: tiles -> objects -> lighting, then stops.
     await page.keyboard.press("]");
     await expect(objectRadio).toBeChecked();
     await expect(page.locator("#objectCategories")).toBeVisible();
     await expect(page.locator("#tileCategories")).not.toBeVisible();
+    await page.keyboard.press("]");
+    await expect(effectRadio).toBeChecked();
+    await expect(page.locator("#effectCategories")).toBeVisible();
+    await expect(page.locator("#objectCategories")).not.toBeVisible();
+    await page.keyboard.press("]");
+    await expect(effectRadio).toBeChecked(); // clamped at the right end
+    // [ steps left: lighting -> objects -> tiles, then stops.
+    await page.keyboard.press("[");
+    await expect(objectRadio).toBeChecked();
     await page.keyboard.press("[");
     await expect(tileRadio).toBeChecked();
     await expect(page.locator("#tileCategories")).toBeVisible();
+    await page.keyboard.press("[");
+    await expect(tileRadio).toBeChecked(); // clamped at the left end
     // Typing brackets in the search box must not switch layers.
     await page.keyboard.press("/");
     await page.locator("#searchInput").fill("[");

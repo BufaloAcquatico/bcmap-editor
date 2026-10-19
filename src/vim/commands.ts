@@ -25,6 +25,8 @@ export interface CommandActions {
     openImport: () => void;
     toggleHelp: () => void;
     toggleGrid: () => void;
+    /** Show or hide the lighting overlay (`:lighting`). */
+    toggleEffects: () => void;
     /** Paint a Bresenham line on the active layer (`:line x1,y1 x2,y2`). */
     drawLine: (x1: number, y1: number, x2: number, y2: number) => void;
 }
@@ -92,6 +94,11 @@ export const COMMANDS: CommandInfo[] = [
         name: "grid",
         syntax: ":grid",
         description: "Show or hide the grid",
+    },
+    {
+        name: "lighting",
+        syntax: ":lighting",
+        description: "Show or hide the lighting overlay",
     },
     {
         name: "line",
@@ -223,6 +230,9 @@ export function runCommand(
             return { ok: true };
         case "grid":
             actions.toggleGrid();
+            return { ok: true };
+        case "lighting":
+            actions.toggleEffects();
             return { ok: true };
         case "line": {
             if (args.length !== 2) {
