@@ -442,6 +442,7 @@ export class BCMapEditor {
             objects: this.mapData.Objects,
             effects: effectsToGrid(this.mapData.Effects),
             showEffects: this.showEffects,
+            fog: this.isFogEnabled(),
         };
     }
 
@@ -451,6 +452,8 @@ export class BCMapEditor {
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = gridToEffects(snapshot.effects);
         this.showEffects = snapshot.showEffects;
+        if (snapshot.fog) this.mapData.Fog = true;
+        else delete this.mapData.Fog;
     }
 
     /**
@@ -1701,6 +1704,8 @@ export class BCMapEditor {
                 toggleHelp: () => this.toggleHelp(),
                 toggleGrid: () => this.toggleGrid(),
                 toggleEffects: () => this.toggleEffects(),
+                toggleFog: () => this.toggleFog(),
+                setFog: (enabled: boolean) => this.setFog(enabled),
                 drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
             },
             state,
@@ -1996,6 +2001,9 @@ export class BCMapEditor {
         if (!prev) return;
         this.applySnapshot(prev);
         this.requestRender();
+        // History notified before the snapshot was applied; re-notify now so
+        // dependent UI reads the restored fog/lighting/dirty state.
+        this.notifyHistoryChange();
     }
 
     public redo(): void {
@@ -2003,6 +2011,7 @@ export class BCMapEditor {
         if (!next) return;
         this.applySnapshot(next);
         this.requestRender();
+        this.notifyHistoryChange();
     }
 
     public toggleGrid(): void {
@@ -2032,6 +2041,26 @@ export class BCMapEditor {
 
     public getEffectsVisible(): boolean {
         return this.showEffects;
+    }
+
+    /** Read the map-level fog flag. */
+    public isFogEnabled(): boolean {
+        return this.mapData.Fog === true;
+    }
+
+    /** Toggle map-level fog, recorded as one undoable history entry. */
+    public toggleFog(): void {
+        this.setFog(!this.isFogEnabled());
+    }
+
+    /** Set map-level fog, recorded as one undoable history entry (no-op if unchanged). */
+    public setFog(enabled: boolean): void {
+        if (this.isFogEnabled() === enabled) return;
+        const before = this.snapshot();
+        if (enabled) this.mapData.Fog = true;
+        else delete this.mapData.Fog;
+        this.history.commit(before);
+        this.requestRender();
     }
 
     public toggleHelp(): void {

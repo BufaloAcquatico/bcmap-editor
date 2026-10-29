@@ -290,6 +290,7 @@
           <li><button id="btnImport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-upload me-2"></i>Import…</button></li>
           <li><button id="btnExport" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-download me-2"></i>Export…</button></li>
           <li><hr class="dropdown-divider"></li>
+          <li><button id="btnToggleFog" class="dropdown-item d-flex align-items-center" type="button" aria-pressed="false"><i class="bi bi-cloud-fog2 me-2"></i>Fog<span class="text-muted ms-auto ps-4 small">:fog</span><i id="fogCheck" class="bi bi-check2 ms-2 invisible" aria-hidden="true"></i></button></li>
           <li><button id="menuShortcuts" class="dropdown-item d-flex align-items-center" type="button"><i class="bi bi-keyboard me-2"></i>Keyboard Shortcuts…<span class="text-muted ms-auto ps-4 small">?</span></button></li>
         </ul>
       </div>
@@ -406,8 +407,8 @@
             <input type="text" id="exportName" class="form-control" value="my-map" placeholder="Enter map name">
           </div>
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="exportIncludeObjects" checked>
-            <label class="form-check-label" for="exportIncludeObjects">Include objects</label>
+            <input class="form-check-input" type="checkbox" id="exportFog">
+            <label class="form-check-label" for="exportFog">Enable fog</label>
           </div>
         </div>
         <div class="modal-footer">
@@ -4581,6 +4582,11 @@ window.COMMANDS = [
         description: "Show or hide the lighting overlay",
     },
     {
+        name: "fog",
+        syntax: ":fog [on|off]",
+        description: "Turn map fog on or off (bare :fog toggles)",
+    },
+    {
         name: "line",
         syntax: ":line x1,y1 x2,y2",
         description: "Draw a straight line of tiles",
@@ -4703,6 +4709,27 @@ function runCommand(input, actions, state) {
         case "lighting":
             actions.toggleEffects();
             return { ok: true };
+        case "fog": {
+            if (args.length === 0) {
+                actions.toggleFog();
+                return { ok: true };
+            }
+            if (args.length === 1) {
+                const arg = args[0].toLowerCase();
+                if (arg === "on") {
+                    actions.setFog(true);
+                    return { ok: true };
+                }
+                if (arg === "off") {
+                    actions.setFog(false);
+                    return { ok: true };
+                }
+            }
+            return {
+                ok: false,
+                error: `E486: usage: :fog [on|off]`,
+            };
+        }
         case "line": {
             if (args.length !== 2) {
                 return { ok: false, error: `E486: ${USAGE}` };
@@ -5619,6 +5646,7 @@ class BCMapEditor {
             objects: this.mapData.Objects,
             effects: (0, mapdata_1.effectsToGrid)(this.mapData.Effects),
             showEffects: this.showEffects,
+            fog: this.isFogEnabled(),
         };
     }
     /** Restore every layer (and the lighting visibility) from a snapshot. */
@@ -5627,6 +5655,10 @@ class BCMapEditor {
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = (0, mapdata_1.gridToEffects)(snapshot.effects);
         this.showEffects = snapshot.showEffects;
+        if (snapshot.fog)
+            this.mapData.Fog = true;
+        else
+            delete this.mapData.Fog;
     }
     /**
      * Lighting as a full per-cell string, blanks filled in. Used by yank so a
@@ -6644,6 +6676,8 @@ class BCMapEditor {
             toggleHelp: () => this.toggleHelp(),
             toggleGrid: () => this.toggleGrid(),
             toggleEffects: () => this.toggleEffects(),
+            toggleFog: () => this.toggleFog(),
+            setFog: (enabled) => this.setFog(enabled),
             drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
         }, state);
         if (!result.ok && result.error)
@@ -6921,6 +6955,9 @@ class BCMapEditor {
             return;
         this.applySnapshot(prev);
         this.requestRender();
+        // History notified before the snapshot was applied; re-notify now so
+        // dependent UI reads the restored fog/lighting/dirty state.
+        this.notifyHistoryChange();
     }
     redo() {
         const next = this.history.redo(this.snapshot());
@@ -6928,6 +6965,7 @@ class BCMapEditor {
             return;
         this.applySnapshot(next);
         this.requestRender();
+        this.notifyHistoryChange();
     }
     toggleGrid() {
         this.setGridVisible(!this.showGrid);
@@ -6952,6 +6990,26 @@ class BCMapEditor {
     }
     getEffectsVisible() {
         return this.showEffects;
+    }
+    /** Read the map-level fog flag. */
+    isFogEnabled() {
+        return this.mapData.Fog === true;
+    }
+    /** Toggle map-level fog, recorded as one undoable history entry. */
+    toggleFog() {
+        this.setFog(!this.isFogEnabled());
+    }
+    /** Set map-level fog, recorded as one undoable history entry (no-op if unchanged). */
+    setFog(enabled) {
+        if (this.isFogEnabled() === enabled)
+            return;
+        const before = this.snapshot();
+        if (enabled)
+            this.mapData.Fog = true;
+        else
+            delete this.mapData.Fog;
+        this.history.commit(before);
+        this.requestRender();
     }
     toggleHelp() {
         this.setHelpVisible(!this.showHelp);
@@ -7107,7 +7165,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Export
     const btnExport = document.getElementById("btnExport");
     const exportModal = new bootstrap.Modal(document.getElementById("exportModal"));
+    const exportFog = document.getElementById("exportFog");
     btnExport?.addEventListener("click", () => {
+        syncFogControls();
         exportModal.show();
     });
     const btnExportConfirm = document.getElementById("btnExportConfirm");
@@ -7189,6 +7249,27 @@ document.addEventListener("DOMContentLoaded", () => {
         syncLightingButton();
     });
     syncLightingButton();
+    // Map-level fog toggle (Map menu + :fog + export dialog). Fog is a map
+    // setting, not a view setting, but it lives in the same menu group.
+    const btnToggleFog = document.getElementById("btnToggleFog");
+    const fogCheck = document.getElementById("fogCheck");
+    const syncFogControls = () => {
+        const on = editor.isFogEnabled();
+        btnToggleFog?.classList.toggle("active", on);
+        btnToggleFog?.setAttribute("aria-pressed", String(on));
+        fogCheck?.classList.toggle("invisible", !on);
+        if (exportFog)
+            exportFog.checked = on;
+    };
+    btnToggleFog?.addEventListener("click", () => {
+        editor.toggleFog();
+        syncFogControls();
+    });
+    exportFog?.addEventListener("change", () => {
+        editor.setFog(exportFog.checked);
+        syncFogControls();
+    });
+    syncFogControls();
     // Map menu: the Keyboard Shortcuts item toggles the same help card as `?`.
     const menuShortcuts = document.getElementById("menuShortcuts");
     menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
@@ -7227,6 +7308,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Undoing a lighting toggle flips the overlay back; keep the
         // button in sync with the restored state.
         syncLightingButton();
+        // Fog is part of the map state and can change via undo/redo too.
+        syncFogControls();
         // Every committed stroke can flip the dirty marker (defined in the
         // slots section below; runs only on edits, long after init).
         syncSlotIndicator();
@@ -7372,6 +7455,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSavedAt = null;
         baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
         syncSlotIndicator();
+        syncFogControls();
     };
     const doNewMap = () => {
         editor.newMap();
@@ -7681,6 +7765,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSavedAt = slot.savedAt;
         baselineCode = (0, slots_1.snapshotMap)(editor.getMapData());
         syncSlotIndicator();
+        syncFogControls();
         editor.showVimFeedback(`"${name}" loaded`);
         slotsModal.hide();
     };

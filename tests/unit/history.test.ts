@@ -6,7 +6,8 @@ const snap = (
     objects: string,
     effects = "",
     showEffects = true,
-): MapSnapshot => ({ tiles, objects, effects, showEffects });
+    fog = false,
+): MapSnapshot => ({ tiles, objects, effects, showEffects, fog });
 
 const A = snap("a-tiles", "a-objects");
 const B = snap("b-tiles", "b-objects");
@@ -117,5 +118,16 @@ describe("MapHistory", () => {
         expect(restored).toEqual(lit);
         expect(restored!.effects.charCodeAt(2)).toBe(13);
         expect(restored!.showEffects).toBe(true);
+    });
+
+    it("carries fog through undo/redo", () => {
+        const h = new MapHistory();
+        const foggy = snap("t", "o", "", true, true);
+        const clear = snap("t", "o", "", true, false);
+        h.commit(foggy);
+        const restored = h.undo(clear);
+        expect(restored).toEqual(foggy);
+        expect(restored!.fog).toBe(true);
+        expect(h.redo(foggy)).toEqual(clear);
     });
 });

@@ -218,6 +218,7 @@ describe("dirty baseline", () => {
         expect(isDirty(baseline, { ...before, Type: "Hybrid" as const })).toBe(
             true,
         );
+        expect(isDirty(baseline, { ...before, Fog: true })).toBe(true);
     });
 });
 

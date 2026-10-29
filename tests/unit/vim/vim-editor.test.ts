@@ -505,6 +505,15 @@ describe("Editor command line (VB5)", () => {
         expect(editor.getGridVisible()).toBe(!before);
     });
 
+    it(":fog toggles, enables and disables map fog", () => {
+        editor.handleVimCommand(":fog");
+        expect(editor.isFogEnabled()).toBe(true);
+        editor.handleVimCommand(":fog off");
+        expect(editor.isFogEnabled()).toBe(false);
+        editor.handleVimCommand(":fog on");
+        expect(editor.getMapData().Fog).toBe(true);
+    });
+
     it(":help toggles the help card", () => {
         const before = editor.getHelpVisible();
         editor.handleVimCommand("help");

@@ -27,6 +27,10 @@ export interface CommandActions {
     toggleGrid: () => void;
     /** Show or hide the lighting overlay (`:lighting`). */
     toggleEffects: () => void;
+    /** Toggle map-level fog (`:fog`). */
+    toggleFog: () => void;
+    /** Set map-level fog explicitly (`:fog on` / `:fog off`). */
+    setFog: (enabled: boolean) => void;
     /** Paint a Bresenham line on the active layer (`:line x1,y1 x2,y2`). */
     drawLine: (x1: number, y1: number, x2: number, y2: number) => void;
 }
@@ -99,6 +103,11 @@ export const COMMANDS: CommandInfo[] = [
         name: "lighting",
         syntax: ":lighting",
         description: "Show or hide the lighting overlay",
+    },
+    {
+        name: "fog",
+        syntax: ":fog [on|off]",
+        description: "Turn map fog on or off (bare :fog toggles)",
     },
     {
         name: "line",
@@ -234,6 +243,27 @@ export function runCommand(
         case "lighting":
             actions.toggleEffects();
             return { ok: true };
+        case "fog": {
+            if (args.length === 0) {
+                actions.toggleFog();
+                return { ok: true };
+            }
+            if (args.length === 1) {
+                const arg = args[0].toLowerCase();
+                if (arg === "on") {
+                    actions.setFog(true);
+                    return { ok: true };
+                }
+                if (arg === "off") {
+                    actions.setFog(false);
+                    return { ok: true };
+                }
+            }
+            return {
+                ok: false,
+                error: `E486: usage: :fog [on|off]`,
+            };
+        }
         case "line": {
             if (args.length !== 2) {
                 return { ok: false, error: `E486: ${USAGE}` };

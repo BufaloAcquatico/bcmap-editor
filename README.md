@@ -94,6 +94,7 @@ Press `:` and type one of these commands:
 | `:help` | Show or hide this help |
 | `:grid` | Show or hide the grid |
 | `:lighting` | Show or hide the lighting overlay |
+| `:fog [on|off]` | Turn map fog on or off (bare :fog toggles) |
 | `:line x1,y1 x2,y2` | Draw a straight line of tiles |
 <!-- COMMANDS:END -->
 
@@ -114,6 +115,7 @@ R133:
 - Export saves as `<mapname>.txt` containing the map code
 - Import accepts any valid room-map code, with or without the lighting part
 - Fog and sign text carried in an imported code are preserved on re-export
+- Map fog can be toggled from Map → Fog or `:fog [on|off]`; it can also be set in the Export dialog, which mirrors the map setting
 
 ## Contributing
 

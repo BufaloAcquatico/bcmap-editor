@@ -19,6 +19,8 @@ export interface MapSnapshot {
     objects: string;
     effects: string;
     showEffects: boolean;
+    /** Whether map-level fog is enabled (carried through undo/redo). */
+    fog: boolean;
 }
 
 export class MapHistory {

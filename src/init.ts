@@ -142,7 +142,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const exportModal = new bootstrap.Modal(
         document.getElementById("exportModal")!,
     );
+    const exportFog = document.getElementById(
+        "exportFog",
+    ) as HTMLInputElement | null;
     btnExport?.addEventListener("click", () => {
+        syncFogControls();
         exportModal.show();
     });
 
@@ -237,6 +241,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     syncLightingButton();
 
+    // Map-level fog toggle (Map menu + :fog + export dialog). Fog is a map
+    // setting, not a view setting, but it lives in the same menu group.
+    const btnToggleFog = document.getElementById("btnToggleFog");
+    const fogCheck = document.getElementById("fogCheck");
+    const syncFogControls = () => {
+        const on = editor.isFogEnabled();
+        btnToggleFog?.classList.toggle("active", on);
+        btnToggleFog?.setAttribute("aria-pressed", String(on));
+        fogCheck?.classList.toggle("invisible", !on);
+        if (exportFog) exportFog.checked = on;
+    };
+    btnToggleFog?.addEventListener("click", () => {
+        editor.toggleFog();
+        syncFogControls();
+    });
+    exportFog?.addEventListener("change", () => {
+        editor.setFog(exportFog.checked);
+        syncFogControls();
+    });
+    syncFogControls();
+
     // Map menu: the Keyboard Shortcuts item toggles the same help card as `?`.
     const menuShortcuts = document.getElementById("menuShortcuts");
     menuShortcuts?.addEventListener("click", () => editor.toggleHelp());
@@ -280,6 +305,8 @@ document.addEventListener("DOMContentLoaded", () => {
         // Undoing a lighting toggle flips the overlay back; keep the
         // button in sync with the restored state.
         syncLightingButton();
+        // Fog is part of the map state and can change via undo/redo too.
+        syncFogControls();
         // Every committed stroke can flip the dirty marker (defined in the
         // slots section below; runs only on edits, long after init).
         syncSlotIndicator();
@@ -419,6 +446,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSavedAt = null;
         baselineCode = snapshotMap(editor.getMapData());
         syncSlotIndicator();
+        syncFogControls();
     };
 
     const doNewMap = () => {
@@ -762,6 +790,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentSavedAt = slot.savedAt;
         baselineCode = snapshotMap(editor.getMapData());
         syncSlotIndicator();
+        syncFogControls();
         editor.showVimFeedback(`"${name}" loaded`);
         slotsModal.hide();
     };

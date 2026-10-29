@@ -232,3 +232,64 @@ describe("Undo/redo stroke coalescing (Change 6)", () => {
         );
     });
 });
+
+describe("map fog undo/redo", () => {
+    let editor: BCMapEditor;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        editor = new BCMapEditor("testCanvas");
+        editor.setSelectedTile({
+            ID: 215,
+            Type: "FloorExterior",
+            Style: "LongGrass",
+        });
+    });
+
+    function press(cellX: number, cellY: number): void {
+        const e = editor as any;
+        e.onCanvasMouseDown(cellEvent(cellX, cellY));
+        e.onCanvasMouseUp();
+    }
+
+    it("toggles fog as one undoable history entry", () => {
+        expect(editor.isFogEnabled()).toBe(false);
+        editor.toggleFog();
+        expect(editor.isFogEnabled()).toBe(true);
+        expect(editor.getMapData().Fog).toBe(true);
+        expect((editor as any).history.undoStack.length).toBe(1);
+
+        editor.undo();
+        expect(editor.isFogEnabled()).toBe(false);
+        expect(editor.getMapData().Fog).toBeUndefined();
+
+        editor.redo();
+        expect(editor.isFogEnabled()).toBe(true);
+        expect(editor.getMapData().Fog).toBe(true);
+    });
+
+    it("restores fog in history-change listeners after undo", () => {
+        const seen: boolean[] = [];
+        editor.onHistoryChange = () => seen.push(editor.isFogEnabled());
+        editor.toggleFog();
+        seen.length = 0;
+        editor.undo();
+        expect(seen).toContain(false);
+    });
+
+    it("turning fog off deletes the Fog key", () => {
+        editor.toggleFog();
+        editor.toggleFog();
+        expect(editor.getMapData().Fog).toBeUndefined();
+        expect(editor.isFogEnabled()).toBe(false);
+    });
+
+    it("a tile stroke does not revert a fog toggle", () => {
+        editor.toggleFog();
+        press(0, 0);
+        expect(editor.isFogEnabled()).toBe(true);
+        editor.undo();
+        expect(editor.isFogEnabled()).toBe(true);
+        expect(editor.getMapData().Tiles.charCodeAt(0)).toBe(210);
+    });
+});

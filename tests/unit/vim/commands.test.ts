@@ -14,6 +14,8 @@ const makeActions = () => ({
     openImport: vi.fn(),
     toggleHelp: vi.fn(),
     toggleGrid: vi.fn(),
+    toggleFog: vi.fn(),
+    setFog: vi.fn(),
     drawLine: vi.fn(),
 });
 
@@ -31,6 +33,30 @@ describe("parse + run commands", () => {
         const actions = makeActions();
         expect(runCommand("grid", actions, makeState()).ok).toBe(true);
         expect(actions.toggleGrid).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs :fog as a toggle", () => {
+        const actions = makeActions();
+        expect(runCommand("fog", actions, makeState()).ok).toBe(true);
+        expect(actions.toggleFog).toHaveBeenCalledTimes(1);
+    });
+
+    it("runs :fog on and :fog off explicitly", () => {
+        const actions = makeActions();
+        expect(runCommand("fog on", actions, makeState()).ok).toBe(true);
+        expect(actions.setFog).toHaveBeenLastCalledWith(true);
+        expect(runCommand("fog OFF", actions, makeState()).ok).toBe(true);
+        expect(actions.setFog).toHaveBeenLastCalledWith(false);
+        expect(actions.toggleFog).not.toHaveBeenCalled();
+    });
+
+    it("rejects :fog with an unknown argument", () => {
+        const actions = makeActions();
+        const result = runCommand("fog maybe", actions, makeState());
+        expect(result.ok).toBe(false);
+        expect(result.error).toMatch(/^E486.*:fog/);
+        expect(actions.toggleFog).not.toHaveBeenCalled();
+        expect(actions.setFog).not.toHaveBeenCalled();
     });
 
     it("runs :help", () => {
@@ -256,6 +282,7 @@ describe("command registry (help source)", () => {
         expect(names).toContain("import");
         expect(names).toContain("help");
         expect(names).toContain("grid");
+        expect(names).toContain("fog");
         expect(names).toContain("line");
     });
 });
