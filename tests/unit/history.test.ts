@@ -7,7 +7,15 @@ const snap = (
     effects = "",
     showEffects = true,
     fog = false,
-): MapSnapshot => ({ tiles, objects, effects, showEffects, fog });
+    showObstacles = false,
+): MapSnapshot => ({
+    tiles,
+    objects,
+    effects,
+    showEffects,
+    showObstacles,
+    fog,
+});
 
 const A = snap("a-tiles", "a-objects");
 const B = snap("b-tiles", "b-objects");

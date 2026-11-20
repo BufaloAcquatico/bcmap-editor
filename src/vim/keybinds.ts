@@ -138,6 +138,12 @@ export const KEYBIND_HELP: {
         group: "navigate",
     },
     {
+        keys: "X",
+        description: "Show or hide the obstacle X overlay",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "G",
         description: "Show or hide the grid",
         scope: "map",
@@ -213,6 +219,8 @@ export interface EditorKeybindActions {
     toggleGrid: () => void;
     /** Show or hide the lighting overlay (`L`). */
     toggleLighting: () => void;
+    /** Show or hide the obstacle X overlay (`X`). */
+    toggleObstacles: () => void;
     /** Zoom the map canvas in one step (`+` / `=`). */
     zoomIn: () => void;
     /** Zoom the map canvas out one step (`-`). */
@@ -364,6 +372,26 @@ export function installEditorKeybinds(
                     return true;
                 }
                 actions.focusPicker();
+                return true;
+            },
+        },
+        {
+            keys: "X",
+            description: "Show or hide the obstacle X overlay",
+            scope: "map",
+            group: "navigate",
+            // Uppercase only (exact case); lowercase x is unbound. Text
+            // fields and buttons own their keys.
+            applies: (e) =>
+                e.key === "X" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleObstacles();
                 return true;
             },
         },

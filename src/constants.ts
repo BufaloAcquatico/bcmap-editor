@@ -225,6 +225,19 @@ export function resolveConnectedVariant(
     }
 }
 
+/**
+ * R134 objects whose `CanEnter("")` is false — cells a character cannot
+ * stand on. Pinned from the game data (Assets/MapData.js); includes the two
+ * effect-gated hurdles 660/670, which block a frozen/slowed character.
+ * Tiles are not included: the game's obstacle mark checks objects only.
+ */
+export const OBSTACLE_OBJECT_IDS: ReadonlySet<number> = new Set([
+    101, 612, 660, 670, 2004, 2005, 2006, 2007, 2010, 2011, 2012, 2013, 2014,
+    2015, 2016, 2017, 2018, 2020, 2025, 2030, 2031, 2032, 2034, 2035, 2036,
+    2040, 2045, 2048, 2050, 2055, 2057, 2059, 2060, 2070, 2080, 2085, 2090,
+    2091, 2092, 2093, 2098,
+]);
+
 /** Every extra R134 variant PNG (63 files), derived from the one registry. */
 export function connectedVariantAssets(): Array<{
     type: string;

@@ -10,6 +10,7 @@ import {
 } from "../../src/render";
 import {
     connectedVariantAssets,
+    OBSTACLE_OBJECT_IDS,
     ObjectIdAt,
     resolveConnectedVariant,
 } from "../../src/constants";
@@ -245,6 +246,18 @@ describe("R134 connected textures (explicit ID groups)", () => {
     it("leaves unregistered IDs to the ordinary style and exposes 63 assets", () => {
         expect(resolveConnectedVariant(2057, 5, 5, sparse({}))).toBeNull();
         expect(connectedVariantAssets()).toHaveLength(63);
+    });
+
+    it("pins the R134 obstacle-object set (including Impassable and hurdles)", () => {
+        expect(OBSTACLE_OBJECT_IDS.size).toBe(41);
+        for (const id of [101, 660, 670, 2005, 2034, 2098]) {
+            expect(OBSTACLE_OBJECT_IDS.has(id)).toBe(true);
+        }
+        // Non-blocking objects, tiles-as-obstacles and direction-dependent
+        // doors are not part of the static set.
+        for (const id of [100, 210, 3500, 4016, 4017]) {
+            expect(OBSTACLE_OBJECT_IDS.has(id)).toBe(false);
+        }
     });
 
     it("routes both legacy and R134 variants through resolveVariantImageName", () => {

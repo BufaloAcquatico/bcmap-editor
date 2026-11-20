@@ -67,6 +67,7 @@ docker compose up -d
 | Move through the tile list             | `arrows`                             |
 | Switch between the map and the sidebar | `Tab`                                |
 | Pick the tile                          | `Enter`                              |
+| Show or hide the obstacle X overlay    | `X`                                  |
 | Show or hide the grid                  | `G`                                  |
 | Show or hide the lighting              | `L`                                  |
 | Zoom in                                | `+` / `=`                            |
@@ -100,6 +101,7 @@ Press `:` and type one of these commands:
 | `:help`             | Show or hide this help                              |
 | `:grid`             | Show or hide the grid                               |
 | `:lighting`         | Show or hide the lighting overlay                   |
+| `:obstacles`        | Show or hide the obstacle X overlay                 |
 | `:fog [on\|off]`    | Turn map fog on or off (bare :fog toggles)          |
 | `:line x1,y1 x2,y2` | Draw a straight line of tiles                       |
 

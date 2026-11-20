@@ -41,6 +41,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Store editor globally
     (window as any).editor = editor;
+    // Read-only test probe: lets e2e assert that view-only flags (e.g. the
+    // obstacle overlay) do not affect the map's dirty state.
+    (window as any).isMapDirty = () =>
+        isDirty(baselineCode, editor.getMapData());
     // Shared surface store, exposed for end-to-end probing.
     (window as any).appSurface = appSurface;
     editor.populatePickers();
@@ -875,6 +879,7 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleEffects();
             syncLightingButton();
         },
+        toggleObstacles: () => editor.toggleObstacles(),
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
         selectPrevLayer: () => stepLayer(-1),

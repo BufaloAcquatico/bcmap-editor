@@ -1,12 +1,12 @@
 // BCMap Editor - stroke-coalesced undo/redo over whole-editor snapshots.
 //
-// A snapshot captures every piece of map state the user can edit: the tile and
-// object layer strings, the lighting grid, and whether the lighting overlay is
-// visible (toggling it is undoable too). A whole press/drag stroke shares one
-// undo entry: beginStroke() pushes the pre-stroke state once, paint calls
+// A snapshot captures every piece of editable map state: tile/object layer
+// strings, the lighting grid, the map fog flag, and the two undoable view
+// flags (lighting and obstacle-X visibility). A whole press/drag stroke shares
+// one undo entry: beginStroke() pushes the pre-stroke state once, paint calls
 // markDirty(), and endStroke() rolls the entry back when the stroke changed
 // nothing, so empty presses never cost an undo step. One-shot actions (the
-// lighting toggle) use commit() instead of a stroke.
+// lighting and obstacle toggles) use commit() instead of a stroke.
 //
 // Snapshots are plain immutable values (all strings/booleans), so the stacks
 // never alias live editor state. The editor owns the MapData and applies
@@ -19,6 +19,8 @@ export interface MapSnapshot {
     objects: string;
     effects: string;
     showEffects: boolean;
+    /** Whether the obstacle-X overlay is visible (undoable view aid). */
+    showObstacles: boolean;
     /** Whether map-level fog is enabled (carried through undo/redo). */
     fog: boolean;
 }

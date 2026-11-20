@@ -113,6 +113,7 @@ describe("installEditorKeybinds", () => {
         const actions = {
             toggleGrid: vi.fn(),
             toggleLighting: vi.fn(),
+            toggleObstacles: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
             selectPrevLayer: vi.fn(),
@@ -155,6 +156,7 @@ describe("installEditorKeybinds", () => {
         const actions = {
             toggleGrid: vi.fn(),
             toggleLighting: vi.fn(),
+            toggleObstacles: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
             selectPrevLayer: vi.fn(),
@@ -620,6 +622,7 @@ describe("installEditorKeybinds", () => {
         const bindings = installEditorKeybinds({
             toggleGrid: vi.fn(),
             toggleLighting: vi.fn(),
+            toggleObstacles: vi.fn(),
             zoomIn: vi.fn(),
             zoomOut: vi.fn(),
             selectPrevLayer: vi.fn(),
@@ -653,7 +656,7 @@ describe("installEditorKeybinds", () => {
                 "system",
             ]).toContain(binding.group);
         }
-        expect(bindings).toHaveLength(24);
+        expect(bindings).toHaveLength(25);
     });
 });
 

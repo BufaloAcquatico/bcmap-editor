@@ -2912,7 +2912,7 @@ window.FULL_OBJECT_CATALOG = [
 // these are hand-written derivations of BC's BuildImageName / WallEffect
 // rules. A single source keeps the runtime preloader, resolver, and asset
 // downloader from drifting apart.
-window.KITCHEN_COUNTER_IDS = window.CONNECTED_TEXTURE_GROUPS = window.RAILROAD_DIRECTIONS = window.WALL_EFFECT_INDICES = void 0;
+window.OBSTACLE_OBJECT_IDS = window.KITCHEN_COUNTER_IDS = window.CONNECTED_TEXTURE_GROUPS = window.RAILROAD_DIRECTIONS = window.WALL_EFFECT_INDICES = void 0;
 window.railroadVariantStyles = railroadVariantStyles;
 window.resolveConnectedVariant = resolveConnectedVariant;
 window.connectedVariantAssets = connectedVariantAssets;
@@ -3090,6 +3090,18 @@ function resolveConnectedVariant(id, x, y, at) {
             return fenceVariant(id, group, x, y, at);
     }
 }
+/**
+ * R134 objects whose `CanEnter("")` is false — cells a character cannot
+ * stand on. Pinned from the game data (Assets/MapData.js); includes the two
+ * effect-gated hurdles 660/670, which block a frozen/slowed character.
+ * Tiles are not included: the game's obstacle mark checks objects only.
+ */
+window.OBSTACLE_OBJECT_IDS = new Set([
+    101, 612, 660, 670, 2004, 2005, 2006, 2007, 2010, 2011, 2012, 2013, 2014,
+    2015, 2016, 2017, 2018, 2020, 2025, 2030, 2031, 2032, 2034, 2035, 2036,
+    2040, 2045, 2048, 2050, 2055, 2057, 2059, 2060, 2070, 2080, 2085, 2090,
+    2091, 2092, 2093, 2098,
+]);
 /** Every extra R134 variant PNG (63 files), derived from the one registry. */
 function connectedVariantAssets() {
     const assets = [];
@@ -3369,6 +3381,7 @@ window.SURFACE_HELP_KEYS = {
         "-",
         "[",
         "]",
+        "X",
         "G",
         "L",
         "Esc",
@@ -3506,13 +3519,13 @@ function createHelpRenderer(deps) {
 "use strict";
 // BCMap Editor - stroke-coalesced undo/redo over whole-editor snapshots.
 //
-// A snapshot captures every piece of map state the user can edit: the tile and
-// object layer strings, the lighting grid, and whether the lighting overlay is
-// visible (toggling it is undoable too). A whole press/drag stroke shares one
-// undo entry: beginStroke() pushes the pre-stroke state once, paint calls
+// A snapshot captures every piece of editable map state: tile/object layer
+// strings, the lighting grid, the map fog flag, and the two undoable view
+// flags (lighting and obstacle-X visibility). A whole press/drag stroke shares
+// one undo entry: beginStroke() pushes the pre-stroke state once, paint calls
 // markDirty(), and endStroke() rolls the entry back when the stroke changed
 // nothing, so empty presses never cost an undo step. One-shot actions (the
-// lighting toggle) use commit() instead of a stroke.
+// lighting and obstacle toggles) use commit() instead of a stroke.
 //
 // Snapshots are plain immutable values (all strings/booleans), so the stacks
 // never alias live editor state. The editor owns the MapData and applies
@@ -5591,6 +5604,11 @@ window.COMMANDS = [
         description: "Show or hide the lighting overlay",
     },
     {
+        name: "obstacles",
+        syntax: ":obstacles",
+        description: "Show or hide the obstacle X overlay",
+    },
+    {
         name: "fog",
         syntax: ":fog [on|off]",
         description: "Turn map fog on or off (bare :fog toggles)",
@@ -5717,6 +5735,9 @@ function runCommand(input, actions, state) {
             return { ok: true };
         case "lighting":
             actions.toggleEffects();
+            return { ok: true };
+        case "obstacles":
+            actions.toggleObstacles();
             return { ok: true };
         case "fog": {
             if (args.length === 0) {
@@ -5870,6 +5891,12 @@ window.KEYBIND_HELP = [
         keys: "Enter",
         description: "Pick the tile",
         scope: "sidebar",
+        group: "navigate",
+    },
+    {
+        keys: "X",
+        description: "Show or hide the obstacle X overlay",
+        scope: "map",
         group: "navigate",
     },
     {
@@ -6041,6 +6068,25 @@ function installEditorKeybinds(actions) {
                     return true;
                 }
                 actions.focusPicker();
+                return true;
+            },
+        },
+        {
+            keys: "X",
+            description: "Show or hide the obstacle X overlay",
+            scope: "map",
+            group: "navigate",
+            // Uppercase only (exact case); lowercase x is unbound. Text
+            // fields and buttons own their keys.
+            applies: (e) => e.key === "X" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e),
+            run: (e) => {
+                e.preventDefault();
+                actions.toggleObstacles();
                 return true;
             },
         },
@@ -6448,6 +6494,8 @@ class BCMapEditor {
         this.selectedEffect = null;
         /** Whether the lighting overlay is drawn. Toggling it is undoable. */
         this.showEffects = true;
+        /** Obstacle-X overlay: view aid, default off, undoable, not map state. */
+        this.showObstacles = false;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
         this.hoveredTile = null;
@@ -6745,6 +6793,7 @@ class BCMapEditor {
             objects: this.mapData.Objects,
             effects: (0, mapdata_1.effectsToGrid)(this.mapData.Effects),
             showEffects: this.showEffects,
+            showObstacles: this.showObstacles,
             fog: this.isFogEnabled(),
         };
     }
@@ -6754,6 +6803,7 @@ class BCMapEditor {
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = (0, mapdata_1.gridToEffects)(snapshot.effects);
         this.showEffects = snapshot.showEffects;
+        this.showObstacles = snapshot.showObstacles;
         if (snapshot.fog)
             this.mapData.Fog = true;
         else
@@ -7389,6 +7439,40 @@ class BCMapEditor {
                 }
             }
         }
+        // Obstacle-X overlay: a red X over cells whose object cannot be stood
+        // on (BC's ChatRoomMapViewObjectBlocksStanding). Read the raw object
+        // ID: getObjectAt() deliberately hides EmptySpace objects, including
+        // Impassable, which has no canvas sprite of its own. Drawn before
+        // lighting so tints apply over it, as in the game. Not tied to fog.
+        if (this.showObstacles) {
+            ctx.save();
+            ctx.strokeStyle = "#e02020";
+            ctx.lineWidth = Math.max(2, tileSize * 0.08);
+            ctx.lineCap = "round";
+            const insetX = tileSize * 0.18;
+            const insetY = tileSize * 0.18;
+            for (let y = firstObjY; y <= lastObjY; y++) {
+                for (let x = firstObjX; x <= lastObjX; x++) {
+                    const index = x + y * mapdata_1.MAP_WIDTH;
+                    const id = this.mapData.Objects.charCodeAt(index);
+                    if (!constants_1.OBSTACLE_OBJECT_IDS.has(id))
+                        continue;
+                    const left = startX + x * tileSize;
+                    const top = startY + y * tileSize;
+                    const x0 = left + insetX;
+                    const y0 = top + insetY;
+                    const x1 = left + tileSize - insetX;
+                    const y1 = top + tileSize - insetY;
+                    ctx.beginPath();
+                    ctx.moveTo(x0, y0);
+                    ctx.lineTo(x1, y1);
+                    ctx.moveTo(x1, y0);
+                    ctx.lineTo(x0, y1);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
         // Lighting overlay: the game's static effects, one filled rect per
         // non-Blank cell, over the objects (BC draws effects last). Gated by
         // the lighting visibility toggle; Blank and unknown IDs draw nothing.
@@ -7772,6 +7856,7 @@ class BCMapEditor {
             toggleHelp: () => this.toggleHelp(),
             toggleGrid: () => this.toggleGrid(),
             toggleEffects: () => this.toggleEffects(),
+            toggleObstacles: () => this.toggleObstacles(),
             toggleFog: () => this.toggleFog(),
             setFog: (enabled) => this.setFog(enabled),
             drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
@@ -8179,6 +8264,16 @@ class BCMapEditor {
     getEffectsVisible() {
         return this.showEffects;
     }
+    isObstaclesVisible() {
+        return this.showObstacles;
+    }
+    /** Toggle the obstacle-X overlay, one undoable view-flag entry. */
+    toggleObstacles() {
+        const before = this.snapshot();
+        this.showObstacles = !this.showObstacles;
+        this.history.commit(before);
+        this.render();
+    }
     /** Read the map-level fog flag. */
     isFogEnabled() {
         return this.mapData.Fog === true;
@@ -8276,6 +8371,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const editor = new window.BCMapEditor("mapCanvas");
     // Store editor globally
     window.editor = editor;
+    // Read-only test probe: lets e2e assert that view-only flags (e.g. the
+    // obstacle overlay) do not affect the map's dirty state.
+    window.isMapDirty = () => (0, slots_1.isDirty)(baselineCode, editor.getMapData());
     // Shared surface store, exposed for end-to-end probing.
     window.appSurface = appSurface_1.appSurface;
     editor.populatePickers();
@@ -9028,6 +9126,7 @@ document.addEventListener("DOMContentLoaded", () => {
             editor.toggleEffects();
             syncLightingButton();
         },
+        toggleObstacles: () => editor.toggleObstacles(),
         zoomIn: () => editor.zoomBy(1.1),
         zoomOut: () => editor.zoomBy(0.9),
         selectPrevLayer: () => stepLayer(-1),

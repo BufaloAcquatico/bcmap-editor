@@ -11,6 +11,7 @@ import {
 } from "./catalog";
 import {
     connectedVariantAssets,
+    OBSTACLE_OBJECT_IDS,
     RAILROAD_DIRECTIONS,
     WALL_EFFECT_INDICES,
 } from "./constants";
@@ -128,6 +129,8 @@ export class BCMapEditor {
     private selectedEffect: EffectDef | null = null;
     /** Whether the lighting overlay is drawn. Toggling it is undoable. */
     private showEffects = true;
+    /** Obstacle-X overlay: view aid, default off, undoable, not map state. */
+    private showObstacles = false;
     private isDragging = false;
     private lastMousePos = { x: 0, y: 0 };
     private hoveredTile: Point | null = null;
@@ -462,6 +465,7 @@ export class BCMapEditor {
             objects: this.mapData.Objects,
             effects: effectsToGrid(this.mapData.Effects),
             showEffects: this.showEffects,
+            showObstacles: this.showObstacles,
             fog: this.isFogEnabled(),
         };
     }
@@ -472,6 +476,7 @@ export class BCMapEditor {
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = gridToEffects(snapshot.effects);
         this.showEffects = snapshot.showEffects;
+        this.showObstacles = snapshot.showObstacles;
         if (snapshot.fog) this.mapData.Fog = true;
         else delete this.mapData.Fog;
     }
@@ -1239,6 +1244,40 @@ export class BCMapEditor {
             }
         }
 
+        // Obstacle-X overlay: a red X over cells whose object cannot be stood
+        // on (BC's ChatRoomMapViewObjectBlocksStanding). Read the raw object
+        // ID: getObjectAt() deliberately hides EmptySpace objects, including
+        // Impassable, which has no canvas sprite of its own. Drawn before
+        // lighting so tints apply over it, as in the game. Not tied to fog.
+        if (this.showObstacles) {
+            ctx.save();
+            ctx.strokeStyle = "#e02020";
+            ctx.lineWidth = Math.max(2, tileSize * 0.08);
+            ctx.lineCap = "round";
+            const insetX = tileSize * 0.18;
+            const insetY = tileSize * 0.18;
+            for (let y = firstObjY; y <= lastObjY; y++) {
+                for (let x = firstObjX; x <= lastObjX; x++) {
+                    const index = x + y * MAP_WIDTH;
+                    const id = this.mapData.Objects.charCodeAt(index);
+                    if (!OBSTACLE_OBJECT_IDS.has(id)) continue;
+                    const left = startX + x * tileSize;
+                    const top = startY + y * tileSize;
+                    const x0 = left + insetX;
+                    const y0 = top + insetY;
+                    const x1 = left + tileSize - insetX;
+                    const y1 = top + tileSize - insetY;
+                    ctx.beginPath();
+                    ctx.moveTo(x0, y0);
+                    ctx.lineTo(x1, y1);
+                    ctx.moveTo(x1, y0);
+                    ctx.lineTo(x0, y1);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
         // Lighting overlay: the game's static effects, one filled rect per
         // non-Blank cell, over the objects (BC draws effects last). Gated by
         // the lighting visibility toggle; Blank and unknown IDs draw nothing.
@@ -1718,6 +1757,7 @@ export class BCMapEditor {
                 toggleHelp: () => this.toggleHelp(),
                 toggleGrid: () => this.toggleGrid(),
                 toggleEffects: () => this.toggleEffects(),
+                toggleObstacles: () => this.toggleObstacles(),
                 toggleFog: () => this.toggleFog(),
                 setFog: (enabled: boolean) => this.setFog(enabled),
                 drawLine: (x1, y1, x2, y2) => this.drawLine(x1, y1, x2, y2),
@@ -2158,6 +2198,18 @@ export class BCMapEditor {
 
     public getEffectsVisible(): boolean {
         return this.showEffects;
+    }
+
+    public isObstaclesVisible(): boolean {
+        return this.showObstacles;
+    }
+
+    /** Toggle the obstacle-X overlay, one undoable view-flag entry. */
+    public toggleObstacles(): void {
+        const before = this.snapshot();
+        this.showObstacles = !this.showObstacles;
+        this.history.commit(before);
+        this.render();
     }
 
     /** Read the map-level fog flag. */

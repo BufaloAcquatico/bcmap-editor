@@ -27,6 +27,8 @@ export interface CommandActions {
     toggleGrid: () => void;
     /** Show or hide the lighting overlay (`:lighting`). */
     toggleEffects: () => void;
+    /** Show or hide the obstacle X overlay (`:obstacles`). */
+    toggleObstacles: () => void;
     /** Toggle map-level fog (`:fog`). */
     toggleFog: () => void;
     /** Set map-level fog explicitly (`:fog on` / `:fog off`). */
@@ -103,6 +105,11 @@ export const COMMANDS: CommandInfo[] = [
         name: "lighting",
         syntax: ":lighting",
         description: "Show or hide the lighting overlay",
+    },
+    {
+        name: "obstacles",
+        syntax: ":obstacles",
+        description: "Show or hide the obstacle X overlay",
     },
     {
         name: "fog",
@@ -242,6 +249,9 @@ export function runCommand(
             return { ok: true };
         case "lighting":
             actions.toggleEffects();
+            return { ok: true };
+        case "obstacles":
+            actions.toggleObstacles();
             return { ok: true };
         case "fog": {
             if (args.length === 0) {

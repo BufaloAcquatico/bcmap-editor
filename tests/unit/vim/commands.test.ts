@@ -14,6 +14,8 @@ const makeActions = () => ({
     openImport: vi.fn(),
     toggleHelp: vi.fn(),
     toggleGrid: vi.fn(),
+    toggleEffects: vi.fn(),
+    toggleObstacles: vi.fn(),
     toggleFog: vi.fn(),
     setFog: vi.fn(),
     drawLine: vi.fn(),
@@ -282,6 +284,8 @@ describe("command registry (help source)", () => {
         expect(names).toContain("import");
         expect(names).toContain("help");
         expect(names).toContain("grid");
+        expect(names).toContain("lighting");
+        expect(names).toContain("obstacles");
         expect(names).toContain("fog");
         expect(names).toContain("line");
     });

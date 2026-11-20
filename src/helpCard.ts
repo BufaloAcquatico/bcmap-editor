@@ -103,6 +103,7 @@ export const SURFACE_HELP_KEYS: Record<AppSurface, string[]> = {
         "-",
         "[",
         "]",
+        "X",
         "G",
         "L",
         "Esc",
