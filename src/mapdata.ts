@@ -293,7 +293,9 @@ export function parseMapData(
         }
     }
     const next: MapData = { Type, Tiles, Objects };
-    if (typeof raw.Fog === "boolean") next.Fog = raw.Fog;
+    // Only Fog:true is meaningful (BC writes only that); normalize an
+    // explicit false to absent so the dirty baseline and export agree.
+    if (raw.Fog === true) next.Fog = true;
 
     // Lighting + settings: the combined "@" part is authoritative and starts
     // with a one-byte map version (0 = effects only, 1 = effects + settings).

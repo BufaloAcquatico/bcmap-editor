@@ -499,6 +499,7 @@ export class BCMapEditor {
             objectSettings: cloneObjectSettings(this.mapData.ObjectSettings),
             showEffects: this.showEffects,
             showObstacles: this.showObstacles,
+            obstacleFollowsBrush: this.obstacleFollowsBrush,
             fog: this.isFogEnabled(),
         };
     }
@@ -514,6 +515,7 @@ export class BCMapEditor {
         );
         this.showEffects = snapshot.showEffects;
         this.showObstacles = snapshot.showObstacles;
+        this.obstacleFollowsBrush = snapshot.obstacleFollowsBrush;
         if (snapshot.fog) this.mapData.Fog = true;
         else delete this.mapData.Fog;
     }
@@ -1370,7 +1372,11 @@ export class BCMapEditor {
                     }
                     if (drawImg && obj.DecalArea && settings?.Decal) {
                         const decalKey =
-                            key +
+                            obj.Type +
+                            "/" +
+                            variant +
+                            "|" +
+                            (settings.Colors?.join(",") ?? "default") +
                             "|decal:" +
                             settings.Decal +
                             "|" +
@@ -2503,7 +2509,7 @@ export class BCMapEditor {
             this.revalidatePropertyTarget();
             this.syncObstaclesToBrush();
             // A wholesale map replacement starts a new history lineage.
-            this.history.clearRedo();
+            this.history.clear();
             this.cancelTeleporterPick();
             this.vim.clearCursor();
             this.resetView();
@@ -2693,7 +2699,7 @@ export class BCMapEditor {
 
     public newMap(): void {
         this.mapData = createDefaultMap();
-        this.history.clearRedo();
+        this.history.clear();
         this.selectedTile = this.tileMap.get(GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(BLANK_OBJECT_ID) ?? null;
         this.selectedEffect =

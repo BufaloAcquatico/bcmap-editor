@@ -28,6 +28,8 @@ export interface MapSnapshot {
     showEffects: boolean;
     /** Whether the obstacle-X overlay is visible (undoable view aid). */
     showObstacles: boolean;
+    /** Whether the overlay follows the eraser brush (vs manual X override). */
+    obstacleFollowsBrush: boolean;
     /** Whether map-level fog is enabled (carried through undo/redo). */
     fog: boolean;
 }
@@ -132,6 +134,17 @@ export class MapHistory {
     /** Drop the redo lineage (import/new map start a new lineage). */
     clearRedo(): void {
         this.redoStack = [];
+        this.notify();
+    }
+
+    /** Start a completely new history lineage (import/new map). */
+    clear(): void {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.strokeOpen = false;
+        this.strokeDirty = false;
+        this.strokeEntry = null;
+        this.strokeSavedRedo = [];
         this.notify();
     }
 }

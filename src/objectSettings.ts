@@ -173,9 +173,7 @@ export function cleanObjectSettings(
         settings.Colors.length === colorLayers.length &&
         settings.Colors.some((c) => c !== "Default") &&
         settings.Colors.every(
-            (c) =>
-                c === "Default" ||
-                /^#(?:[0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(c),
+            (c) => c === "Default" || /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i.test(c),
         )
     ) {
         clean.Colors = settings.Colors.map((c) =>
@@ -186,7 +184,7 @@ export function cleanObjectSettings(
         clean.Decal = settings.Decal;
         if (
             settings.DecalColor &&
-            /^#[0-9A-F]{6}$/i.test(settings.DecalColor)
+            /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i.test(settings.DecalColor)
         ) {
             clean.DecalColor = settings.DecalColor.toUpperCase();
         }

@@ -9,13 +9,16 @@ const snap = (
     fog = false,
     showObstacles = false,
     cellData: MapSnapshot["cellData"] = undefined,
+    obstacleFollowsBrush = true,
 ): MapSnapshot => ({
     tiles,
     objects,
     effects,
     cellData,
+    objectSettings: undefined,
     showEffects,
     showObstacles,
+    obstacleFollowsBrush,
     fog,
 });
 

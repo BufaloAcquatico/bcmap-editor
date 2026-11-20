@@ -5542,6 +5542,16 @@ class MapHistory {
         this.redoStack = [];
         this.notify();
     }
+    /** Start a completely new history lineage (import/new map). */
+    clear() {
+        this.undoStack = [];
+        this.redoStack = [];
+        this.strokeOpen = false;
+        this.strokeDirty = false;
+        this.strokeEntry = null;
+        this.strokeSavedRedo = [];
+        this.notify();
+    }
 }
 window.MapHistory = MapHistory;
 
@@ -5805,8 +5815,10 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
         }
     }
     const next = { Type, Tiles, Objects };
-    if (typeof raw.Fog === "boolean")
-        next.Fog = raw.Fog;
+    // Only Fog:true is meaningful (BC writes only that); normalize an
+    // explicit false to absent so the dirty baseline and export agree.
+    if (raw.Fog === true)
+        next.Fog = true;
     // Lighting + settings: the combined "@" part is authoritative and starts
     // with a one-byte map version (0 = effects only, 1 = effects + settings).
     // Fall back to the legacy JSON `Effects`/`ObjectSettings` strings.
@@ -6017,13 +6029,13 @@ function cleanObjectSettings(settings, layers, decals, hasDecalArea, canBeCustom
     if (settings.Colors &&
         settings.Colors.length === colorLayers.length &&
         settings.Colors.some((c) => c !== "Default") &&
-        settings.Colors.every((c) => c === "Default" || /^#(?:[0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(c))) {
+        settings.Colors.every((c) => c === "Default" || /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i.test(c))) {
         clean.Colors = settings.Colors.map((c) => c === "Default" ? c : c.toUpperCase());
     }
     if (hasDecalArea && settings.Decal && decals.includes(settings.Decal)) {
         clean.Decal = settings.Decal;
         if (settings.DecalColor &&
-            /^#[0-9A-F]{6}$/i.test(settings.DecalColor)) {
+            /^#(?:[0-9A-F]{3}|[0-9A-F]{6})$/i.test(settings.DecalColor)) {
             clean.DecalColor = settings.DecalColor.toUpperCase();
         }
     }
@@ -9563,6 +9575,7 @@ class BCMapEditor {
             objectSettings: (0, objectSettings_1.cloneObjectSettings)(this.mapData.ObjectSettings),
             showEffects: this.showEffects,
             showObstacles: this.showObstacles,
+            obstacleFollowsBrush: this.obstacleFollowsBrush,
             fog: this.isFogEnabled(),
         };
     }
@@ -9575,6 +9588,7 @@ class BCMapEditor {
         this.mapData.ObjectSettings = (0, objectSettings_1.cloneObjectSettings)(snapshot.objectSettings);
         this.showEffects = snapshot.showEffects;
         this.showObstacles = snapshot.showObstacles;
+        this.obstacleFollowsBrush = snapshot.obstacleFollowsBrush;
         if (snapshot.fog)
             this.mapData.Fog = true;
         else
@@ -10285,7 +10299,11 @@ class BCMapEditor {
                             drawImg = composed;
                     }
                     if (drawImg && obj.DecalArea && settings?.Decal) {
-                        const decalKey = key +
+                        const decalKey = obj.Type +
+                            "/" +
+                            variant +
+                            "|" +
+                            (settings.Colors?.join(",") ?? "default") +
                             "|decal:" +
                             settings.Decal +
                             "|" +
@@ -11216,7 +11234,7 @@ class BCMapEditor {
             this.revalidatePropertyTarget();
             this.syncObstaclesToBrush();
             // A wholesale map replacement starts a new history lineage.
-            this.history.clearRedo();
+            this.history.clear();
             this.cancelTeleporterPick();
             this.vim.clearCursor();
             this.resetView();
@@ -11374,7 +11392,7 @@ class BCMapEditor {
     }
     newMap() {
         this.mapData = (0, mapdata_1.createDefaultMap)();
-        this.history.clearRedo();
+        this.history.clear();
         this.selectedTile = this.tileMap.get(mapdata_1.GRASS_TILE_ID) ?? null;
         this.selectedObject = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ?? null;
         this.selectedEffect =

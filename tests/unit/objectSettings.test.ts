@@ -10,7 +10,8 @@ import {
     cloneObjectSettings,
 } from "../../src/objectSettings";
 import { BitStringReader } from "../../src/bitstring";
-import { MAP_CELL_COUNT } from "../../src/mapdata";
+import { MAP_CELL_COUNT, serializeMap, parseMapData } from "../../src/mapdata";
+import { FULL_TILE_CATALOG, FULL_OBJECT_CATALOG } from "../../src/catalog";
 
 const BLANK_GRID = new Array(MAP_CELL_COUNT).fill(10);
 
@@ -96,6 +97,52 @@ describe("object settings codec", () => {
             Decal: "DenOfSin",
             DecalColor: "#123456",
         });
+    });
+
+    it("round-trips a combined v1 code with lighting, all CellData types and settings", () => {
+        const tiles = String.fromCharCode(210).repeat(MAP_CELL_COUNT);
+        const objects = new Array(MAP_CELL_COUNT).fill(
+            String.fromCharCode(100),
+        );
+        objects[5] = String.fromCharCode(3520); // sign
+        objects[6] = String.fromCharCode(3530); // teleporter
+        objects[7] = String.fromCharCode(2005); // tether
+        const map = {
+            Type: "Always" as const,
+            Tiles: tiles,
+            Objects: objects.join(""),
+            Effects: new Array(MAP_CELL_COUNT).fill(10) as number[],
+            CellData: {
+                "5": { Type: "Sign" as const, Text: "hello" },
+                "6": {
+                    Type: "Teleporter" as const,
+                    Shared: true as const,
+                    Destination: { X: 8, Y: 8 },
+                    Color: "#AABBCC80",
+                },
+                "7": { Type: "Tether" as const },
+            },
+            ObjectSettings: {
+                10: {
+                    ID: 599,
+                    Rotation: 45,
+                    Size: 150,
+                    Colors: ["#ABCDEF", "Default"],
+                    Decal: "DenOfSin",
+                },
+            },
+        };
+        map.Effects[100] = 14;
+        const code = serializeMap(map as any);
+        const parsed = parseMapData(
+            code,
+            (id) => FULL_TILE_CATALOG.some((t) => t.ID === id),
+            (id) => FULL_OBJECT_CATALOG.some((o) => o.ID === id),
+        );
+        expect(parsed.CellData).toEqual(map.CellData);
+        expect(parsed.ObjectSettings).toEqual(map.ObjectSettings);
+        expect(parsed.Effects).toEqual(map.Effects);
+        expect(serializeMap(parsed as any)).toBe(code);
     });
 
     it("deep-clones settings including the Colors array", () => {
