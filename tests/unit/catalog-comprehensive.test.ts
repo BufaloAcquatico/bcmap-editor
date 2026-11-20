@@ -78,10 +78,11 @@ describe("Catalog - Comprehensive", () => {
         });
     });
 
-    it("should include Blank object with ID 100", () => {
-        const blank = objects.find((o) => o.ID === 100);
-        expect(blank).toBeDefined();
-        expect(blank?.Style).toBe("Blank");
+    it("should include the EmptySpace eraser object with ID 100", () => {
+        const eraser = objects.find((o) => o.ID === 100);
+        expect(eraser).toBeDefined();
+        expect(eraser?.Style).toBe("Passable");
+        expect(eraser?.Type).toBe("EmptySpace");
     });
 
     it("should have Grass tile with ID 210", () => {

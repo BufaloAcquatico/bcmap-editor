@@ -55,7 +55,7 @@ test("object picker categories load with thumbnails", async ({
     expect(categories).toContain("Banners");
 
     // Categories start collapsed; reveal matching sprites via search
-    await page.fill("#searchInput", "Blank");
+    await page.fill("#searchInput", "Passable");
     await page.waitForTimeout(100);
 
     // Check thumbnails load
@@ -64,15 +64,15 @@ test("object picker categories load with thumbnails", async ({
         .count();
     expect(objItems).toBeGreaterThan(0);
 
-    // Every Blank object entry from the catalog is present (one per object category group)
-    const blankItem = await page
+    // R134 has one visible eraser: EmptySpace/Passable (ID 100). The 21
+    // legacy blank IDs are kept in the catalog for import but hidden.
+    const eraserItem = await page
         .locator(
             "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible",
         )
         .count();
-    // Every object category with a Blank entry shows its eraser first.
-    // 19 of the 20 game categories own a Blank; Banners has none.
-    expect(blankItem).toBe(19);
+    expect(eraserItem).toBe(1);
+    expect(categories).toContain("Empty Space");
 });
 
 test("search filter works for tiles", async ({ page }: { page: Page }) => {
@@ -432,10 +432,10 @@ test("status bar tracks pointer and selection", async ({
         "Position: (-, -)",
     );
 
-    // Object layer default selection is Blank (Erase)
+    // Object layer default selection is the EmptySpace eraser
     await page.click('label[for="layerObject"]');
     await expect(page.locator("#statusSelection")).toHaveText(
-        "Selection: Blank (Erase)",
+        "Selection: Passable (Erase)",
     );
 });
 

@@ -43,39 +43,41 @@ docker compose up -d
 ## Controls
 
 <!-- KEYBINDS:START -->
-| Action | Input |
-| --- | --- |
-| **Mouse** |  |
-| Paint tiles or objects | Left click or left-drag |
-| Move the view | Right drag |
-| Zoom | Mouse wheel |
-| **Cursor** |  |
-| Move around the map | `hjkl` / `arrows` |
-| **Paint** |  |
-| Paint tiles on the map | `Space` / `Enter` |
-| Select an area | `v` |
-| **Clipboard** |  |
-| Copy the selected area | `y` / `Y` |
-| Paste what you copied | `p` |
-| Undo the last change | `u` |
-| **Navigate** |  |
-| Search tiles, objects or lighting | `/` |
-| Move through the tile list | `arrows` |
-| Switch between the map and the sidebar | `Tab` |
-| Pick the tile | `Enter` |
-| Show or hide the grid | `G` |
-| Show or hide the lighting | `L` |
-| Zoom in | `+` / `=` |
-| Zoom out | `-` |
-| Switch to the previous layer | `[` |
-| Switch to the next layer | `]` |
-| **Command** |  |
-| Type a command | `:` |
-| **System** |  |
-| Cancel | `Esc` |
-| Show or hide this help | `?` |
-| Undo the last change | `Ctrl+Z` |
-| Redo | `Ctrl+Y` / `Ctrl+Shift+Z` / `Ctrl+R` |
+
+| Action                                 | Input                                |
+| -------------------------------------- | ------------------------------------ |
+| **Mouse**                              |                                      |
+| Paint tiles or objects                 | Left click or left-drag              |
+| Move the view                          | Right drag                           |
+| Zoom                                   | Mouse wheel                          |
+| **Cursor**                             |                                      |
+| Move around the map                    | `hjkl` / `arrows`                    |
+| **Paint**                              |                                      |
+| Paint tiles on the map                 | `Space` / `Enter`                    |
+| Select an area                         | `v`                                  |
+| **Clipboard**                          |                                      |
+| Copy the selected area                 | `y` / `Y`                            |
+| Paste what you copied                  | `p`                                  |
+| Undo the last change                   | `u`                                  |
+| **Navigate**                           |                                      |
+| Search tiles, objects or lighting      | `/`                                  |
+| Move through the tile list             | `arrows`                             |
+| Switch between the map and the sidebar | `Tab`                                |
+| Pick the tile                          | `Enter`                              |
+| Show or hide the grid                  | `G`                                  |
+| Show or hide the lighting              | `L`                                  |
+| Zoom in                                | `+` / `=`                            |
+| Zoom out                               | `-`                                  |
+| Switch to the previous layer           | `[`                                  |
+| Switch to the next layer               | `]`                                  |
+| **Command**                            |                                      |
+| Type a command                         | `:`                                  |
+| **System**                             |                                      |
+| Cancel                                 | `Esc`                                |
+| Show or hide this help                 | `?`                                  |
+| Undo the last change                   | `Ctrl+Z`                             |
+| Redo                                   | `Ctrl+Y` / `Ctrl+Shift+Z` / `Ctrl+R` |
+
 <!-- KEYBINDS:END -->
 
 ### Commands
@@ -83,19 +85,21 @@ docker compose up -d
 Press `:` and type one of these commands:
 
 <!-- COMMANDS:START -->
-| Command | What it does |
-| --- | --- |
-| `:w [name]` | Save the map to a browser slot (add ! to overwrite) |
-| `:write [name]` | Same as :w |
-| `:e [name]` | Open a saved map (add ! to discard changes) |
-| `:enew` | Start a new map (add ! to discard changes) |
-| `:export [name]` | Download the map as a .txt file |
-| `:import` | Import a map code |
-| `:help` | Show or hide this help |
-| `:grid` | Show or hide the grid |
-| `:lighting` | Show or hide the lighting overlay |
-| `:fog [on|off]` | Turn map fog on or off (bare :fog toggles) |
-| `:line x1,y1 x2,y2` | Draw a straight line of tiles |
+
+| Command             | What it does                                        |
+| ------------------- | --------------------------------------------------- |
+| `:w [name]`         | Save the map to a browser slot (add ! to overwrite) |
+| `:write [name]`     | Same as :w                                          |
+| `:e [name]`         | Open a saved map (add ! to discard changes)         |
+| `:enew`             | Start a new map (add ! to discard changes)          |
+| `:export [name]`    | Download the map as a .txt file                     |
+| `:import`           | Import a map code                                   |
+| `:help`             | Show or hide this help                              |
+| `:grid`             | Show or hide the grid                               |
+| `:lighting`         | Show or hide the lighting overlay                   |
+| `:fog [on\|off]`    | Turn map fog on or off (bare :fog toggles)          |
+| `:line x1,y1 x2,y2` | Draw a straight line of tiles                       |
+
 <!-- COMMANDS:END -->
 
 The keyboard cursor starts where your mouse last hovered and auto-pans to
@@ -107,7 +111,7 @@ click-drag or a quick burst of key presses — undoes as a single step.
 ## Map Format
 
 This editor uses the same LZString-compressed map codes as Bondage Club
-R133:
+R134:
 
 - Map data is compressed with lz-string and base64 encoded
 - When the map has static lighting, the code appends `@` and a base64

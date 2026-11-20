@@ -6,7 +6,14 @@ import {
     RAILROAD_PREVIEW_ID,
     railroadStyleName,
     resolveExpandableVariant,
+    resolveVariantImageName,
 } from "../../src/render";
+import {
+    connectedVariantAssets,
+    ObjectIdAt,
+    resolveConnectedVariant,
+} from "../../src/constants";
+import type { ObjectDef } from "../../src/catalog";
 
 // No DOM/canvas mocks needed: every function under test is pure.
 
@@ -128,5 +135,126 @@ describe("railroadStyleName", () => {
             );
         }
         expect(names.size).toBe(16);
+    });
+});
+
+// R134 connected-texture rules. A tiny sparse grid stands in for the map.
+function sparse(cells: Record<string, number>): ObjectIdAt {
+    return (x, y) => cells[`${x},${y}`] ?? null;
+}
+
+function obj(ID: number, Style: string): ObjectDef {
+    return { ID, Type: "Test", Style };
+}
+
+describe("R134 connected textures (explicit ID groups)", () => {
+    it("joins row objects by same ID, ignoring vertical neighbors", () => {
+        expect(resolveConnectedVariant(185, 5, 5, sparse({}))).toBe(
+            "ModernLowboardSingle",
+        );
+        expect(
+            resolveConnectedVariant(
+                185,
+                5,
+                5,
+                sparse({ "6,5": 185, "5,4": 185, "5,6": 185 }),
+            ),
+        ).toBe("ModernLowboardLeft");
+        expect(
+            resolveConnectedVariant(
+                185,
+                5,
+                5,
+                sparse({ "4,5": 185, "6,5": 185 }),
+            ),
+        ).toBe("ModernLowboardMiddle");
+        expect(resolveConnectedVariant(188, 5, 5, sparse({ "4,5": 188 }))).toBe(
+            "NordicSideboardRight",
+        );
+        // 335 has no JoinsNeighbors flag in game data; the row rule is keyed
+        // on its explicit ID, and it only looks horizontally.
+        expect(
+            resolveConnectedVariant(
+                335,
+                5,
+                5,
+                sparse({ "5,4": 335, "5,6": 335 }),
+            ),
+        ).toBe("KitchenWallCabinetSingle");
+    });
+
+    it("joins all four kitchen counter IDs with BC's if-chain priority", () => {
+        const at = sparse({
+            "4,5": 331,
+            "6,5": 332,
+            "5,4": 330,
+            "5,6": 333,
+        });
+        // East+West wins even with North+South present (no T-piece exists).
+        expect(resolveConnectedVariant(330, 5, 5, at)).toBe(
+            "KitchenCounterMiddle",
+        );
+        expect(
+            resolveConnectedVariant(
+                330,
+                5,
+                5,
+                sparse({ "5,4": 331, "5,6": 332 }),
+            ),
+        ).toBe("KitchenCounterVerticalMiddle");
+        expect(
+            resolveConnectedVariant(
+                333,
+                5,
+                5,
+                sparse({ "5,6": 330, "6,5": 331 }),
+            ),
+        ).toBe("KitchenCounterStoveGasCornerSouthEast");
+        expect(resolveConnectedVariant(332, 5, 5, sparse({ "4,5": 333 }))).toBe(
+            "KitchenCounterStoveElectricRight",
+        );
+        expect(resolveConnectedVariant(331, 5, 5, sparse({ "5,4": 330 }))).toBe(
+            "KitchenCounterSinkVerticalBottom",
+        );
+        expect(resolveConnectedVariant(330, 5, 5, sparse({}))).toBe(
+            "KitchenCounterSingle",
+        );
+    });
+
+    it("alternates fence middles and posts by distance from the left cap", () => {
+        const row = sparse({
+            "3,5": 2034,
+            "4,5": 2034,
+            "5,5": 2034,
+            "6,5": 2034,
+        });
+        expect(resolveConnectedVariant(2034, 3, 5, row)).toBe("FarmFenceLeft");
+        expect(resolveConnectedVariant(2034, 4, 5, row)).toBe(
+            "FarmFenceMiddle",
+        );
+        expect(resolveConnectedVariant(2034, 5, 5, row)).toBe(
+            "FarmFenceMiddlePost",
+        );
+        expect(resolveConnectedVariant(2034, 6, 5, row)).toBe("FarmFenceRight");
+        // 2036 uses the same parity rule with its own prefix.
+        expect(
+            resolveConnectedVariant(2036, 4, 5, sparse({ "5,5": 2036 })),
+        ).toBe("HomeFenceLeft");
+    });
+
+    it("leaves unregistered IDs to the ordinary style and exposes 63 assets", () => {
+        expect(resolveConnectedVariant(2057, 5, 5, sparse({}))).toBeNull();
+        expect(connectedVariantAssets()).toHaveLength(63);
+    });
+
+    it("routes both legacy and R134 variants through resolveVariantImageName", () => {
+        const couch = obj(710, "CouchPink");
+        expect(resolveVariantImageName(couch, 5, 5, sparse({}))).toBe(
+            "CouckPinkSmall",
+        );
+        const counter = obj(330, "KitchenCounterSingle");
+        expect(
+            resolveVariantImageName(counter, 5, 5, sparse({ "6,5": 331 })),
+        ).toBe("KitchenCounterLeft");
     });
 });

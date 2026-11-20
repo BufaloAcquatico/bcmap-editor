@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { compressToBase64 } from "lz-string";
 import { BCMapEditor } from "../../src/editor";
-import { FULL_OBJECT_CATALOG, FULL_TILE_CATALOG } from "../../src/catalog";
+import {
+    FULL_OBJECT_CATALOG,
+    FULL_TILE_CATALOG,
+    isEmptyObject,
+} from "../../src/catalog";
 
 // Minimal DOM mock for constructor
 const mockCtx = {
@@ -68,9 +72,12 @@ describe("Catalog - Full mirror of official game data", () => {
         }
         const potty = objects.find((o) => o.ID === 1400);
         expect(potty?.Style).toBe("PinkPotty");
-        const blank = objects.find((o) => o.ID === 1399);
-        expect(blank?.Style).toBe("Blank");
-        expect(blank?.Type).toBe("ABDL");
+        // R134 retypes legacy blanks to EmptySpace but keeps raw IDs so old
+        // map codes import byte-for-byte.
+        const legacy = objects.find((o) => o.ID === 1399);
+        expect(legacy?.Style).toBe("Passable");
+        expect(legacy?.Type).toBe("EmptySpace");
+        expect(legacy?.deprecatedId).toBe(100);
     });
 
     it("contains the previously missing game objects", () => {
@@ -122,7 +129,7 @@ describe("Catalog - Full mirror of official game data", () => {
         // A game update changes these counts on purpose; the failure tells
         // the author to re-sync deliberately, not silently.
         expect(FULL_TILE_CATALOG.length).toBe(170);
-        expect(FULL_OBJECT_CATALOG.length).toBe(280);
+        expect(FULL_OBJECT_CATALOG.length).toBe(373);
     });
 
     it("keys previously re-typed entries by their game type", () => {
@@ -167,9 +174,63 @@ describe("Catalog - Full mirror of official game data", () => {
         expect(editor.isKnownTileId(999999)).toBe(false);
     });
 
+    it("contains the R134 kitchen pieces with their game geometry", () => {
+        const byId = new Map(FULL_OBJECT_CATALOG.map((o) => [o.ID, o]));
+        for (const id of [
+            250, 330, 331, 332, 333, 334, 335, 343, 363, 364, 365,
+        ]) {
+            expect(byId.get(id)?.Type, `object ${id} should be Kitchen`).toBe(
+                "Kitchen",
+            );
+        }
+        // The furnace/stove/fridge geometry changed in R134.
+        expect(byId.get(362)?.Top).toBe(-0.8);
+        expect(byId.get(364)?.Height).toBe(1.22);
+        expect(byId.get(365)?.Top).toBe(-0.8);
+    });
+
+    it("keeps all 21 DeprecatedID=100 aliases and 23 EmptySpace entries", () => {
+        const deprecated = FULL_OBJECT_CATALOG.filter(
+            (o) => o.deprecatedId === 100,
+        );
+        expect(deprecated.map((o) => o.ID)).toEqual([
+            200, 211, 249, 342, 400, 500, 600, 700, 800, 1000, 1100, 1200, 1300,
+            1399, 2000, 3000, 3281, 3499, 4000, 4500, 5000,
+        ]);
+        expect(deprecated.every(isEmptyObject)).toBe(true);
+        expect(
+            FULL_OBJECT_CATALOG.filter(isEmptyObject).map((o) => o.ID),
+        ).toEqual([
+            100, 101, 200, 211, 249, 342, 400, 500, 600, 700, 800, 1000, 1100,
+            1200, 1300, 1399, 2000, 3000, 3281, 3499, 4000, 4500, 5000,
+        ]);
+    });
+
+    it("round-trips R134-only object 2034 (FarmFenceSingle)", () => {
+        const Tiles = String.fromCharCode(210).repeat(1600).split("");
+        const Objects = Array(1600).fill(String.fromCharCode(100));
+        Objects[7] = String.fromCharCode(2034);
+        const code = compressToBase64(
+            JSON.stringify({
+                Type: "Always",
+                Tiles: Tiles.join(""),
+                Objects: Objects.join(""),
+            }),
+        );
+        expect(FULL_OBJECT_CATALOG.some((o) => o.ID === 2034)).toBe(true);
+        expect(() => editor.importMap(code)).not.toThrow();
+        expect(editor.getMapData().Objects.charCodeAt(7)).toBe(2034);
+        const reimported = new BCMapEditor("testCanvas");
+        expect(() =>
+            reimported.importMap(editor.exportMap("r134")),
+        ).not.toThrow();
+        expect(reimported.getMapData().Objects.charCodeAt(7)).toBe(2034);
+    });
+
     it("imports a real map containing IDs outside the display catalog", () => {
         // 40x40 grid filled with grass (210), one SpiderWeb wall (1227) and
-        // one ABDL Blank object (1399) - all absent from the display catalogs.
+        // one legacy EmptySpace object (1399) - all absent from the display
+        // pickers but present in the full game mirror.
         const Tiles = String.fromCharCode(210).repeat(1600).split("");
         Tiles[5] = String.fromCharCode(1227);
         const Objects = String.fromCharCode(100).repeat(1600).split("");

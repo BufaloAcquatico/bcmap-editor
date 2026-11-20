@@ -32,12 +32,17 @@ function formatKeys(keys) {
         .join(" / ");
 }
 
+/** Escape Markdown table delimiters in generated cell text (e.g. `[on|off]`). */
+function cell(text) {
+    return String(text).replace(/\|/g, "\\|");
+}
+
 function main() {
     const { KEYBIND_HELP } = require(keybindsDist);
     const rows = ["| Action | Input |", "| --- | --- |"];
     const byGroup = new Map(GROUP_ORDER.map((group) => [group, []]));
     for (const [action, input] of MOUSE_ROWS) {
-        byGroup.get("mouse").push(`| ${action} | ${input} |`);
+        byGroup.get("mouse").push(`| ${cell(action)} | ${cell(input)} |`);
     }
     for (const entry of KEYBIND_HELP) {
         const list = byGroup.get(entry.group);
@@ -47,12 +52,14 @@ function main() {
             );
             process.exit(1);
         }
-        list.push(`| ${entry.description} | ${formatKeys(entry.keys)} |`);
+        list.push(
+            `| ${cell(entry.description)} | ${cell(formatKeys(entry.keys))} |`,
+        );
     }
     for (const group of GROUP_ORDER) {
         const list = byGroup.get(group);
         if (list.length === 0) continue;
-        rows.push(`| **${GROUP_LABELS[group]}** |  |`);
+        rows.push(`| **${cell(GROUP_LABELS[group])}** |  |`);
         rows.push(...list);
     }
     const table = rows.join("\n");
@@ -67,7 +74,9 @@ function main() {
     const { COMMANDS } = require(commandsDist);
     const commandRows = ["| Command | What it does |", "| --- | --- |"];
     for (const command of COMMANDS) {
-        commandRows.push(`| \`${command.syntax}\` | ${command.description} |`);
+        commandRows.push(
+            `| \`${cell(command.syntax)}\` | ${cell(command.description)} |`,
+        );
     }
     readme = rewriteSection(
         fs.readFileSync(readmeFile, "utf8"),

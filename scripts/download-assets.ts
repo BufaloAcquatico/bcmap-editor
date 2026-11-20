@@ -1,10 +1,19 @@
 import * as fs from "fs";
 import * as path from "path";
 import https from "https";
-import { FULL_OBJECT_CATALOG, FULL_TILE_CATALOG } from "../src/catalog";
-import { railroadVariantStyles, WALL_EFFECT_INDICES } from "../src/constants";
+import {
+    FULL_OBJECT_CATALOG,
+    FULL_TILE_CATALOG,
+    isEmptyObject,
+} from "../src/catalog";
+import {
+    connectedVariantAssets,
+    railroadVariantStyles,
+    WALL_EFFECT_INDICES,
+} from "../src/constants";
+import { EXPANDABLE_LEFT_RIGHT, RAILROAD_PREVIEW_ID } from "../src/render";
 
-const BASE_URL = "https://www.bondage-europe.com/R133/BondageClub/Assets/Map";
+const BASE_URL = "https://www.bondage-europe.com/R134/BondageClub/Assets/Map";
 
 interface Options {
     force: boolean;
@@ -41,6 +50,22 @@ function parseOptions(): Options {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** A 429 is rate limiting, not a broken asset: retry on its own schedule. */
+class RateLimitError extends Error {
+    constructor(readonly retryAfterMs: number) {
+        super("HTTP 429");
+    }
+}
+
+function retryAfterMilliseconds(header: string | undefined): number {
+    if (!header) return 5000;
+    const seconds = Number(header);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const date = Date.parse(header);
+    if (!Number.isNaN(date)) return Math.max(0, date - Date.now());
+    return 5000;
+}
+
 function downloadOnce(url: string, dest: string): Promise<void> {
     return new Promise((resolve, reject) => {
         const dir = path.dirname(dest);
@@ -58,9 +83,22 @@ function downloadOnce(url: string, dest: string): Promise<void> {
                     resolve();
                 });
             } else {
+                const retryAfter = response.headers["retry-after"];
                 response.resume();
                 cleanup();
-                reject(new Error(`HTTP ${response.statusCode}`));
+                if (response.statusCode === 429) {
+                    reject(
+                        new RateLimitError(
+                            retryAfterMilliseconds(
+                                Array.isArray(retryAfter)
+                                    ? retryAfter[0]
+                                    : retryAfter,
+                            ),
+                        ),
+                    );
+                } else {
+                    reject(new Error(`HTTP ${response.statusCode}`));
+                }
             }
         });
         request.on("error", (err) => {
@@ -73,22 +111,37 @@ function downloadOnce(url: string, dest: string): Promise<void> {
     });
 }
 
+const MAX_RATE_LIMIT_RETRIES = 8;
+
 async function downloadWithRetry(
     url: string,
     dest: string,
     retries: number,
 ): Promise<void> {
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= retries; attempt++) {
+    let ordinaryAttempt = 0;
+    let rateLimitHits = 0;
+    for (;;) {
         try {
             await downloadOnce(url, dest);
             return;
         } catch (err) {
-            lastError = err;
-            if (attempt < retries) await sleep(500 * Math.pow(2, attempt));
+            if (err instanceof RateLimitError) {
+                if (rateLimitHits >= MAX_RATE_LIMIT_RETRIES) throw err;
+                rateLimitHits++;
+                // Honor Retry-After when present, otherwise 5-30s backoff.
+                const wait = Math.min(30000, Math.max(5000, err.retryAfterMs));
+                console.error(
+                    `  rate limited (429); waiting ${Math.round(wait / 1000)}s ` +
+                        `(${rateLimitHits}/${MAX_RATE_LIMIT_RETRIES})`,
+                );
+                await sleep(wait);
+                continue; // 429 never spends a 404/timeout retry.
+            }
+            if (ordinaryAttempt >= retries) throw err;
+            await sleep(500 * Math.pow(2, ordinaryAttempt));
+            ordinaryAttempt++;
         }
     }
-    throw lastError;
 }
 
 interface Job {
@@ -172,8 +225,10 @@ export function tileJobs(): Job[] {
 
 export function objectJobs(): Job[] {
     // Catalog types are the game types, which match the server folders, so
-    // no remapping is needed between source URL and save path.
-    return FULL_OBJECT_CATALOG.filter((obj) => obj.Style !== "Blank").map(
+    // no remapping is needed between source URL and save path. R134
+    // EmptySpace objects have no canvas texture; ID 101's picker image is
+    // fetched separately by paletteImageJobs().
+    return FULL_OBJECT_CATALOG.filter((obj) => !isEmptyObject(obj)).map(
         (obj) => {
             return {
                 label: `objects/${obj.Type}/${obj.Style}`,
@@ -191,79 +246,69 @@ export function objectJobs(): Job[] {
     );
 }
 
-// Neighbor-variant textures for expanding objects (BC BuildImageName).
-// Each entry names the catalog Type (save folder) and the variant style.
-// Variants are served from the same Objects/<assetType>/ folder as the
-// base sprite.
-interface VariantSpec {
-    type: string;
-    /** Catalog ID of the base sprite; its server folder is reused. */
-    baseId: number;
-    variants: string[];
+/** Picker-only PaletteImage sprites (R134 EmptySpace/Impassable). */
+export function paletteImageJobs(): Job[] {
+    return FULL_OBJECT_CATALOG.filter(
+        (obj) => obj.paletteImage !== undefined,
+    ).map((obj) => {
+        const style = obj.paletteImage!;
+        return {
+            label: `objects/${obj.Type}/${style}`,
+            url: `${BASE_URL}/Objects/${obj.Type}/${style}.png`,
+            dest: path.join(
+                __dirname,
+                "..",
+                "assets",
+                "objects",
+                obj.Type,
+                `${style}.png`,
+            ),
+        };
+    });
 }
-
-const OBJECT_VARIANTS: VariantSpec[] = [
-    {
-        type: "FloorDecorationExpanding",
-        baseId: 710,
-        variants: [
-            // NOTE: upstream BC spells this file "CouckPinkSmall" (typo in
-            // ChatRoomMap.ts BuildImageName); the correctly-spelled
-            // "CouchPinkSmall.png" does not exist on the R133 server (404).
-            "CouckPinkSmall",
-            "CouchPinkLeft",
-            "CouchPinkMiddle",
-            "CouchPinkRight",
-            "BedBlueSmall",
-            "BedBlueLeft",
-            "BedBlueMiddle",
-            "BedBlueRight",
-            "BallPitSmall",
-            "BallPitLeft",
-            "BallPitMiddle",
-            "BallPitRight",
-            "VikingTableSmall",
-            "VikingTableLeft",
-            "VikingTableMiddle",
-            "VikingTableRight",
-            // Railroad connectivity variants shared with the editor runtime
-            // (src/constants.ts) so both sides download/preload the same set.
-            ...railroadVariantStyles(),
-        ],
-    },
-    {
-        type: "FloorObstacle",
-        baseId: 2033,
-        variants: [
-            "VelourRopeBarrierLeft",
-            "VelourRopeBarrierMiddle",
-            "VelourRopeBarrierRight",
-        ],
-    },
-];
 
 export function objectVariantJobs(): Job[] {
     const jobs: Job[] = [];
-    for (const spec of OBJECT_VARIANTS) {
-        // Variants are served from the same Objects folder as the base
-        // sprite of the group; catalog types match the server folders.
-        const base = FULL_OBJECT_CATALOG.find((o) => o.ID === spec.baseId);
-        const assetType = base ? base.Type : spec.type;
-        for (const style of spec.variants) {
-            jobs.push({
-                label: `objects/${spec.type}/${style}`,
-                url: `${BASE_URL}/Objects/${assetType}/${style}.png`,
-                dest: path.join(
-                    __dirname,
-                    "..",
-                    "assets",
-                    "objects",
-                    spec.type,
-                    `${style}.png`,
-                ),
-            });
+    const add = (type: string, style: string): void => {
+        jobs.push({
+            label: `objects/${type}/${style}`,
+            url: `${BASE_URL}/Objects/${type}/${style}.png`,
+            dest: path.join(
+                __dirname,
+                "..",
+                "assets",
+                "objects",
+                type,
+                `${style}.png`,
+            ),
+        });
+    };
+
+    // Legacy expandables and railroad: the style list comes from render.ts,
+    // the same map the editor preloads and renders from. NOTE: upstream
+    // spells the single-couch file "CouckPinkSmall" (typo in BuildImageName);
+    // the correctly-spelled "CouchPinkSmall.png" 404s on the R134 server.
+    EXPANDABLE_LEFT_RIGHT.forEach(({ prefix, single }, id) => {
+        const base = FULL_OBJECT_CATALOG.find((o) => o.ID === id);
+        const type = base?.Type ?? "FloorDecorationExpanding";
+        for (const style of [
+            single,
+            prefix + "Left",
+            prefix + "Middle",
+            prefix + "Right",
+        ]) {
+            if (style !== base?.Style) add(type, style);
         }
-    }
+    });
+    const railroad = FULL_OBJECT_CATALOG.find(
+        (o) => o.ID === RAILROAD_PREVIEW_ID,
+    );
+    const railroadType = railroad?.Type ?? "FloorDecorationExpanding";
+    for (const style of railroadVariantStyles()) add(railroadType, style);
+
+    // R134 connected textures: all 63 extra files come from the same
+    // explicit ID-group registry used by the renderer and preloader.
+    for (const { type, style } of connectedVariantAssets()) add(type, style);
     return jobs;
 }
 
@@ -271,6 +316,7 @@ async function verifyAssets(): Promise<void> {
     const jobs = [
         ...tileJobs(),
         ...objectJobs(),
+        ...paletteImageJobs(),
         ...objectVariantJobs(),
         ...wallEffectJobs(),
     ];
@@ -308,10 +354,11 @@ async function main(): Promise<void> {
     const opts = parseOptions();
     const tiles = tileJobs();
     const objects = objectJobs();
+    const paletteImages = paletteImageJobs();
     const variants = objectVariantJobs();
     const wallEffects = wallEffectJobs();
     console.log(
-        `Downloading ${tiles.length} tiles, ${objects.length} objects, ${variants.length} object variants, ${wallEffects.length} wall effects ` +
+        `Downloading ${tiles.length} tiles, ${objects.length} objects, ${paletteImages.length} palette icons, ${variants.length} object variants, ${wallEffects.length} wall effects ` +
             `(concurrency=${opts.concurrency}, delay=${opts.delayMs}ms, retries=${opts.retries})...`,
     );
 
@@ -323,6 +370,11 @@ async function main(): Promise<void> {
     const objectResult = await runPool(objects, opts);
     console.log(
         `Objects: ${objectResult.ok} downloaded, ${objectResult.skipped} skipped, ${objectResult.failed.length} failed`,
+    );
+
+    const paletteResult = await runPool(paletteImages, opts);
+    console.log(
+        `\nPalette icons: ${paletteResult.ok} downloaded, ${paletteResult.skipped} skipped, ${paletteResult.failed.length} failed`,
     );
 
     const variantResult = await runPool(variants, opts);
@@ -338,6 +390,7 @@ async function main(): Promise<void> {
     const failed = [
         ...tileResult.failed,
         ...objectResult.failed,
+        ...paletteResult.failed,
         ...variantResult.failed,
         ...wallEffectResult.failed,
     ];

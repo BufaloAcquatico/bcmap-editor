@@ -4,10 +4,15 @@ import {
     BLANK_OBJECT_ID,
     FULL_OBJECT_CATALOG,
     FULL_TILE_CATALOG,
+    isEmptyObject,
     type ObjectDef,
     type TileDef,
 } from "./catalog";
-import { RAILROAD_DIRECTIONS, WALL_EFFECT_INDICES } from "./constants";
+import {
+    connectedVariantAssets,
+    RAILROAD_DIRECTIONS,
+    WALL_EFFECT_INDICES,
+} from "./constants";
 import {
     BLANK_EFFECT_ID,
     EFFECT_BY_ID,
@@ -55,8 +60,7 @@ import {
     findFloorWallEffect,
     findWallEffectTile,
     RAILROAD_PREVIEW_ID,
-    railroadStyleName,
-    resolveExpandableVariant,
+    resolveVariantImageName as resolveVariantStyle,
 } from "./render";
 
 export type { ObjectDef, TileDef } from "./catalog";
@@ -261,7 +265,9 @@ export class BCMapEditor {
             }
         });
         this.objectCatalog.forEach((obj) => {
-            if (obj.Style === "Blank") return;
+            // R134 EmptySpace objects have no canvas sprite. ID 101 also has
+            // no visible texture by game rule (ChatRoomMapView.js:1796).
+            if (isEmptyObject(obj)) return;
             const key = obj.Type + "/" + obj.Style;
             if (!this.objectImageCache.has(key)) {
                 const img = new Image();
@@ -270,11 +276,13 @@ export class BCMapEditor {
                 this.objectImageCache.set(key, img);
             }
         });
-        // Preload neighbor-variant textures for expanding objects. Variants
-        // live next to the base sprite (assets/objects/<Type>/<Variant>.png).
-        // Missing files simply fail to load and the renderer falls back to
-        // the base sprite, so this list can name every BC variant.
-        const variantJobs: Array<[string, string]> = [];
+        // Preload neighbor-variant textures. Variants live next to the base
+        // sprite (assets/objects/<Type>/<Variant>.png). Missing files simply
+        // fail to load and the renderer falls back to the base sprite, so
+        // this list can name every BC variant. The R134 connected-texture
+        // list comes from the same registry the downloader uses.
+        const variantJobs: Array<[string, string]> =
+            connectedVariantAssets().map(({ type, style }) => [type, style]);
         EXPANDABLE_LEFT_RIGHT.forEach(({ prefix, single }, id) => {
             const folder =
                 this.fullObjectMap.get(id)?.Type ?? "FloorDecorationExpanding";
@@ -1013,41 +1021,26 @@ export class BCMapEditor {
         if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return null;
         const objId = this.mapData.Objects.charCodeAt(x + y * MAP_WIDTH);
         if (objId === BLANK_OBJECT_ID) return null;
-        return this.fullObjectMap.get(objId) ?? null;
-    }
-
-    private hasSameIdNeighbor(x: number, y: number, id: number): boolean {
-        const neighbor = this.getObjectAt(x, y);
-        return neighbor !== null && neighbor.ID === id;
+        const obj = this.fullObjectMap.get(objId) ?? null;
+        // R134 EmptySpace cells (including legacy blank IDs such as 1399)
+        // draw nothing and must never count as a texture neighbor.
+        return obj && isEmptyObject(obj) ? null : obj;
     }
 
     // BC-faithful neighbor variant selection (BuildImageName equivalent).
-    // Each cell resolves independently, so runs of 3+ identical objects
-    // naturally become Left/Middle.../Middle/Right with no group pre-pass
-    // and no overlapping stretched draws.
+    // The rules live in render.ts / constants.ts so the preloader, renderer,
+    // and asset downloader all use the same explicit ID groups.
     private resolveVariantImageName(
         x: number,
         y: number,
         obj: ObjectDef,
     ): string {
-        const expandable = EXPANDABLE_LEFT_RIGHT.get(obj.ID);
-        if (expandable) {
-            return resolveExpandableVariant(
-                expandable.prefix,
-                expandable.single,
-                this.hasSameIdNeighbor(x - 1, y, obj.ID),
-                this.hasSameIdNeighbor(x + 1, y, obj.ID),
-            );
-        }
-        if (obj.ID === RAILROAD_PREVIEW_ID) {
-            return railroadStyleName([
-                this.hasSameIdNeighbor(x, y - 1, obj.ID),
-                this.hasSameIdNeighbor(x, y + 1, obj.ID),
-                this.hasSameIdNeighbor(x + 1, y, obj.ID),
-                this.hasSameIdNeighbor(x - 1, y, obj.ID),
-            ]);
-        }
-        return obj.Style;
+        return resolveVariantStyle(
+            obj,
+            x,
+            y,
+            (cx, cy) => this.getObjectAt(cx, cy)?.ID ?? null,
+        );
     }
 
     private render(): void {
@@ -1164,13 +1157,14 @@ export class BCMapEditor {
                 if (objId === BLANK_OBJECT_ID) continue;
                 const obj =
                     this.objectMap.get(objId) ?? this.fullObjectMap.get(objId);
-                if (obj && obj.Style !== "Blank") {
-                    // Neighbor-aware sprite selection for expanding objects
-                    // (CouchPink/BedBlue/BallPit/VikingTable previews,
-                    // RailroadPreview, VelourRopeBarrier). BC ships a separate
-                    // pre-rendered texture per neighbor configuration, so we
-                    // switch textures instead of stretching one sprite. Each
-                    // cell draws exactly its own variant rect.
+                if (obj && !isEmptyObject(obj)) {
+                    // Neighbor-aware sprite selection for expanding objects:
+                    // R133 couch/bed/ballpit/viking/railroad/rope plus the
+                    // R134 row joins, kitchen counters and fences registered
+                    // in src/constants.ts. BC ships a separate pre-rendered
+                    // texture per neighbor configuration, so we switch
+                    // textures instead of stretching one sprite. Each cell
+                    // draws exactly its own variant rect.
                     const variant = this.resolveVariantImageName(x, y, obj);
                     const baseKey = obj.Type + "/" + obj.Style;
                     const key = obj.Type + "/" + variant;
@@ -1758,8 +1752,10 @@ export class BCMapEditor {
                     ? "Selection: Lighting Off (Erase)"
                     : `Selection: Lighting/${this.selectedEffect.Style}`;
         } else if (this.currentLayer === "object" && this.selectedObject) {
-            if (this.selectedObject.Style === "Blank") {
-                text = "Selection: Blank (Erase)";
+            if (this.selectedObject.ID === BLANK_OBJECT_ID) {
+                // R134 renamed Blank to EmptySpace/Passable; keep the
+                // user-facing eraser meaning of the default brush.
+                text = "Selection: Passable (Erase)";
             } else {
                 text = `Selection: ${this.selectedObject.Type}/${this.selectedObject.Style}`;
             }
@@ -1915,7 +1911,7 @@ export class BCMapEditor {
             objId === BLANK_OBJECT_ID
                 ? null
                 : (this.objectMap.get(objId) ?? this.fullObjectMap.get(objId));
-        if (obj && obj.Style !== "Blank") {
+        if (obj && !isEmptyObject(obj)) {
             const variant = this.resolveVariantImageName(x, y, obj);
             const baseKey = obj.Type + "/" + obj.Style;
             const img =

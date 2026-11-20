@@ -7,7 +7,7 @@
 //
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 
-import type { ObjectDef, TileDef } from "./catalog";
+import { BLANK_OBJECT_ID, type ObjectDef, type TileDef } from "./catalog";
 import { effectColorCss, type EffectDef } from "./effects";
 import { appSurface } from "./appSurface";
 import {
@@ -33,8 +33,15 @@ const DISPLAY_CATEGORY_OVERRIDES: Record<number, string> = {
     392: "Banners", // VoidOrderBanner
 };
 
+/** Hidden display category for R134's legacy EmptySpace aliases. */
+export const DEPRECATED_DISPLAY_GROUP = "Deprecated";
+
 /** Picker section label for an object; overrides win over the type mapping. */
 export function displayGroupFor(o: ObjectDef): string {
+    // BC keeps 21 legacy blank IDs in the catalog so old map codes stay
+    // importable. They all carry DeprecatedID=100 and are hidden from the
+    // picker by populate(); R134's real empty brushes are 100 and 101.
+    if (o.deprecatedId !== undefined) return DEPRECATED_DISPLAY_GROUP;
     const override = DISPLAY_CATEGORY_OVERRIDES[o.ID];
     if (override) return override;
     return o.Type;
@@ -50,6 +57,8 @@ const TYPE_DISPLAY_LABELS: Record<string, string> = {
     Banners: "Banners",
     Bathroom: "Bathroom",
     Bedroom: "Bedroom",
+    Deprecated: "Deprecated",
+    EmptySpace: "Empty Space",
     Floor: "Floors",
     FloorDecorationAnimal: "Animal Decor",
     FloorDecorationCamping: "Camping",
@@ -64,7 +73,9 @@ const TYPE_DISPLAY_LABELS: Record<string, string> = {
     FloorNumber: "Floor Numbers",
     FloorObstacle: "Floor Obstacles",
     Functional: "Functional",
+    Kitchen: "Kitchen",
     LivingRoom: "Living Room",
+    Office: "Office",
     School: "School",
     Wall: "Walls",
     WallDecoration: "Wall Decor",
@@ -92,19 +103,6 @@ export function displayNameFor(style: string): string {
         .filter(Boolean)
         .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
         .join(" ");
-}
-
-/**
- * Blank (eraser) entries first, everything else in catalog order (stable).
- * Catalog position of a Blank is accidental — Bathroom's sorts last in game
- * order — so first-position is enforced here instead of assumed.
- */
-export function blankFirst<T extends { Style: string }>(
-    items: readonly T[],
-): T[] {
-    return [...items].sort(
-        (a, b) => Number(b.Style === "Blank") - Number(a.Style === "Blank"),
-    );
 }
 
 /**
@@ -242,6 +240,9 @@ export class MapPicker {
         const objGroups = new Map<string, ObjectDef[]>();
         objectCatalog.forEach((o) => {
             const g = displayGroupFor(o);
+            // A display override alone would still show all 21 deprecated
+            // aliases under a "Deprecated" header; filter the whole group.
+            if (g === DEPRECATED_DISPLAY_GROUP) return;
             if (!objGroups.has(g)) objGroups.set(g, []);
             objGroups.get(g)!.push(o);
         });
@@ -254,14 +255,7 @@ export class MapPicker {
             );
             this.objectCategoryEls.push(entry);
             const container = entry.content;
-            let blankAdded = false;
-            blankFirst(objs).forEach((obj) => {
-                if (obj.Style === "Blank") {
-                    if (blankAdded) {
-                        return;
-                    }
-                    blankAdded = true;
-                }
+            objs.forEach((obj) => {
                 const item = document.createElement("button");
                 item.type = "button";
                 item.className = "sprite-item";
@@ -271,22 +265,29 @@ export class MapPicker {
                 // shows its direction via the catalog Rotation.
                 const transform = rotationTransform(obj);
                 if (transform) item.style.transform = transform;
-                if (obj.Style !== "Blank") {
-                    const key = obj.Type + "/" + obj.Style;
-                    item.style.backgroundImage =
-                        "url(assets/objects/" + key + ".png)";
-                    item.title = displayNameFor(obj.Style);
-                    item.setAttribute?.(
-                        "aria-label",
-                        `Select object ${displayNameFor(obj.Style)}`,
-                    );
-                } else {
+                if (obj.ID === BLANK_OBJECT_ID) {
                     // Static compile-time SVG constant only (no interpolation
                     // of catalog or user data); the sanctioned innerHTML uses
-                    // in this file (Blank object + Blank lighting).
+                    // in this file (object eraser + Blank lighting).
                     item.innerHTML = BLANK_ERASER_ICON;
-                    item.title = "Blank (Erase)";
-                    item.setAttribute?.("aria-label", "Blank (erase objects)");
+                    item.title = "Passable (Erase)";
+                    item.setAttribute?.(
+                        "aria-label",
+                        "Erase objects (Passable)",
+                    );
+                } else {
+                    // BC's PaletteImage overrides the thumbnail when the
+                    // picker needs a picture for a cell that draws nothing
+                    // (EmptySpace/Impassable, game rule ChatRoomMapView.js:
+                    // 1796). No editor-only canvas marker in this slice: the
+                    // obstacle-X slice will show it on the map.
+                    const style = obj.paletteImage ?? obj.Style;
+                    const key = obj.Type + "/" + style;
+                    item.style.backgroundImage =
+                        "url(assets/objects/" + key + ".png)";
+                    const label = displayNameFor(style);
+                    item.title = label;
+                    item.setAttribute?.("aria-label", `Select object ${label}`);
                 }
                 item.addEventListener("click", (e: MouseEvent) => {
                     this.delegate.onSelectObject(obj);

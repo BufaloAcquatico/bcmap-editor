@@ -3,13 +3,19 @@ import {
     tileJobs,
     objectJobs,
     objectVariantJobs,
+    paletteImageJobs,
     wallEffectJobs,
 } from "../../scripts/download-assets";
 import {
+    connectedVariantAssets,
     railroadVariantStyles,
     WALL_EFFECT_INDICES,
 } from "../../src/constants";
-import { FULL_TILE_CATALOG, FULL_OBJECT_CATALOG } from "../../src/catalog";
+import {
+    FULL_TILE_CATALOG,
+    FULL_OBJECT_CATALOG,
+    isEmptyObject,
+} from "../../src/catalog";
 import path from "node:path";
 
 describe("download-assets job builders", () => {
@@ -72,16 +78,60 @@ describe("download-assets job builders", () => {
         }
     });
 
-    it("covers every non-Blank object catalog entry (picker linkage)", () => {
-        const dests = new Set(objectJobs().map((j) => j.dest));
+    it("covers every non-EmptySpace object entry and excludes the blanks", () => {
+        const jobs = objectJobs();
+        const dests = new Set(jobs.map((j) => j.dest));
+        expect(jobs).toHaveLength(
+            FULL_OBJECT_CATALOG.filter((o) => !isEmptyObject(o)).length,
+        );
         for (const obj of FULL_OBJECT_CATALOG) {
-            if (obj.Style === "Blank") continue;
+            if (isEmptyObject(obj)) {
+                expect(
+                    [...dests].some((d) =>
+                        d.endsWith(
+                            path.join("objects", obj.Type, `${obj.Style}.png`),
+                        ),
+                    ),
+                    `EmptySpace ${obj.ID} must not have a canvas job`,
+                ).toBe(false);
+                continue;
+            }
             const tail = path.join("objects", obj.Type, `${obj.Style}.png`);
             const found = [...dests].some((d) => d.endsWith(tail));
             expect(
                 found,
                 `no download job for object ${obj.Type}/${obj.Style}`,
             ).toBe(true);
+        }
+    });
+
+    it("fetches the R134 Impassable picker image", () => {
+        expect(paletteImageJobs().map((j) => j.label)).toEqual([
+            "objects/EmptySpace/Impassable",
+        ]);
+        expect(paletteImageJobs()[0].url).toContain(
+            "/R134/BondageClub/Assets/Map/Objects/EmptySpace/Impassable.png",
+        );
+    });
+
+    it("downloads all 63 R134 connected-texture variants from the registry", () => {
+        const assets = connectedVariantAssets();
+        expect(assets).toHaveLength(63);
+        const labels = new Set(objectVariantJobs().map((j) => j.label));
+        for (const { type, style } of assets) {
+            expect(labels.has(`objects/${type}/${style}`)).toBe(true);
+        }
+        // Spot-check cross-ID counters, wall cabinets, and fence parity.
+        for (const style of [
+            "KitchenCounterMiddle",
+            "KitchenCounterStoveGasCornerSouthWest",
+            "KitchenWallCabinetRight",
+            "FarmFenceMiddlePost",
+            "HomeFenceMiddle",
+            "ModernBookshelfMiddle",
+        ]) {
+            const asset = assets.find((a) => a.style === style);
+            expect(asset, `missing variant ${style}`).toBeDefined();
         }
     });
 });

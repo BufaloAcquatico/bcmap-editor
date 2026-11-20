@@ -80,11 +80,11 @@ describe("Status bar", () => {
         );
     });
 
-    it("shows Blank (Erase) when switching to the object layer", () => {
+    it("shows the eraser meaning when switching to the object layer", () => {
         editor.setCurrentLayer("object");
         expect(editor.getSelectedObject()?.ID).toBe(100);
         expect(mockElements["statusSelection"].textContent).toBe(
-            "Selection: Blank (Erase)",
+            "Selection: Passable (Erase)",
         );
         editor.setCurrentLayer("tile");
         expect(mockElements["statusSelection"].textContent).toBe(

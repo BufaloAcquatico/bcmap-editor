@@ -7,7 +7,7 @@
 // module mirrors that codec and the effect table so the editor can render,
 // edit and export lighting losslessly.
 //
-// Source: BondageClub/Assets/MapData.js `AssetsMapDataEffects` (R133).
+// Source: BondageClub/Assets/MapData.js `AssetsMapDataEffects` (R134).
 
 import {
     BitStringReader,

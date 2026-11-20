@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../src/editor";
 import { EFFECT_CATALOG } from "../../src/effects";
+import { FULL_OBJECT_CATALOG } from "../../src/catalog";
 
 const created: any[] = [];
 
@@ -166,14 +167,15 @@ describe("Foldable pickers", () => {
         expect((editor as any).picker.searchTerm).toBe("");
     });
 
-    it("renders Blank picker items as bundled inline SVG, not a CDN glyph", () => {
+    it("renders the EmptySpace eraser as bundled inline SVG, not a CDN glyph", () => {
         editor.populatePickers();
-        const blanks = created.filter(
+        const erasers = created.filter(
             (el) =>
-                el.className === "sprite-item" && el.title === "Blank (Erase)",
+                el.className === "sprite-item" &&
+                el.title === "Passable (Erase)",
         );
-        expect(blanks.length).toBeGreaterThan(0);
-        for (const item of blanks) {
+        expect(erasers).toHaveLength(1);
+        for (const item of erasers) {
             expect(item.innerHTML).toContain("picker-eraser-icon");
             expect(item.innerHTML).toContain("<svg");
             expect(item.innerHTML).not.toContain("bi-erase");
@@ -225,17 +227,23 @@ describe("Foldable pickers", () => {
         ]);
     });
 
-    it("shows the eraser first even when Blank sorts last in game order", () => {
-        // Bathroom's Blank (3281) comes after every other Bathroom entry.
-        const bathroom = [
-            { ID: 260, Type: "Bathroom", Style: "LaundryMachine" },
-            { ID: 3024, Type: "Bathroom", Style: "Sink" },
-            { ID: 3281, Type: "Bathroom", Style: "Blank" },
-        ];
-        (editor as any).picker.populate([], bathroom);
+    it("shows only the two live EmptySpace brushes, with the Impassable icon", () => {
+        // All 23 R134 EmptySpace entries reach populate(), but the 21 with
+        // DeprecatedID are hidden; 101 uses PaletteImage as its picker icon
+        // even though it paints nothing visible on the canvas.
+        const empty = FULL_OBJECT_CATALOG.filter(
+            (o) => o.Type === "EmptySpace",
+        );
+        expect(empty).toHaveLength(23);
+        (editor as any).picker.populate([], empty);
         const icons = created.filter((el) => el.className === "sprite-item");
-        expect(icons).toHaveLength(3);
-        expect(icons[0].title).toBe("Blank (Erase)");
+        expect(icons).toHaveLength(2);
+        expect(icons[0].title).toBe("Passable (Erase)");
+        expect(icons[0].innerHTML).toContain("picker-eraser-icon");
+        expect(icons[1].title).toBe("Impassable");
+        expect(icons[1].style.backgroundImage).toBe(
+            "url(assets/objects/EmptySpace/Impassable.png)",
+        );
     });
 
     it("builds the eight lighting effects as swatches, Blank as the eraser", () => {

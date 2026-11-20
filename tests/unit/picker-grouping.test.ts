@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-    blankFirst,
+    DEPRECATED_DISPLAY_GROUP,
     displayGroupFor,
     displayNameFor,
     orderObjectGroups,
@@ -26,7 +26,20 @@ describe("picker grouping", () => {
         // The FloorDecoration* family is never merged into one bucket.
         expect(displayGroupFor(obj(595))).toBe("FloorDecorationParty");
         expect(displayGroupFor(obj(360))).toBe("FloorDecorationThemed");
-        expect(displayGroupFor(obj(700))).toBe("FloorDecorationExpanding");
+        expect(displayGroupFor(obj(710))).toBe("FloorDecorationExpanding");
+    });
+
+    it("hides every R134 deprecated alias in a filtered display group", () => {
+        const deprecated = FULL_OBJECT_CATALOG.filter(
+            (o) => o.deprecatedId !== undefined,
+        );
+        expect(deprecated).toHaveLength(21);
+        for (const o of deprecated) {
+            expect(displayGroupFor(o)).toBe(DEPRECATED_DISPLAY_GROUP);
+        }
+        // The two live empty brushes stay in a visible section.
+        expect(displayGroupFor(obj(100))).toBe("EmptySpace");
+        expect(displayGroupFor(obj(101))).toBe("EmptySpace");
     });
 
     it("shows the standing banners next to the other banners", () => {
@@ -64,6 +77,9 @@ describe("section labels", () => {
         );
         expect(sectionLabelFor("Wall")).toBe("Walls");
         expect(sectionLabelFor("Banners")).toBe("Banners");
+        expect(sectionLabelFor("EmptySpace")).toBe("Empty Space");
+        expect(sectionLabelFor("Kitchen")).toBe("Kitchen");
+        expect(sectionLabelFor("Office")).toBe("Office");
     });
 
     it("falls back to the raw type for unknown future categories", () => {
@@ -75,23 +91,7 @@ describe("section labels", () => {
         for (const type of types) {
             expect(sectionLabelFor(type).length).toBeGreaterThan(0);
         }
-        expect(types.size).toBe(20);
-    });
-});
-
-describe("blankFirst", () => {
-    it("moves the eraser first whatever the catalog order", () => {
-        const items = [
-            { ID: 260, Style: "LaundryMachine" },
-            { ID: 3281, Style: "Blank" },
-            { ID: 3024, Style: "Sink" },
-        ];
-        expect(blankFirst(items).map((i) => i.ID)).toEqual([3281, 260, 3024]);
-    });
-
-    it("keeps catalog order when no Blank is present", () => {
-        const items = [{ Style: "A" }, { Style: "B" }];
-        expect(blankFirst(items)).toEqual(items);
+        expect(types.size).toBe(23);
     });
 });
 

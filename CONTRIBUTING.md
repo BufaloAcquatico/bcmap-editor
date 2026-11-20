@@ -37,31 +37,49 @@ every load — check there first if a retune seems to do nothing.
 
 ```bash
 # Download assets (drives from the shared catalog, with throttling)
-npm run download-assets
+# Existing files are skipped by default — do NOT use --force: most sprites
+# are byte-identical across releases and re-downloading them is wasteful.
+npm run download-assets -- --concurrency=1 --delay=500 --retries=6
 
 # Verify every catalog asset is present and non-empty, without downloading
 npm run download-assets -- --verify
 
-# Options: skip existing files by default; add --force to re-download
-#   --force            re-download every asset
+# Options:
+#   --force            re-download every asset (avoid; skip-existing default)
 #   --concurrency=N    parallel requests (default 2)
 #   --delay=MS         delay between requests (default 150)
-#   --retries=N        retries per asset (default 3)
+#   --retries=N        retries per asset for 404s/timeouts (default 3)
 #   --verify           check the local tree against the catalog, then exit
+# HTTP 429 replies are handled separately: Retry-After is honored (5-30s
+# backoff) and they do not consume the ordinary retry budget.
 ```
 
 Sprites are pinned to a single Bondage Club release
-(`BASE_URL` in `scripts/download-assets.ts`, currently **R133**). Only the
+(`BASE_URL` in `scripts/download-assets.ts`, currently **R134**). Only the
 latest hosted release resolves on the asset server, so when the game
-publishes a new version, bump that pin and re-run the downloader with
-`--force`, then confirm with `--verify`.
+publishes a new version, bump that pin, regenerate the catalog (below),
+and re-run the downloader with the throttled command above; finish with
+`--verify`. If the host keeps rate-limiting, report it instead of forcing
+the download.
 
-The catalog in `src/catalog.ts` is the single source of truth: pickers,
-renderer, importer, and this script all read it, so a game addition
-surfaces everywhere. If the game publishes new items, add them to the
-catalog and re-run the downloader; if the asset server 404s brand-new
-files, they render as color-fallback placeholders until the server
-publishes them.
+The catalog in `src/catalog.ts` is generated from BC's
+`Assets/MapData.js` and is the single source of truth: pickers, renderer,
+importer, and this script all read it, so a game addition surfaces
+everywhere. To update it after a game release, point the generator at a BC
+checkout and commit the regenerated file:
+
+```bash
+npm run generate-catalog -- --source=/path/to/BondageClub/Assets/MapData.js
+# BC_MAPDATA=/path/to/... also works; see the script for default paths.
+```
+
+Do not edit `src/catalog.ts` by hand. Connected-texture variants (R134
+Kitchen/LivingRoom rows and fences) are listed in `src/constants.ts` and
+consumed by the renderer, the preloader, and the downloader from that one
+registry. If the asset server 404s brand-new files, they render as
+color-fallback placeholders until the server publishes them. After regenerating the catalog or running `npm run build`, run
+`npx prettier --write README.md src/catalog.ts` before committing: the
+generated catalog and README tables are not Prettier-formatted on their own.
 
 ## Formatting
 

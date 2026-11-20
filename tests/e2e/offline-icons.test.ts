@@ -1,11 +1,11 @@
 import { test, expect, Page } from "playwright/test";
 
-// Regression test: Blank (delete-tool) picker icons must render even when
-// the CDN stylesheets fail (offline use). They are bundled inline SVG, not
-// font glyphs. Only stylesheets are blocked: the editor bundle needs the
-// CDN-served JS (LZString/Bootstrap) to boot, which is a separate,
-// out-of-scope dependency.
-test("blank picker eraser icons render with CDN stylesheets blocked", async ({
+// Regression test: the EmptySpace/Passable (delete-tool) picker icon must
+// render even when the CDN stylesheets fail (offline use). It is a bundled
+// inline SVG, not a font glyph. Only stylesheets are blocked: the editor
+// bundle needs the CDN-served JS (LZString/Bootstrap) to boot, which is a
+// separate, out-of-scope dependency.
+test("eraser picker icon renders with CDN stylesheets blocked", async ({
     page,
 }: {
     page: Page;
@@ -15,14 +15,14 @@ test("blank picker eraser icons render with CDN stylesheets blocked", async ({
     );
     await page.goto("http://localhost:8080/map-editor.html");
     await page.click('label[for="layerObject"]');
-    await page.fill("#searchInput", "Blank");
+    await page.fill("#searchInput", "Passable");
     await page.waitForTimeout(100);
 
     const icons = page.locator(
         "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible svg.picker-eraser-icon",
     );
-    // 19 of the 20 game categories own a Blank entry (Banners has none).
-    expect(await icons.count()).toBe(19);
+    // R134 has one visible eraser; the 21 deprecated blank IDs are hidden.
+    expect(await icons.count()).toBe(1);
     for (const box of await icons.evaluateAll((els) =>
         els.map((el) => el.getBoundingClientRect().toJSON()),
     )) {

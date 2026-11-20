@@ -4,10 +4,10 @@
 // rendering and view state, and calls into these for serialization plus
 // strict validation.
 //
-// Wire format (mirrors Bondage Club R133):
+// Wire format (mirrors Bondage Club R134):
 //   - Legacy part: LZString.compressToBase64(JSON of {Type, Tiles, Objects,
 //     Fog?, CellData?}).
-//   - Effects part (optional, R133 static lighting): "@" + base64 of BC's
+//   - Effects part (optional, R134 static lighting): "@" + base64 of BC's
 //     packed effects bit string. Game exports append it; the game also still
 //     reads a legacy `Effects` string field, which we accept on import.
 //
@@ -24,7 +24,7 @@ import {
 } from "./effects";
 
 /** Configuration attached to a single cell. Currently only sign text (BC's
- *  `CellData` / `objectConfigs`), introduced with the R133 signs. */
+ *  `CellData` / `objectConfigs`), introduced with the R134 signs. */
 export interface SignCellConfig {
     Type: "Sign";
     Text: string;

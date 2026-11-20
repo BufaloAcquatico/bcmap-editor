@@ -152,7 +152,7 @@ describe("BCMapEditor", () => {
         });
 
         it("should set selected object", () => {
-            const obj = { ID: 100, Type: "FloorDecoration", Style: "Blank" };
+            const obj = { ID: 100, Type: "EmptySpace", Style: "Passable" };
             editor.setSelectedObject(obj);
             expect(() => editor.setSelectedObject(obj)).not.toThrow();
         });
@@ -226,11 +226,11 @@ describe("BCMapEditor", () => {
             expect(catalog.length).toBeGreaterThan(0);
         });
 
-        it("should have blank object in catalog with ID 100", () => {
+        it("should have the EmptySpace eraser in catalog with ID 100", () => {
             const catalog = editor.getObjectCatalog();
-            const blank = catalog.find((c) => c.Style === "Blank");
-            expect(blank).toBeDefined();
-            expect(blank?.ID).toBe(100);
+            const eraser = catalog.find((c) => c.Type === "EmptySpace");
+            expect(eraser).toBeDefined();
+            expect(eraser?.ID).toBe(100);
         });
     });
 

@@ -1,16 +1,16 @@
 // BCMap Editor - Tile and object catalog
 //
-// Generated from the game data in Bondage Club's ChatRoomMapViewTileList and
-// ChatRoomMapViewObjectList (source: WitchLair src/dist/bcdata/ChatRoomMap.js).
-// Every entry is kept verbatim - duplicate styles must NOT be de-duplicated.
-// Do not edit by hand; regenerate from the game data if it changes.
+// GENERATED FILE - DO NOT EDIT BY HAND.
+// Regenerate with:
+//   npm run generate-catalog -- --source=/path/to/BondageClub/Assets/MapData.js
+// Source: Bondage Club `Assets/MapData.js` (AssetsMapDataTiles /
+// AssetsMapDataObjects), currently R134. Every entry is kept verbatim:
+// duplicate styles must NOT be de-duplicated and raw deprecated IDs must NOT
+// be remapped on import.
 //
-// The FULL_* catalogs mirror the official in-game catalog exactly
-// (BondageClub/Assets/MapData.js - AssetsMapDataTiles / AssetsMapDataObjects).
-// They are the editor's single source of truth: pickers, renderer, importer,
-// and asset downloader all read these arrays, so anything the game ships
-// appears everywhere. New game entries are added here and surface
-// automatically.
+// These FULL_* catalogs mirror the official in-game catalogs exactly and are
+// the editor's single source of truth: pickers, renderer, importer, and asset
+// downloader all read these arrays.
 
 export interface TileDef {
     ID: number;
@@ -21,17 +21,17 @@ export interface TileDef {
 
 export interface ObjectDef {
     ID: number;
-    /**
-     * Mirrors BC's `Unique` flag: the object may exist at most once per
-     * map (placing it elsewhere clears the previous copy). Currently only
-     * the entry flag (110) - the single Unique entry in the game catalog.
-     */
+    /** Game display name, when BC provides one (e.g. "DJ Booth"). */
+    Name?: string;
+    /** Mirrors BC's `Unique` flag: at most one per map (ID 110). */
     unique?: boolean;
+    /** Mirrors BC's `DeprecatedID`: legacy ID for an EmptySpace entry. */
+    deprecatedId?: number;
+    /** Picker-only image name (`PaletteImage` in BC), if different from Style. */
+    paletteImage?: string;
     /**
-     * Clockwise rotation in degrees, applied about the tile centre at draw
-     * time. Mirrors BC's `Rotation` (only the conveyor belts carry it: the
-     * four directions of a style share one `Style` and differ by this field
-     * alone). Absent means 0, matching the game.
+     * Clockwise rotation in degrees (BC's `Rotation`). Only the conveyor
+     * belts carry it; absent means 0.
      */
     Rotation?: number;
     Type: string;
@@ -45,13 +45,10 @@ export interface ObjectDef {
 /** Object ID used for an empty object cell / the eraser tool. */
 export const BLANK_OBJECT_ID = 100;
 
-// ---------------------------------------------------------------------------
-// Catalogs: exact mirror of the official in-game catalog
-// (BondageClub/Assets/MapData.js -> AssetsMapDataTiles / AssetsMapDataObjects).
-// Single source of truth: the pickers, renderer, importer, and asset
-// downloader all read these arrays, so anything the game adds here appears
-// everywhere with no second list to re-sync.
-// ---------------------------------------------------------------------------
+/** True for BC's EmptySpace objects: they render nothing on the map. */
+export function isEmptyObject(o: { Type: string }): boolean {
+    return o.Type === "EmptySpace";
+}
 
 export const FULL_TILE_CATALOG: readonly TileDef[] = [
     { ID: 100, Type: "Floor", Style: "OakWood", Name: "Oak Planks" },
@@ -252,13 +249,39 @@ export const FULL_TILE_CATALOG: readonly TileDef[] = [
 ];
 
 export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
-    { ID: 100, Type: "LivingRoom", Style: "Blank" },
+    { ID: 100, Type: "EmptySpace", Style: "Passable" },
+    {
+        ID: 101,
+        Type: "EmptySpace",
+        Style: "Impassable",
+        paletteImage: "Impassable",
+    },
+    { ID: 200, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 211, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 249, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 342, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 400, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 500, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 600, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 700, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 800, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 1000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 1100, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 1200, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 1300, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 1399, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 2000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 3000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 3281, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 3499, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 4000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 4500, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    { ID: 5000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
     {
         ID: 110,
         Type: "Functional",
         Style: "EntryFlag",
         Top: -0.125,
-        // unique in BC (the only Unique entry in Assets/MapData.js).
         unique: true,
     },
     { ID: 115, Type: "Functional", Style: "ExitFlag", Top: -0.125 },
@@ -281,17 +304,232 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Width: 0.9,
     },
     { ID: 170, Type: "LivingRoom", Style: "Stairs", Top: 0, Left: 0 },
+    {
+        ID: 175,
+        Type: "LivingRoom",
+        Style: "ModernDiningChair",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    {
+        ID: 176,
+        Type: "LivingRoom",
+        Style: "ModernLampFloor",
+        Top: -1.2,
+        Height: 2.2,
+    },
+    {
+        ID: 177,
+        Type: "LivingRoom",
+        Style: "ModernLampArc",
+        Top: -1.2,
+        Left: -0.25,
+        Height: 2.2,
+        Width: 1.5,
+    },
+    {
+        ID: 178,
+        Type: "LivingRoom",
+        Style: "ModernLampTripod",
+        Top: -1.1,
+        Height: 2.1,
+    },
     { ID: 180, Type: "LivingRoom", Style: "AirConditioner", Top: 0, Left: 0 },
-    { ID: 211, Type: "School", Style: "Blank" },
-    { ID: 400, Type: "Bedroom", Style: "Blank" },
+    {
+        ID: 190,
+        Type: "LivingRoom",
+        Style: "FloorLamp",
+        Top: -1.15,
+        Left: 0.13,
+        Height: 2,
+        Width: 0.74,
+    },
+    {
+        ID: 191,
+        Type: "LivingRoom",
+        Style: "VelvetArmchair",
+        Top: -0.26,
+        Height: 1.11,
+    },
+    {
+        ID: 192,
+        Type: "LivingRoom",
+        Style: "CoffeeTable",
+        Top: 0.17,
+        Height: 0.68,
+    },
+    { ID: 193, Type: "LivingRoom", Style: "Piano", Top: -0.08, Height: 0.93 },
+    {
+        ID: 194,
+        Type: "LivingRoom",
+        Style: "FaintingCouch",
+        Top: 0.3,
+        Height: 0.55,
+    },
+    {
+        ID: 195,
+        Type: "LivingRoom",
+        Style: "FiddleLeafFig",
+        Top: -0.95,
+        Left: 0.02,
+        Height: 1.8,
+        Width: 0.97,
+    },
+    {
+        ID: 185,
+        Type: "LivingRoom",
+        Style: "ModernLowboardSingle",
+        Top: 0,
+        Height: 1,
+    },
+    {
+        ID: 186,
+        Type: "LivingRoom",
+        Style: "ModernHighboardSingle",
+        Top: -0.8,
+        Height: 1.8,
+    },
+    {
+        ID: 187,
+        Type: "LivingRoom",
+        Style: "ModernBookshelfSingle",
+        Top: -1.3,
+        Height: 2.3,
+    },
+    {
+        ID: 188,
+        Type: "LivingRoom",
+        Style: "NordicSideboardSingle",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 189,
+        Type: "LivingRoom",
+        Style: "NordicCabinet",
+        Top: -1.2,
+        Height: 2.2,
+    },
+    {
+        ID: 221,
+        Type: "LivingRoom",
+        Style: "ModernWardrobe",
+        Top: -1.2,
+        Height: 2.2,
+    },
+    {
+        ID: 196,
+        Type: "FloorDecorationThemed",
+        Style: "ThroneCage",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 197,
+        Type: "FloorDecorationThemed",
+        Style: "ThroneCageThrone",
+        Top: -0.85,
+        Height: 1.6,
+    },
+    {
+        ID: 167,
+        Type: "FloorDecorationThemed",
+        Style: "ThroneCageStairsRight",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 198,
+        Type: "FloorDecorationThemed",
+        Style: "ThroneCageStairsLeft",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 181,
+        Type: "FloorDecorationThemed",
+        Style: "Stage",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 182,
+        Type: "FloorDecorationThemed",
+        Style: "StageWood",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 183,
+        Type: "FloorDecorationThemed",
+        Style: "StageStairsLeftWood",
+        Top: -0.25,
+        Height: 1.25,
+    },
+    {
+        ID: 184,
+        Type: "FloorDecorationThemed",
+        Style: "StageStairsRightWood",
+        Top: -0.25,
+        Height: 1.25,
+    },
     { ID: 401, Type: "Bedroom", Style: "TeddyBear" },
     { ID: 402, Type: "Bedroom", Style: "PinkTeddyBear" },
     { ID: 403, Type: "Bedroom", Style: "Nightstand" },
     { ID: 404, Type: "Bedroom", Style: "PinkNightstand" },
-    { ID: 200, Type: "FloorDecorationThemed", Style: "Blank" },
+    { ID: 405, Type: "Bedroom", Style: "Vanity", Top: -0.44, Height: 1.29 },
+    { ID: 406, Type: "Bedroom", Style: "Dresser", Top: -0.63, Height: 1.48 },
+    {
+        ID: 407,
+        Type: "Bedroom",
+        Style: "FoldingScreen",
+        Top: -0.13,
+        Height: 0.98,
+    },
+    {
+        ID: 408,
+        Type: "Bedroom",
+        Style: "DressForm",
+        Top: -0.95,
+        Left: 0.16,
+        Height: 1.8,
+        Width: 0.69,
+    },
+    {
+        ID: 409,
+        Type: "Bedroom",
+        Style: "SlidingDoorCabinet",
+        Top: -1.2,
+        Height: 2.2,
+    },
+    { ID: 410, Type: "Bedroom", Style: "MakeupTable", Top: -0.8, Height: 1.8 },
+    {
+        ID: 411,
+        Type: "Bedroom",
+        Style: "ModernNightstand",
+        Top: -0.25,
+        Height: 1,
+    },
+    {
+        ID: 412,
+        Type: "Bedroom",
+        Style: "ModernNightstandLamp",
+        Top: -0.55,
+        Height: 1.3,
+    },
     { ID: 210, Type: "School", Style: "TeacherDesk", Top: -0.25 },
+    {
+        ID: 212,
+        Type: "School",
+        Style: "Globe",
+        Top: -0.25,
+        Left: 0.16,
+        Height: 1.1,
+        Width: 0.69,
+    },
+    { ID: 213, Type: "School", Style: "Lectern", Top: -0.4, Height: 1.25 },
     { ID: 220, Type: "School", Style: "StudentDesk", Top: -0.1 },
-    { ID: 250, Type: "FloorDecorationThemed", Style: "SinkDishes", Top: -0.35 },
+    { ID: 250, Type: "Kitchen", Style: "SinkDishes", Top: -0.35 },
     {
         ID: 260,
         Type: "Bathroom",
@@ -309,6 +547,86 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     },
     { ID: 310, Type: "LivingRoom", Style: "JapaneseTable", Top: -0.1 },
     { ID: 320, Type: "FloorDecorationThemed", Style: "BanzaiTree", Top: -0.1 },
+    {
+        ID: 330,
+        Type: "Kitchen",
+        Style: "KitchenCounterSingle",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 331,
+        Type: "Kitchen",
+        Style: "KitchenCounterSinkSingle",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 332,
+        Type: "Kitchen",
+        Style: "KitchenCounterStoveElectricSingle",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 333,
+        Type: "Kitchen",
+        Style: "KitchenCounterStoveGasSingle",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 343,
+        Type: "Kitchen",
+        Style: "KitchenCounterSinkWater",
+        Name: "Kitchen Sink With Water",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    {
+        ID: 334,
+        Type: "Kitchen",
+        Style: "KitchenTallCabinetSingle",
+        Top: -1.2,
+        Height: 2.2,
+    },
+    {
+        ID: 335,
+        Type: "Kitchen",
+        Style: "KitchenWallCabinetSingle",
+        Top: 0.05,
+        Height: 0.75,
+    },
+    {
+        ID: 336,
+        Type: "Office",
+        Style: "OfficeStandingTable",
+        Top: -0.5,
+        Height: 1.5,
+    },
+    {
+        ID: 337,
+        Type: "Office",
+        Style: "OfficeDeskComputer",
+        Top: -0.35,
+        Height: 1.35,
+    },
+    { ID: 338, Type: "Office", Style: "OfficeChair", Top: -0.5, Height: 1.5 },
+    {
+        ID: 339,
+        Type: "Office",
+        Style: "OfficeFilingCabinet",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 340,
+        Type: "Office",
+        Style: "OfficeFileDrawer",
+        Top: -0.3,
+        Height: 1.3,
+    },
+    { ID: 341, Type: "Office", Style: "OfficePrinter", Top: -0.5, Height: 1.5 },
     {
         ID: 350,
         Type: "FloorDecorationThemed",
@@ -337,14 +655,14 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         ID: 362,
         Type: "FloorDecorationThemed",
         Style: "furnace",
-        Top: -0.5,
+        Top: -0.8,
         Left: 0.05,
-        Height: 1.5,
+        Height: 1.8,
         Width: 0.9,
     },
     {
         ID: 363,
-        Type: "FloorDecorationThemed",
+        Type: "Kitchen",
         Style: "microwave",
         Top: 0.03,
         Left: 0.05,
@@ -353,21 +671,35 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     },
     {
         ID: 364,
-        Type: "FloorDecorationThemed",
+        Type: "Kitchen",
         Style: "stove",
-        Top: 0.03,
+        Top: -0.29,
         Left: 0.05,
-        Height: 0.9,
+        Height: 1.22,
         Width: 0.9,
     },
     {
         ID: 365,
-        Type: "FloorDecorationThemed",
+        Type: "Kitchen",
         Style: "fridge",
-        Top: -0.5,
+        Top: -0.8,
         Left: 0.05,
-        Height: 1.5,
+        Height: 1.8,
         Width: 0.9,
+    },
+    {
+        ID: 366,
+        Type: "Kitchen",
+        Style: "KitchenWallKnifeMagnet",
+        Top: 0.05,
+        Height: 0.5,
+    },
+    {
+        ID: 367,
+        Type: "Kitchen",
+        Style: "KitchenWallCoffeeArt",
+        Top: 0.05,
+        Height: 0.8,
     },
     {
         ID: 370,
@@ -497,7 +829,20 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 0.9,
         Width: 0.9,
     },
-    { ID: 500, Type: "FloorDecorationParty", Style: "Blank" },
+    {
+        ID: 395,
+        Type: "FloorDecorationThemed",
+        Style: "Pillory",
+        Top: 0.04,
+        Height: 0.81,
+    },
+    {
+        ID: 396,
+        Type: "FloorDecorationThemed",
+        Style: "Cage",
+        Top: -0.65,
+        Height: 1.5,
+    },
     {
         ID: 510,
         Type: "FloorDecorationParty",
@@ -571,7 +916,21 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 0.5,
         Width: 1,
     },
-    { ID: 600, Type: "FloorDecorationCamping", Style: "Blank" },
+    {
+        ID: 598,
+        Type: "FloorDecorationParty",
+        Style: "ChampagneTower",
+        Top: -0.45,
+        Height: 1.3,
+    },
+    {
+        ID: 599,
+        Type: "FloorDecorationParty",
+        Style: "DJBooth",
+        Name: "DJ Booth",
+        Top: 0.38,
+        Height: 0.47,
+    },
     { ID: 610, Type: "FloorDecorationCamping", Style: "LogFire", Top: -0.35 },
     {
         ID: 611,
@@ -580,6 +939,15 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Top: -0.5,
         Height: 1,
     },
+    {
+        ID: 612,
+        Type: "FloorDecorationCamping",
+        Style: "NordicFireBowl",
+        Top: -1,
+        Left: -0.5,
+        Height: 2,
+        Width: 2,
+    },
     { ID: 620, Type: "FloorDecorationCamping", Style: "LogSingle", Top: -0.2 },
     { ID: 630, Type: "FloorDecorationCamping", Style: "TentBlue", Top: -0.3 },
     { ID: 640, Type: "FloorDecorationCamping", Style: "SleepingBagBlue" },
@@ -587,7 +955,31 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 660, Type: "FloorDecorationCamping", Style: "Hurdle1" },
     { ID: 670, Type: "FloorDecorationCamping", Style: "Hurdle2" },
     { ID: 680, Type: "FloorDecorationCamping", Style: "Hurdle3" },
-    { ID: 700, Type: "FloorDecorationExpanding", Style: "Blank" },
+    {
+        ID: 690,
+        Type: "FloorDecorationCamping",
+        Style: "Lantern",
+        Top: 0.05,
+        Left: 0.29,
+        Height: 0.8,
+        Width: 0.42,
+    },
+    {
+        ID: 691,
+        Type: "FloorDecorationCamping",
+        Style: "Backpack",
+        Top: -0.15,
+        Left: 0.03,
+        Height: 1,
+        Width: 0.94,
+    },
+    {
+        ID: 692,
+        Type: "FloorDecorationCamping",
+        Style: "Cooler",
+        Top: 0.13,
+        Height: 0.72,
+    },
     {
         ID: 710,
         Type: "FloorDecorationExpanding",
@@ -621,7 +1013,20 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Style: "RailroadPreview",
         Top: 0,
     },
-    { ID: 800, Type: "FloorDecorationAnimal", Style: "Blank" },
+    {
+        ID: 801,
+        Type: "FloorDecorationAnimal",
+        Style: "PetBed",
+        Top: 0.19,
+        Height: 0.66,
+    },
+    {
+        ID: 802,
+        Type: "FloorDecorationAnimal",
+        Style: "PetBowls",
+        Top: 0.55,
+        Height: 0.3,
+    },
     {
         ID: 810,
         Type: "FloorDecorationAnimal",
@@ -648,7 +1053,7 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 0.5,
         Width: 0.5,
     },
-    { ID: 1000, Type: "FloorItem", Style: "Blank" },
+    { ID: 850, Type: "FloorDecorationAnimal", Style: "Fireflies0", Top: -0.5 },
     { ID: 1010, Type: "FloorItem", Style: "Kennel", Top: -1, Height: 2 },
     { ID: 1020, Type: "FloorItem", Style: "X-Cross", Top: -1, Height: 2 },
     { ID: 1030, Type: "FloorItem", Style: "BondageBench", Top: -1, Height: 2 },
@@ -683,7 +1088,6 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 1097, Type: "ABDL", Style: "HighChair", Top: -0.95, Height: 2 },
     { ID: 1098, Type: "ABDL", Style: "Crib", Top: -0.95, Height: 2 },
     { ID: 1099, Type: "ABDL", Style: "PinkCrib", Top: -0.95, Height: 2 },
-    { ID: 1100, Type: "FloorNumber", Style: "Blank" },
     { ID: 1110, Type: "FloorNumber", Style: "Number0" },
     { ID: 1111, Type: "FloorNumber", Style: "Number1" },
     { ID: 1112, Type: "FloorNumber", Style: "Number2" },
@@ -694,7 +1098,6 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 1117, Type: "FloorNumber", Style: "Number7" },
     { ID: 1118, Type: "FloorNumber", Style: "Number8" },
     { ID: 1119, Type: "FloorNumber", Style: "Number9" },
-    { ID: 1200, Type: "FloorLetter", Style: "Blank" },
     { ID: 1201, Type: "FloorLetter", Style: "LetterA" },
     { ID: 1202, Type: "FloorLetter", Style: "LetterB" },
     { ID: 1203, Type: "FloorLetter", Style: "LetterC" },
@@ -721,7 +1124,6 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 1224, Type: "FloorLetter", Style: "LetterX" },
     { ID: 1225, Type: "FloorLetter", Style: "LetterY" },
     { ID: 1226, Type: "FloorLetter", Style: "LetterZ" },
-    { ID: 1300, Type: "FloorIcon", Style: "Blank" },
     { ID: 1301, Type: "FloorIcon", Style: "IconCircle" },
     { ID: 1302, Type: "FloorIcon", Style: "IconSquare" },
     { ID: 1303, Type: "FloorIcon", Style: "IconTriangle" },
@@ -731,11 +1133,10 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 1307, Type: "FloorIcon", Style: "IconArrowDown" },
     { ID: 1308, Type: "FloorIcon", Style: "IconArrowLeft" },
     { ID: 1309, Type: "FloorIcon", Style: "IconArrowRight" },
-    { ID: 1399, Type: "ABDL", Style: "Blank" },
     { ID: 1400, Type: "ABDL", Style: "PinkPotty", Top: 0, Height: 1 },
     { ID: 1401, Type: "ABDL", Style: "BluePotty", Top: 0, Height: 1 },
     { ID: 1402, Type: "ABDL", Style: "ChangingTable", Top: -1, Height: 2 },
-    { ID: 2000, Type: "FloorObstacle", Style: "Blank" },
+    { ID: 1403, Type: "ABDL", Style: "RockingHorse", Top: 0.07, Height: 0.78 },
     {
         ID: 2004,
         Type: "FloorObstacle",
@@ -803,6 +1204,29 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 2,
     },
     {
+        ID: 2016,
+        Type: "FloorObstacle",
+        Style: "NordicPillar",
+        Top: -1.35,
+        Left: 0.15,
+        Height: 2.3,
+        Width: 0.7,
+    },
+    {
+        ID: 2017,
+        Type: "FloorObstacle",
+        Style: "FreyaStatue",
+        Top: -1.55,
+        Height: 2.5,
+    },
+    {
+        ID: 2018,
+        Type: "FloorObstacle",
+        Style: "NordicTreasureChest",
+        Top: -0.2,
+        Height: 1.2,
+    },
+    {
         ID: 2020,
         Type: "FloorObstacle",
         Style: "Barrel",
@@ -821,6 +1245,20 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Width: 1,
     },
     { ID: 2033, Type: "FloorObstacle", Style: "VelourRopeBarrier", Top: -0.35 },
+    {
+        ID: 2034,
+        Type: "FloorObstacle",
+        Style: "FarmFenceSingle",
+        Top: -0.15,
+        Height: 1.1,
+    },
+    {
+        ID: 2036,
+        Type: "FloorObstacle",
+        Style: "HomeFenceSingle",
+        Top: -0.15,
+        Height: 1.1,
+    },
     { ID: 2035, Type: "FloorObstacle", Style: "Bush", Top: -0.25, Height: 1 },
     {
         ID: 2040,
@@ -914,6 +1352,27 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 2,
     },
     {
+        ID: 2091,
+        Type: "FloorObstacle",
+        Style: "Fountain",
+        Top: -0.1,
+        Height: 0.95,
+    },
+    {
+        ID: 2092,
+        Type: "FloorObstacle",
+        Style: "ParkBench",
+        Top: 0.19,
+        Height: 0.66,
+    },
+    {
+        ID: 2093,
+        Type: "FloorObstacle",
+        Style: "WishingWell",
+        Top: -0.47,
+        Height: 1.32,
+    },
+    {
         ID: 2098,
         Type: "FloorObstacle",
         Style: "Pillar",
@@ -922,7 +1381,6 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 2,
         Width: 0.7,
     },
-    { ID: 3000, Type: "WallDecoration", Style: "Blank" },
     { ID: 3010, Type: "WallDecoration", Style: "Painting" },
     { ID: 3020, Type: "Bathroom", Style: "Mirror" },
     { ID: 3021, Type: "Bathroom", Style: "BlueBathroomMat" },
@@ -931,6 +1389,22 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 3024, Type: "Bathroom", Style: "Sink" },
     { ID: 3025, Type: "Bathroom", Style: "ToiletPaper" },
     { ID: 3026, Type: "Bathroom", Style: "Bathtub" },
+    {
+        ID: 3027,
+        Type: "Bathroom",
+        Style: "TowelRack",
+        Top: -0.34,
+        Height: 1.19,
+    },
+    {
+        ID: 3028,
+        Type: "Bathroom",
+        Style: "LaundryBasket",
+        Top: 0.05,
+        Left: 0.01,
+        Height: 0.8,
+        Width: 0.98,
+    },
     { ID: 3030, Type: "WallDecoration", Style: "Candelabra0" },
     { ID: 3040, Type: "WallDecoration", Style: "Whip" },
     { ID: 3050, Type: "LivingRoom", Style: "Fireplace" },
@@ -987,6 +1461,87 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 0.75,
         Width: 0.75,
     },
+    {
+        ID: 3130,
+        Type: "WallDecoration",
+        Style: "WallShelf",
+        Top: 0.1,
+        Height: 0.76,
+    },
+    {
+        ID: 3131,
+        Type: "WallDecoration",
+        Style: "WallSconce",
+        Top: 0.1,
+        Left: 0.11,
+        Height: 0.8,
+        Width: 0.78,
+    },
+    {
+        ID: 3132,
+        Type: "WallDecoration",
+        Style: "CoatRack",
+        Top: 0.1,
+        Left: 0.1,
+        Height: 0.8,
+        Width: 0.79,
+    },
+    {
+        ID: 3133,
+        Type: "WallDecoration",
+        Style: "NordicAxesCrossed",
+        Top: 0.1,
+        Height: 0.85,
+    },
+    {
+        ID: 3134,
+        Type: "WallDecoration",
+        Style: "NordicShieldRound",
+        Top: 0.1,
+        Height: 0.85,
+    },
+    {
+        ID: 3135,
+        Type: "WallDecoration",
+        Style: "NordicShieldKnot",
+        Top: 0.1,
+        Height: 0.85,
+    },
+    {
+        ID: 3136,
+        Type: "WallDecoration",
+        Style: "NordicShieldAxes",
+        Top: 0,
+        Height: 1,
+    },
+    {
+        ID: 3137,
+        Type: "WallDecoration",
+        Style: "NordicDragonHeadLeft",
+        Top: 0.1,
+        Height: 0.85,
+    },
+    {
+        ID: 3138,
+        Type: "WallDecoration",
+        Style: "NordicDragonHeadRight",
+        Top: 0.1,
+        Height: 0.85,
+    },
+    {
+        ID: 3139,
+        Type: "WallDecoration",
+        Style: "ModernWallSconce",
+        Top: 0.05,
+        Height: 0.9,
+    },
+    {
+        ID: 3140,
+        Type: "WallDecoration",
+        Style: "ModernWallSconceDouble",
+        Top: 0.05,
+        Height: 0.9,
+    },
     { ID: 3200, Type: "School", Style: "SchoolBoard" },
     {
         ID: 3201,
@@ -1026,12 +1581,10 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 0.8,
     },
     { ID: 3280, Type: "Bathroom", Style: "ShowerHead" },
-    { ID: 3281, Type: "Bathroom", Style: "Blank" },
     { ID: 3290, Type: "Bathroom", Style: "EnemaHead" },
     { ID: 3301, Type: "WallDecoration", Style: "MonitorSmall" },
     { ID: 3302, Type: "WallDecoration", Style: "MonitorBigLeft" },
     { ID: 3303, Type: "WallDecoration", Style: "MonitorBigRight" },
-    { ID: 3499, Type: "Functional", Style: "Blank" },
     { ID: 3500, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
     {
         ID: 3501,
@@ -1092,7 +1645,12 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
     { ID: 3521, Type: "Functional", Style: "SignWoodWall", Top: 0.1 },
     { ID: 3522, Type: "Functional", Style: "SignMetal", Top: -0.25 },
     { ID: 3523, Type: "Functional", Style: "SignMetalWall", Top: 0.1 },
-    { ID: 4000, Type: "WallPath", Style: "Blank" },
+    {
+        ID: 3530,
+        Type: "Functional",
+        Style: "TeleportPad",
+        Name: "Teleport Pad",
+    },
     { ID: 4010, Type: "WallPath", Style: "WoodOpen", Top: -1, Height: 2 },
     { ID: 4011, Type: "WallPath", Style: "WoodClosed", Top: -1, Height: 2 },
     { ID: 4012, Type: "WallPath", Style: "WoodLocked", Top: -1, Height: 2 },
@@ -1111,6 +1669,21 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 2,
     },
     { ID: 4015, Type: "WallPath", Style: "WoodLockedGold", Top: -1, Height: 2 },
+    { ID: 4016, Type: "WallPath", Style: "WoodClosedAuto", Top: -1, Height: 2 },
+    {
+        ID: 4017,
+        Type: "WallPath",
+        Style: "WoodClosedAutoUp",
+        Top: -1,
+        Height: 2,
+    },
+    {
+        ID: 4018,
+        Type: "WallPath",
+        Style: "WoodClosedAutoDown",
+        Top: -1,
+        Height: 2,
+    },
     { ID: 4020, Type: "WallPath", Style: "Metal", Top: -1, Height: 2 },
     { ID: 4021, Type: "WallPath", Style: "MetalUp", Top: -1, Height: 2 },
     { ID: 4022, Type: "WallPath", Style: "MetalDown", Top: -1, Height: 2 },
@@ -1207,7 +1780,33 @@ export const FULL_OBJECT_CATALOG: readonly ObjectDef[] = [
         Height: 1.55,
         Width: 0.85,
     },
-    { ID: 4500, Type: "FloorFoamTiles", Style: "Blank" },
+    {
+        ID: 4038,
+        Type: "WallPath",
+        Style: "BrownDoorAuto",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4039,
+        Type: "WallPath",
+        Style: "SteelDoorAuto",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
+    {
+        ID: 4040,
+        Type: "WallPath",
+        Style: "GrayDoorAuto",
+        Top: -0.55,
+        Left: 0.06,
+        Height: 1.55,
+        Width: 0.85,
+    },
     {
         ID: 4501,
         Type: "FloorFoamTiles",

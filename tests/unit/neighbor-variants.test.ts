@@ -74,6 +74,9 @@ const RAILROAD = 750;
 const VELOUR = 2033;
 const CACTUS = 2057;
 const BLANK = 100;
+const KITCHEN_COUNTER = 330;
+const KITCHEN_SINK = 331;
+const FARM_FENCE = 2034;
 
 function mapWith(editor: BCMapEditor, cells: [number, number, number][]): void {
     const data = editor.getMapData();
@@ -198,5 +201,32 @@ describe("Neighbor-aware variant selection (Change 4)", () => {
         ]);
         expect(variantAt(editor, 5, 5)).toBe("Cactus");
         expect(variantAt(editor, BLANK % MAP_WIDTH, 0)).toBeDefined();
+    });
+
+    it("joins kitchen counters across different IDs but not EmptySpace", () => {
+        mapWith(editor, [
+            [5, 5, KITCHEN_COUNTER],
+            [6, 5, KITCHEN_SINK],
+        ]);
+        expect(variantAt(editor, 5, 5)).toBe("KitchenCounterLeft");
+        // Legacy blank IDs are EmptySpace in R134 and must not connect.
+        mapWith(editor, [
+            [5, 5, KITCHEN_COUNTER],
+            [6, 5, 1399],
+        ]);
+        expect(variantAt(editor, 5, 5)).toBe("KitchenCounterSingle");
+    });
+
+    it("alternates fence middle/post textures along a same-ID run", () => {
+        mapWith(editor, [
+            [3, 5, FARM_FENCE],
+            [4, 5, FARM_FENCE],
+            [5, 5, FARM_FENCE],
+            [6, 5, FARM_FENCE],
+        ]);
+        expect(variantAt(editor, 3, 5)).toBe("FarmFenceLeft");
+        expect(variantAt(editor, 4, 5)).toBe("FarmFenceMiddle");
+        expect(variantAt(editor, 5, 5)).toBe("FarmFenceMiddlePost");
+        expect(variantAt(editor, 6, 5)).toBe("FarmFenceRight");
     });
 });

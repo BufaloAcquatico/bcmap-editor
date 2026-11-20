@@ -6,18 +6,24 @@
 // these functions resolve *which* sprite a cell needs.
 //
 // Rule sources: BondageClub ChatRoomMapView (FindWallEffectTile,
-// FloorWallEffect, BuildImageName), mirrored from
-// ropeybot/src/bcdata/ChatRoomMap.ts.
+// FloorWallEffect, BuildImageName) and, since R134, the explicit connected
+// texture groups in src/constants.ts.
 //
-// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
+// Extracted from BCMapEditor (src/editor.ts); behavior is unchanged for the
+// legacy expandables and railroad pieces.
 
-import { RAILROAD_DIRECTIONS } from "./constants";
+import type { ObjectDef } from "./catalog";
+import {
+    ObjectIdAt,
+    RAILROAD_DIRECTIONS,
+    resolveConnectedVariant,
+} from "./constants";
 
 // Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic.
 // `prefix` is the texture name stem, `single` the variant used when the
 // object has no same-ID neighbors.
 // NOTE: upstream spells the single-couch file "CouckPinkSmall" (typo); the
-// correctly-spelled name 404s on the R133 server, so the typo is used here.
+// correctly-spelled name 404s on the R134 server, so the typo is used here.
 // Railroad (750) is connectivity-based and handled separately; Velour rope
 // barrier (2033) reuses its base style name when single.
 export const EXPANDABLE_LEFT_RIGHT = new Map<
@@ -133,4 +139,38 @@ export function railroadStyleName(
         if (has) suffix += RAILROAD_DIRECTIONS[b];
     });
     return "Railroad" + suffix;
+}
+
+/**
+ * Full BC-faithful sprite-name resolution for one object cell. `at` returns
+ * the raw object ID at a map cell (null for empty/out-of-bounds), so the
+ * editor, the preloader, and the downloader all consume the same explicit
+ * ID-group rules from src/constants.ts with no duplicated lists.
+ */
+export function resolveVariantImageName(
+    obj: ObjectDef,
+    x: number,
+    y: number,
+    at: ObjectIdAt,
+): string {
+    const sameId = (dx: number, dy: number): boolean =>
+        at(x + dx, y + dy) === obj.ID;
+    const expandable = EXPANDABLE_LEFT_RIGHT.get(obj.ID);
+    if (expandable) {
+        return resolveExpandableVariant(
+            expandable.prefix,
+            expandable.single,
+            sameId(-1, 0),
+            sameId(1, 0),
+        );
+    }
+    if (obj.ID === RAILROAD_PREVIEW_ID) {
+        return railroadStyleName([
+            sameId(0, -1),
+            sameId(0, 1),
+            sameId(1, 0),
+            sameId(-1, 0),
+        ]);
+    }
+    return resolveConnectedVariant(obj.ID, x, y, at) ?? obj.Style;
 }

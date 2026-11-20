@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { BCMapEditor } from "../../src/editor";
 import { MAP_WIDTH } from "../../src/mapdata";
+import { FULL_OBJECT_CATALOG, isEmptyObject } from "../../src/catalog";
 
 // Mock DOM for testing (mirrors existing unit test setup)
 const mockCtx = {
@@ -175,5 +176,27 @@ describe("Object render positions at any zoom (Change 1)", () => {
                 Math.abs((c[2] as number) - expectedY) < 1e-9,
         );
         expect(match.length).toBe(1);
+    });
+
+    it("draws nothing on canvas for any of the 23 EmptySpace object IDs", () => {
+        const emptyIds = FULL_OBJECT_CATALOG.filter(isEmptyObject).map(
+            (o) => o.ID,
+        );
+        expect(emptyIds).toHaveLength(23);
+        (mockCtx.drawImage as any).mockClear();
+        (editor as any).render();
+        const baseline = (mockCtx.drawImage as any).mock.calls.length;
+        expect(baseline).toBeGreaterThan(0); // tiles still draw
+
+        for (const id of emptyIds) {
+            setObjectAt(editor, 10, 18, id);
+            (mockCtx.drawImage as any).mockClear();
+            (editor as any).render();
+            expect(
+                (mockCtx.drawImage as any).mock.calls.length,
+                `EmptySpace ID ${id} must not draw a sprite`,
+            ).toBe(baseline);
+            expect((editor as any).getObjectAt(10, 18)).toBeNull();
+        }
     });
 });
