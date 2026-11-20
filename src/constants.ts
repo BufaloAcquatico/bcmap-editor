@@ -225,6 +225,19 @@ export function resolveConnectedVariant(
     }
 }
 
+/** Objects that own each CellData config type in BC (Map.js:2531-2555). */
+export const SIGN_OBJECT_IDS: ReadonlySet<number> = new Set([
+    3520, 3521, 3522, 3523,
+]);
+export const TELEPORTER_OBJECT_ID = 3530;
+/** 38 FloorObstacle objects (type default) + X-Cross 1020 + Pole 1090. */
+export const TETHER_OBJECT_IDS: ReadonlySet<number> = new Set([
+    1020, 1090, 2004, 2005, 2006, 2007, 2010, 2011, 2012, 2013, 2014, 2015,
+    2016, 2017, 2018, 2020, 2025, 2030, 2031, 2032, 2033, 2034, 2035, 2036,
+    2040, 2045, 2048, 2050, 2055, 2057, 2059, 2060, 2070, 2080, 2085, 2090,
+    2091, 2092, 2093, 2098,
+]);
+
 /**
  * R134 objects whose `CanEnter("")` is false — cells a character cannot
  * stand on. Pinned from the game data (Assets/MapData.js); includes the two

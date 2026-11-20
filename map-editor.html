@@ -1108,51 +1108,282 @@ window.FULL_TILE_CATALOG = [
     { ID: 2090, Type: "Water", Style: "Lava" },
 ];
 window.FULL_OBJECT_CATALOG = [
-    { ID: 100, Type: "EmptySpace", Style: "Passable" },
+    {
+        ID: 100,
+        Type: "EmptySpace",
+        Style: "Passable",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
     {
         ID: 101,
         Type: "EmptySpace",
         Style: "Impassable",
         paletteImage: "Impassable",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
-    { ID: 200, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 211, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 249, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 342, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 400, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 500, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 600, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 700, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 800, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 1000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 1100, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 1200, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 1300, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 1399, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 2000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 3000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 3281, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 3499, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 4000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 4500, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
-    { ID: 5000, Type: "EmptySpace", Style: "Passable", deprecatedId: 100 },
+    {
+        ID: 200,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 211,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 249,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 342,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 400,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 500,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 600,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 700,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 800,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 1000,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 1100,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 1200,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 1300,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 1399,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 2000,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3000,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3281,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3499,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4000,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4500,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 5000,
+        Type: "EmptySpace",
+        Style: "Passable",
+        deprecatedId: 100,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
     {
         ID: 110,
         Type: "Functional",
         Style: "EntryFlag",
         Top: -0.125,
         unique: true,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
-    { ID: 115, Type: "Functional", Style: "ExitFlag", Top: -0.125 },
-    { ID: 120, Type: "Bedroom", Style: "BedTeal", Top: -0.25 },
-    { ID: 130, Type: "LivingRoom", Style: "PillowPink" },
-    { ID: 140, Type: "LivingRoom", Style: "TableBrown" },
-    { ID: 150, Type: "LivingRoom", Style: "ThroneRed", Top: -1, Height: 2 },
-    { ID: 151, Type: "LivingRoom", Style: "ChairWood", Top: -0.5, Height: 1.5 },
-    { ID: 160, Type: "Functional", Style: "KeyBronze" },
-    { ID: 162, Type: "Functional", Style: "KeySilver" },
-    { ID: 164, Type: "Functional", Style: "KeyGold" },
-    { ID: 165, Type: "LivingRoom", Style: "VikingChair", Top: -0.5, Height: 2 },
+    {
+        ID: 115,
+        Type: "Functional",
+        Style: "ExitFlag",
+        Top: -0.125,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 120,
+        Type: "Bedroom",
+        Style: "BedTeal",
+        Top: -0.25,
+        Layers: [
+            { Name: "Sheets", IsColorable: true, DefaultColor: "#0E8696" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#995721" },
+            { Name: "Pillows", IsColorable: true, DefaultColor: "#919796" },
+            { Name: "Mattress", IsColorable: true, DefaultColor: "#959685" },
+        ],
+    },
+    {
+        ID: 130,
+        Type: "LivingRoom",
+        Style: "PillowPink",
+        Layers: [
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#EA7170" },
+        ],
+    },
+    {
+        ID: 140,
+        Type: "LivingRoom",
+        Style: "TableBrown",
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#5C361F" }],
+    },
+    {
+        ID: 150,
+        Type: "LivingRoom",
+        Style: "ThroneRed",
+        Top: -1,
+        Height: 2,
+        Layers: [
+            { Name: "Frame", IsColorable: true, DefaultColor: "#B89048" },
+            { Name: "Cushion", IsColorable: true, DefaultColor: "#F7644C" },
+        ],
+    },
+    {
+        ID: 151,
+        Type: "LivingRoom",
+        Style: "ChairWood",
+        Top: -0.5,
+        Height: 1.5,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#BA9356" }],
+    },
+    {
+        ID: 160,
+        Type: "Functional",
+        Style: "KeyBronze",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 162,
+        Type: "Functional",
+        Style: "KeySilver",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 164,
+        Type: "Functional",
+        Style: "KeyGold",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 165,
+        Type: "LivingRoom",
+        Style: "VikingChair",
+        Top: -0.5,
+        Height: 2,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#AC784C" }],
+    },
     {
         ID: 166,
         Type: "Bedroom",
@@ -1161,14 +1392,30 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.8,
         Width: 0.9,
+        Layers: [
+            { Name: "Sheets", IsColorable: true, DefaultColor: "#949496" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#786948" },
+        ],
     },
-    { ID: 170, Type: "LivingRoom", Style: "Stairs", Top: 0, Left: 0 },
+    {
+        ID: 170,
+        Type: "LivingRoom",
+        Style: "Stairs",
+        Top: 0,
+        Left: 0,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 175,
         Type: "LivingRoom",
         Style: "ModernDiningChair",
         Top: -0.5,
         Height: 1.5,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#6B7A8C" },
+        ],
     },
     {
         ID: 176,
@@ -1176,6 +1423,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernLampFloor",
         Top: -1.2,
         Height: 2.2,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
     {
         ID: 177,
@@ -1185,6 +1437,11 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.25,
         Height: 2.2,
         Width: 1.5,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
     {
         ID: 178,
@@ -1192,8 +1449,23 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernLampTripod",
         Top: -1.1,
         Height: 2.1,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
-    { ID: 180, Type: "LivingRoom", Style: "AirConditioner", Top: 0, Left: 0 },
+    {
+        ID: 180,
+        Type: "LivingRoom",
+        Style: "AirConditioner",
+        Top: 0,
+        Left: 0,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#7E8081" },
+            { Name: "Lights", IsColorable: false },
+        ],
+    },
     {
         ID: 190,
         Type: "LivingRoom",
@@ -1202,6 +1474,10 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.13,
         Height: 2,
         Width: 0.74,
+        Layers: [
+            { Name: "Shade", IsColorable: true, DefaultColor: "#998873" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#DC903C" },
+        ],
     },
     {
         ID: 191,
@@ -1209,6 +1485,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "VelvetArmchair",
         Top: -0.26,
         Height: 1.11,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#78121E" },
+            { Name: "Legs", IsColorable: true, DefaultColor: "#80442C" },
+            { Name: "Studs", IsColorable: false },
+        ],
     },
     {
         ID: 192,
@@ -1216,14 +1497,33 @@ window.FULL_OBJECT_CATALOG = [
         Style: "CoffeeTable",
         Top: 0.17,
         Height: 0.68,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#9E5A39" },
+            { Name: "Vase", IsColorable: false },
+        ],
     },
-    { ID: 193, Type: "LivingRoom", Style: "Piano", Top: -0.08, Height: 0.93 },
+    {
+        ID: 193,
+        Type: "LivingRoom",
+        Style: "Piano",
+        Top: -0.08,
+        Height: 0.93,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#81807F" },
+            { Name: "Brass", IsColorable: true, DefaultColor: "#966D25" },
+            { Name: "Keys", IsColorable: false },
+        ],
+    },
     {
         ID: 194,
         Type: "LivingRoom",
         Style: "FaintingCouch",
         Top: 0.3,
         Height: 0.55,
+        Layers: [
+            { Name: "Frame", IsColorable: true, DefaultColor: "#964C28" },
+            { Name: "Cushion", IsColorable: true, DefaultColor: "#8D1022" },
+        ],
     },
     {
         ID: 195,
@@ -1233,6 +1533,11 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.02,
         Height: 1.8,
         Width: 0.97,
+        Layers: [
+            { Name: "Leaves", IsColorable: true, DefaultColor: "#6A7F32" },
+            { Name: "Pot", IsColorable: true, DefaultColor: "#807971" },
+            { Name: "Trunk", IsColorable: true, DefaultColor: "#78603E" },
+        ],
     },
     {
         ID: 185,
@@ -1240,6 +1545,14 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernLowboardSingle",
         Top: 0,
         Height: 1,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Glass", IsColorable: false },
+            { Name: "Decor", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 186,
@@ -1247,6 +1560,14 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernHighboardSingle",
         Top: -0.8,
         Height: 1.8,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Glass", IsColorable: false },
+            { Name: "Decor", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 187,
@@ -1254,6 +1575,13 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernBookshelfSingle",
         Top: -1.3,
         Height: 2.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Decor", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 188,
@@ -1261,6 +1589,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicSideboardSingle",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 189,
@@ -1268,6 +1601,10 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicCabinet",
         Top: -1.2,
         Height: 2.2,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+        ],
     },
     {
         ID: 221,
@@ -1275,6 +1612,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernWardrobe",
         Top: -1.2,
         Height: 2.2,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
     {
         ID: 196,
@@ -1282,6 +1624,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ThroneCage",
         Top: -0.25,
         Height: 1.25,
+        Layers: [
+            { Name: "MetalGold", IsColorable: true, DefaultColor: "#C9A227" },
+            { Name: "MetalBars", IsColorable: true, DefaultColor: "#3A3A40" },
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+        ],
     },
     {
         ID: 197,
@@ -1289,6 +1636,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ThroneCageThrone",
         Top: -0.85,
         Height: 1.6,
+        Layers: [
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#B91C2C" },
+            { Name: "MetalGold", IsColorable: true, DefaultColor: "#C9A227" },
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+        ],
     },
     {
         ID: 167,
@@ -1296,6 +1648,10 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ThroneCageStairsRight",
         Top: -0.25,
         Height: 1.25,
+        Layers: [
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+            { Name: "MetalGold", IsColorable: true, DefaultColor: "#C9A227" },
+        ],
     },
     {
         ID: 198,
@@ -1303,6 +1659,10 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ThroneCageStairsLeft",
         Top: -0.25,
         Height: 1.25,
+        Layers: [
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+            { Name: "MetalGold", IsColorable: true, DefaultColor: "#C9A227" },
+        ],
     },
     {
         ID: 181,
@@ -1310,6 +1670,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Stage",
         Top: -0.25,
         Height: 1.25,
+        Layers: [{ Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" }],
     },
     {
         ID: 182,
@@ -1317,6 +1678,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "StageWood",
         Top: -0.25,
         Height: 1.25,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" }],
     },
     {
         ID: 183,
@@ -1324,6 +1686,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "StageStairsLeftWood",
         Top: -0.25,
         Height: 1.25,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" }],
     },
     {
         ID: 184,
@@ -1331,19 +1694,73 @@ window.FULL_OBJECT_CATALOG = [
         Style: "StageStairsRightWood",
         Top: -0.25,
         Height: 1.25,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" }],
     },
-    { ID: 401, Type: "Bedroom", Style: "TeddyBear" },
-    { ID: 402, Type: "Bedroom", Style: "PinkTeddyBear" },
-    { ID: 403, Type: "Bedroom", Style: "Nightstand" },
-    { ID: 404, Type: "Bedroom", Style: "PinkNightstand" },
-    { ID: 405, Type: "Bedroom", Style: "Vanity", Top: -0.44, Height: 1.29 },
-    { ID: 406, Type: "Bedroom", Style: "Dresser", Top: -0.63, Height: 1.48 },
+    {
+        ID: 401,
+        Type: "Bedroom",
+        Style: "TeddyBear",
+        Layers: [
+            { Name: "Fur", IsColorable: true, DefaultColor: "#E67B46" },
+            { Name: "Bow", IsColorable: true, DefaultColor: "#82747C" },
+            { Name: "Face", IsColorable: false },
+        ],
+    },
+    {
+        ID: 402,
+        Type: "Bedroom",
+        Style: "PinkTeddyBear",
+        Layers: [
+            { Name: "Fur", IsColorable: true, DefaultColor: "#D38D93" },
+            { Name: "Eyes", IsColorable: false },
+        ],
+    },
+    {
+        ID: 403,
+        Type: "Bedroom",
+        Style: "Nightstand",
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#86705C" }],
+    },
+    {
+        ID: 404,
+        Type: "Bedroom",
+        Style: "PinkNightstand",
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#B683A2" }],
+    },
+    {
+        ID: 405,
+        Type: "Bedroom",
+        Style: "Vanity",
+        Top: -0.44,
+        Height: 1.29,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#96897C" },
+            { Name: "Trim", IsColorable: true, DefaultColor: "#966E3C" },
+            { Name: "Mirror", IsColorable: false },
+        ],
+    },
+    {
+        ID: 406,
+        Type: "Bedroom",
+        Style: "Dresser",
+        Top: -0.63,
+        Height: 1.48,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#853618" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#947141" },
+        ],
+    },
     {
         ID: 407,
         Type: "Bedroom",
         Style: "FoldingScreen",
         Top: -0.13,
         Height: 0.98,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#823B21" },
+            { Name: "Panels", IsColorable: false },
+            { Name: "Hinges", IsColorable: false },
+        ],
     },
     {
         ID: 408,
@@ -1353,6 +1770,11 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.16,
         Height: 1.8,
         Width: 0.69,
+        Layers: [
+            { Name: "Corset", IsColorable: true, DefaultColor: "#807162" },
+            { Name: "Torso", IsColorable: true, DefaultColor: "#968A7C" },
+            { Name: "Stand", IsColorable: true, DefaultColor: "#B37746" },
+        ],
     },
     {
         ID: 409,
@@ -1360,14 +1782,36 @@ window.FULL_OBJECT_CATALOG = [
         Style: "SlidingDoorCabinet",
         Top: -1.2,
         Height: 2.2,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
-    { ID: 410, Type: "Bedroom", Style: "MakeupTable", Top: -0.8, Height: 1.8 },
+    {
+        ID: 410,
+        Type: "Bedroom",
+        Style: "MakeupTable",
+        Top: -0.8,
+        Height: 1.8,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Mirror", IsColorable: false },
+        ],
+    },
     {
         ID: 411,
         Type: "Bedroom",
         Style: "ModernNightstand",
         Top: -0.25,
         Height: 1,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
     {
         ID: 412,
@@ -1375,8 +1819,26 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernNightstandLamp",
         Top: -0.55,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
-    { ID: 210, Type: "School", Style: "TeacherDesk", Top: -0.25 },
+    {
+        ID: 210,
+        Type: "School",
+        Style: "TeacherDesk",
+        Top: -0.25,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#DC8F60" },
+            { Name: "Chair", IsColorable: true, DefaultColor: "#7E87B6" },
+            { Name: "Items", IsColorable: false },
+            { Name: "Legs", IsColorable: true, DefaultColor: "#808081" },
+        ],
+    },
     {
         ID: 212,
         Type: "School",
@@ -1385,33 +1847,101 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.16,
         Height: 1.1,
         Width: 0.69,
+        Layers: [
+            { Name: "Stand", IsColorable: true, DefaultColor: "#B47C2B" },
+            { Name: "Base", IsColorable: true, DefaultColor: "#B26239" },
+            { Name: "Globe", IsColorable: false },
+        ],
     },
-    { ID: 213, Type: "School", Style: "Lectern", Top: -0.4, Height: 1.25 },
-    { ID: 220, Type: "School", Style: "StudentDesk", Top: -0.1 },
-    { ID: 250, Type: "Kitchen", Style: "SinkDishes", Top: -0.35 },
+    {
+        ID: 213,
+        Type: "School",
+        Style: "Lectern",
+        Top: -0.4,
+        Height: 1.25,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#95552F" },
+            { Name: "Book", IsColorable: false },
+        ],
+    },
+    {
+        ID: 220,
+        Type: "School",
+        Style: "StudentDesk",
+        Top: -0.1,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#E6C473" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#546970" },
+        ],
+    },
+    {
+        ID: 250,
+        Type: "Kitchen",
+        Style: "SinkDishes",
+        Top: -0.35,
+        Layers: [
+            { Name: "Cabinet", IsColorable: true, DefaultColor: "#B5B0A1" },
+            { Name: "Top", IsColorable: true, DefaultColor: "#808B96" },
+            { Name: "Fittings", IsColorable: true, DefaultColor: "#CE8826" },
+            { Name: "Dishes", IsColorable: false },
+        ],
+    },
     {
         ID: 260,
         Type: "Bathroom",
         Style: "LaundryMachine",
         Top: -0.55,
         Height: 1.25,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#808182" },
+            { Name: "Laundry", IsColorable: false },
+        ],
     },
-    { ID: 270, Type: "Bathroom", Style: "IroningBoard", Top: -0.35 },
+    {
+        ID: 270,
+        Type: "Bathroom",
+        Style: "IroningBoard",
+        Top: -0.35,
+        Layers: [
+            { Name: "Cover", IsColorable: true, DefaultColor: "#B54528" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#7D817D" },
+            { Name: "Items", IsColorable: false },
+        ],
+    },
     {
         ID: 300,
         Type: "FloorDecorationThemed",
         Style: "ShibariFrame",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 310, Type: "LivingRoom", Style: "JapaneseTable", Top: -0.1 },
-    { ID: 320, Type: "FloorDecorationThemed", Style: "BanzaiTree", Top: -0.1 },
+    {
+        ID: 310,
+        Type: "LivingRoom",
+        Style: "JapaneseTable",
+        Top: -0.1,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#958066" }],
+    },
+    {
+        ID: 320,
+        Type: "FloorDecorationThemed",
+        Style: "BanzaiTree",
+        Top: -0.1,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 330,
         Type: "Kitchen",
         Style: "KitchenCounterSingle",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Countertop", IsColorable: true, DefaultColor: "#8A6A4A" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 331,
@@ -1419,6 +1949,13 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenCounterSinkSingle",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Countertop", IsColorable: true, DefaultColor: "#8A6A4A" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+            { Name: "Sink", IsColorable: true, DefaultColor: "#C8C8C8" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 332,
@@ -1426,6 +1963,13 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenCounterStoveElectricSingle",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Countertop", IsColorable: true, DefaultColor: "#8A6A4A" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+            { Name: "Cooktop", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 333,
@@ -1433,6 +1977,14 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenCounterStoveGasSingle",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Countertop", IsColorable: true, DefaultColor: "#8A6A4A" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+            { Name: "Cooktop", IsColorable: false },
+            { Name: "Grates", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 343,
@@ -1441,6 +1993,13 @@ window.FULL_OBJECT_CATALOG = [
         Name: "Kitchen Sink With Water",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Countertop", IsColorable: true, DefaultColor: "#8A6A4A" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+            { Name: "Sink", IsColorable: true, DefaultColor: "#C8C8C8" },
+            { Name: "Water", IsColorable: true, DefaultColor: "#6FB4DC" },
+        ],
     },
     {
         ID: 334,
@@ -1448,6 +2007,10 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenTallCabinetSingle",
         Top: -1.2,
         Height: 2.2,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+        ],
     },
     {
         ID: 335,
@@ -1455,6 +2018,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenWallCabinetSingle",
         Top: 0.05,
         Height: 0.75,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Handles", IsColorable: true, DefaultColor: "#A0A0A0" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 336,
@@ -1462,6 +2030,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "OfficeStandingTable",
         Top: -0.5,
         Height: 1.5,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
     {
         ID: 337,
@@ -1469,14 +2042,35 @@ window.FULL_OBJECT_CATALOG = [
         Style: "OfficeDeskComputer",
         Top: -0.35,
         Height: 1.35,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Screen", IsColorable: false },
+        ],
     },
-    { ID: 338, Type: "Office", Style: "OfficeChair", Top: -0.5, Height: 1.5 },
+    {
+        ID: 338,
+        Type: "Office",
+        Style: "OfficeChair",
+        Top: -0.5,
+        Height: 1.5,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#6B7A8C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
+    },
     {
         ID: 339,
         Type: "Office",
         Style: "OfficeFilingCabinet",
         Top: -1,
         Height: 2,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
     {
         ID: 340,
@@ -1484,13 +2078,28 @@ window.FULL_OBJECT_CATALOG = [
         Style: "OfficeFileDrawer",
         Top: -0.3,
         Height: 1.3,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
     },
-    { ID: 341, Type: "Office", Style: "OfficePrinter", Top: -0.5, Height: 1.5 },
+    {
+        ID: 341,
+        Type: "Office",
+        Style: "OfficePrinter",
+        Top: -0.5,
+        Height: 1.5,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#EDEBE6" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
+    },
     {
         ID: 350,
         Type: "FloorDecorationThemed",
         Style: "MedicalDesk",
         Top: -0.15,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 360,
@@ -1500,6 +2109,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 0.9,
         Width: 0.9,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 361,
@@ -1509,6 +2119,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 0.9,
         Width: 0.9,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 362,
@@ -1518,6 +2129,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.8,
         Width: 0.9,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 363,
@@ -1527,6 +2139,10 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 0.9,
         Width: 0.9,
+        Layers: [
+            { Name: "Cabinet", IsColorable: true, DefaultColor: "#60636A" },
+            { Name: "Microwave", IsColorable: true, DefaultColor: "#8A8886" },
+        ],
     },
     {
         ID: 364,
@@ -1536,6 +2152,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.22,
         Width: 0.9,
+        Layers: [{ Name: "Body", IsColorable: true, DefaultColor: "#818282" }],
     },
     {
         ID: 365,
@@ -1545,6 +2162,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.8,
         Width: 0.9,
+        Layers: [{ Name: "Body", IsColorable: true, DefaultColor: "#7A7A7A" }],
     },
     {
         ID: 366,
@@ -1552,6 +2170,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenWallKnifeMagnet",
         Top: 0.05,
         Height: 0.5,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 367,
@@ -1559,6 +2182,13 @@ window.FULL_OBJECT_CATALOG = [
         Style: "KitchenWallCoffeeArt",
         Top: 0.05,
         Height: 0.8,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#F2F0EB" },
+            { Name: "Wood", IsColorable: true, DefaultColor: "#B98A5A" },
+            { Name: "Accent", IsColorable: true, DefaultColor: "#6B4A32" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 370,
@@ -1568,9 +2198,23 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.5,
         Width: 0.9,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#7E7F81" },
+            { Name: "Shadow", IsColorable: false },
+        ],
     },
-    { ID: 380, Type: "FloorDecorationThemed", Style: "DeskBlue" },
-    { ID: 381, Type: "FloorDecorationThemed", Style: "DeskPurple" },
+    {
+        ID: 380,
+        Type: "FloorDecorationThemed",
+        Style: "DeskBlue",
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 381,
+        Type: "FloorDecorationThemed",
+        Style: "DeskPurple",
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 382,
         Type: "FloorDecorationThemed",
@@ -1579,6 +2223,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 383,
@@ -1588,6 +2233,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 384,
@@ -1597,6 +2243,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 385,
@@ -1606,6 +2253,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 386,
@@ -1615,6 +2263,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 2,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 387,
@@ -1624,6 +2273,11 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#96877E" },
+            { Name: "Screen", IsColorable: false },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
     {
         ID: 388,
@@ -1633,6 +2287,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 1.3,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 389,
@@ -1642,6 +2297,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 2,
         Width: 1,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#7C4010" }],
     },
     {
         ID: 390,
@@ -1651,6 +2307,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.15,
         Height: 1.7,
         Width: 0.7,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 391,
@@ -1660,6 +2317,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.15,
         Height: 1.7,
         Width: 0.7,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 392,
@@ -1669,6 +2327,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.13,
         Height: 1.5,
         Width: 0.7,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 393,
@@ -1678,6 +2337,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.1,
         Height: 1,
         Width: 0.8,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 394,
@@ -1687,6 +2347,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 0.9,
         Width: 0.9,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 395,
@@ -1694,6 +2355,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Pillory",
         Top: 0.04,
         Height: 0.81,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 396,
@@ -1701,6 +2363,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Cage",
         Top: -0.65,
         Height: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 510,
@@ -1708,12 +2371,17 @@ window.FULL_OBJECT_CATALOG = [
         Style: "BalloonFiveColor",
         Top: -0.6,
         Height: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 511,
         Type: "FloorDecorationParty",
         Style: "BalloonTwoHeart",
         Top: -0.15,
+        Layers: [
+            { Name: "Balloons", IsColorable: true, DefaultColor: "#AF2E2E" },
+            { Name: "String", IsColorable: true, DefaultColor: "#6C2B2C" },
+        ],
     },
     {
         ID: 520,
@@ -1721,6 +2389,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WeddingCake",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 521,
@@ -1728,12 +2397,14 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WeddingArch",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 530,
         Type: "FloorDecorationParty",
         Style: "FlowerVasePink",
         Top: -0.33,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 560,
@@ -1741,14 +2412,28 @@ window.FULL_OBJECT_CATALOG = [
         Style: "BeachUmbrellaStripe",
         Top: -1.1,
         Height: 2,
+        Layers: [
+            { Name: "StripeA", IsColorable: true, DefaultColor: "#F9AE46" },
+            { Name: "StripeB", IsColorable: true, DefaultColor: "#FA5B29" },
+            { Name: "Pole", IsColorable: true, DefaultColor: "#5C3F25" },
+        ],
     },
-    { ID: 570, Type: "FloorDecorationParty", Style: "BeachTowelStripe" },
+    {
+        ID: 570,
+        Type: "FloorDecorationParty",
+        Style: "BeachTowelStripe",
+        Layers: [
+            { Name: "Stripes", IsColorable: true, DefaultColor: "#2091BC" },
+            { Name: "Base", IsColorable: true, DefaultColor: "#F2F4F7" },
+        ],
+    },
     {
         ID: 580,
         Type: "FloorDecorationParty",
         Style: "Speaker",
         Top: -1.2,
         Height: 1.85,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 590,
@@ -1756,6 +2441,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Presents",
         Top: 0.25,
         Height: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 595,
@@ -1765,6 +2451,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.5,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 596,
@@ -1774,6 +2461,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0,
         Height: 0.5,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 598,
@@ -1781,6 +2469,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ChampagneTower",
         Top: -0.45,
         Height: 1.3,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 599,
@@ -1789,14 +2478,26 @@ window.FULL_OBJECT_CATALOG = [
         Name: "DJ Booth",
         Top: 0.38,
         Height: 0.47,
+        Layers: [
+            { Name: "Body", IsColorable: true, DefaultColor: "#808080" },
+            { Name: "Lights", IsColorable: true, DefaultColor: "#8035A0" },
+        ],
+        DecalArea: [55, 45, 90, 30],
     },
-    { ID: 610, Type: "FloorDecorationCamping", Style: "LogFire", Top: -0.35 },
+    {
+        ID: 610,
+        Type: "FloorDecorationCamping",
+        Style: "LogFire",
+        Top: -0.35,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 611,
         Type: "FloorDecorationCamping",
         Style: "LogFireAnim0",
         Top: -0.5,
         Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 612,
@@ -1806,14 +2507,66 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.5,
         Height: 2,
         Width: 2,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+            { Name: "Fire", IsColorable: false },
+            { Name: "Glow", IsColorable: false },
+        ],
     },
-    { ID: 620, Type: "FloorDecorationCamping", Style: "LogSingle", Top: -0.2 },
-    { ID: 630, Type: "FloorDecorationCamping", Style: "TentBlue", Top: -0.3 },
-    { ID: 640, Type: "FloorDecorationCamping", Style: "SleepingBagBlue" },
-    { ID: 650, Type: "FloorDecorationCamping", Style: "ChairRed", Top: -0.35 },
-    { ID: 660, Type: "FloorDecorationCamping", Style: "Hurdle1" },
-    { ID: 670, Type: "FloorDecorationCamping", Style: "Hurdle2" },
-    { ID: 680, Type: "FloorDecorationCamping", Style: "Hurdle3" },
+    {
+        ID: 620,
+        Type: "FloorDecorationCamping",
+        Style: "LogSingle",
+        Top: -0.2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 630,
+        Type: "FloorDecorationCamping",
+        Style: "TentBlue",
+        Top: -0.3,
+        Layers: [
+            { Name: "Canvas", IsColorable: true, DefaultColor: "#1272B2" },
+            { Name: "Door", IsColorable: true, DefaultColor: "#012A51" },
+            { Name: "Trim", IsColorable: true, DefaultColor: "#F89424" },
+        ],
+    },
+    {
+        ID: 640,
+        Type: "FloorDecorationCamping",
+        Style: "SleepingBagBlue",
+        Layers: [
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#1797CE" },
+        ],
+    },
+    {
+        ID: 650,
+        Type: "FloorDecorationCamping",
+        Style: "ChairRed",
+        Top: -0.35,
+        Layers: [
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#E84220" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#424243" },
+        ],
+    },
+    {
+        ID: 660,
+        Type: "FloorDecorationCamping",
+        Style: "Hurdle1",
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 670,
+        Type: "FloorDecorationCamping",
+        Style: "Hurdle2",
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 680,
+        Type: "FloorDecorationCamping",
+        Style: "Hurdle3",
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 690,
         Type: "FloorDecorationCamping",
@@ -1822,6 +2575,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.29,
         Height: 0.8,
         Width: 0.42,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 691,
@@ -1831,6 +2585,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.03,
         Height: 1,
         Width: 0.94,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 692,
@@ -1838,12 +2593,18 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Cooler",
         Top: 0.13,
         Height: 0.72,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 710,
         Type: "FloorDecorationExpanding",
         Style: "CouchPinkPreview",
         Top: -0.35,
+        Layers: [
+            { Name: "Fabric", IsColorable: true, DefaultColor: "#E55C76" },
+            { Name: "Legs", IsColorable: true, DefaultColor: "#812622" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 720,
@@ -1851,6 +2612,12 @@ window.FULL_OBJECT_CATALOG = [
         Style: "BedBluePreview",
         Top: -1,
         Height: 2,
+        Layers: [
+            { Name: "Sheets", IsColorable: true, DefaultColor: "#1772A0" },
+            { Name: "Mattress", IsColorable: true, DefaultColor: "#FEFEFF" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#B36B4F" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 730,
@@ -1858,6 +2625,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "BallPitPreview",
         Top: -0.25,
         Height: 1.25,
+        Layers: [
+            { Name: "Box", IsColorable: true, DefaultColor: "#EF9014" },
+            { Name: "Balls", IsColorable: false },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 740,
@@ -1865,12 +2637,19 @@ window.FULL_OBJECT_CATALOG = [
         Style: "VikingTablePreview",
         Top: -0.25,
         Height: 1.25,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#BD8455" }],
+        JoinsNeighbors: true,
     },
     {
         ID: 750,
         Type: "FloorDecorationExpanding",
         Style: "RailroadPreview",
         Top: 0,
+        Layers: [
+            { Name: "Rails", IsColorable: true, DefaultColor: "#A7A9AB" },
+            { Name: "Ties", IsColorable: true, DefaultColor: "#A36047" },
+        ],
+        JoinsNeighbors: true,
     },
     {
         ID: 801,
@@ -1878,6 +2657,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "PetBed",
         Top: 0.19,
         Height: 0.66,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 802,
@@ -1885,24 +2665,28 @@ window.FULL_OBJECT_CATALOG = [
         Style: "PetBowls",
         Top: 0.55,
         Height: 0.3,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 810,
         Type: "FloorDecorationAnimal",
         Style: "CatCaramelHappy",
         Top: -0.2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 820,
         Type: "FloorDecorationAnimal",
         Style: "DogBrownHappy",
         Top: -0.4,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 830,
         Type: "FloorDecorationAnimal",
         Style: "RabbitBrownStand",
         Top: -0.3,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 840,
@@ -1911,23 +2695,96 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.5,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 850, Type: "FloorDecorationAnimal", Style: "Fireflies0", Top: -0.5 },
-    { ID: 1010, Type: "FloorItem", Style: "Kennel", Top: -1, Height: 2 },
-    { ID: 1020, Type: "FloorItem", Style: "X-Cross", Top: -1, Height: 2 },
-    { ID: 1030, Type: "FloorItem", Style: "BondageBench", Top: -1, Height: 2 },
-    { ID: 1040, Type: "FloorItem", Style: "Trolley", Top: -1, Height: 2 },
-    { ID: 1050, Type: "School", Style: "Locker", Top: -1, Height: 2 },
-    { ID: 1060, Type: "FloorItem", Style: "WoodenBox", Top: -1, Height: 2 },
-    { ID: 1070, Type: "FloorItem", Style: "Coffin", Top: -1.2, Height: 1.85 },
+    {
+        ID: 850,
+        Type: "FloorDecorationAnimal",
+        Style: "Fireflies0",
+        Top: -0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1010,
+        Type: "FloorItem",
+        Style: "Kennel",
+        Top: -1,
+        Height: 2,
+        Layers: [
+            { Name: "Bars", IsColorable: true, DefaultColor: "#6D6D6D" },
+            { Name: "Floor", IsColorable: true, DefaultColor: "#4B4B4B" },
+        ],
+    },
+    {
+        ID: 1020,
+        Type: "FloorItem",
+        Style: "X-Cross",
+        Top: -1,
+        Height: 2,
+        Layers: [
+            { Name: "Boards", IsColorable: true, DefaultColor: "#A9A9A9" },
+            { Name: "Straps", IsColorable: true, DefaultColor: "#333132" },
+            { Name: "Base", IsColorable: true, DefaultColor: "#2F2D2C" },
+        ],
+    },
+    {
+        ID: 1030,
+        Type: "FloorItem",
+        Style: "BondageBench",
+        Top: -1,
+        Height: 2,
+        Layers: [
+            { Name: "Leather", IsColorable: true, DefaultColor: "#2E2D2C" },
+        ],
+    },
+    {
+        ID: 1040,
+        Type: "FloorItem",
+        Style: "Trolley",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1050,
+        Type: "School",
+        Style: "Locker",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "Body", IsColorable: true, DefaultColor: "#8C1617" }],
+    },
+    {
+        ID: 1060,
+        Type: "FloorItem",
+        Style: "WoodenBox",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1070,
+        Type: "FloorItem",
+        Style: "Coffin",
+        Top: -1.2,
+        Height: 1.85,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 1080,
         Type: "FloorItem",
         Style: "TheDisplayFrame",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 1090, Type: "FloorItem", Style: "Pole", Top: -0.85, Height: 1.8 },
+    {
+        ID: 1090,
+        Type: "FloorItem",
+        Style: "Pole",
+        Top: -0.85,
+        Height: 1.8,
+        Layers: [{ Name: "Metal", IsColorable: true, DefaultColor: "#7E7E7E" }],
+    },
     {
         ID: 1095,
         Type: "FloorItem",
@@ -1936,6 +2793,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.8,
         Width: 0.9,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 1096,
@@ -1943,65 +2801,341 @@ window.FULL_OBJECT_CATALOG = [
         Style: "FuturisticCrate",
         Top: -0.95,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 1097, Type: "ABDL", Style: "HighChair", Top: -0.95, Height: 2 },
-    { ID: 1098, Type: "ABDL", Style: "Crib", Top: -0.95, Height: 2 },
-    { ID: 1099, Type: "ABDL", Style: "PinkCrib", Top: -0.95, Height: 2 },
-    { ID: 1110, Type: "FloorNumber", Style: "Number0" },
-    { ID: 1111, Type: "FloorNumber", Style: "Number1" },
-    { ID: 1112, Type: "FloorNumber", Style: "Number2" },
-    { ID: 1113, Type: "FloorNumber", Style: "Number3" },
-    { ID: 1114, Type: "FloorNumber", Style: "Number4" },
-    { ID: 1115, Type: "FloorNumber", Style: "Number5" },
-    { ID: 1116, Type: "FloorNumber", Style: "Number6" },
-    { ID: 1117, Type: "FloorNumber", Style: "Number7" },
-    { ID: 1118, Type: "FloorNumber", Style: "Number8" },
-    { ID: 1119, Type: "FloorNumber", Style: "Number9" },
-    { ID: 1201, Type: "FloorLetter", Style: "LetterA" },
-    { ID: 1202, Type: "FloorLetter", Style: "LetterB" },
-    { ID: 1203, Type: "FloorLetter", Style: "LetterC" },
-    { ID: 1204, Type: "FloorLetter", Style: "LetterD" },
-    { ID: 1205, Type: "FloorLetter", Style: "LetterE" },
-    { ID: 1206, Type: "FloorLetter", Style: "LetterF" },
-    { ID: 1207, Type: "FloorLetter", Style: "LetterG" },
-    { ID: 1208, Type: "FloorLetter", Style: "LetterH" },
-    { ID: 1209, Type: "FloorLetter", Style: "LetterI" },
-    { ID: 1210, Type: "FloorLetter", Style: "LetterJ" },
-    { ID: 1211, Type: "FloorLetter", Style: "LetterK" },
-    { ID: 1212, Type: "FloorLetter", Style: "LetterL" },
-    { ID: 1213, Type: "FloorLetter", Style: "LetterM" },
-    { ID: 1214, Type: "FloorLetter", Style: "LetterN" },
-    { ID: 1215, Type: "FloorLetter", Style: "LetterO" },
-    { ID: 1216, Type: "FloorLetter", Style: "LetterP" },
-    { ID: 1217, Type: "FloorLetter", Style: "LetterQ" },
-    { ID: 1218, Type: "FloorLetter", Style: "LetterR" },
-    { ID: 1219, Type: "FloorLetter", Style: "LetterS" },
-    { ID: 1220, Type: "FloorLetter", Style: "LetterT" },
-    { ID: 1221, Type: "FloorLetter", Style: "LetterU" },
-    { ID: 1222, Type: "FloorLetter", Style: "LetterV" },
-    { ID: 1223, Type: "FloorLetter", Style: "LetterW" },
-    { ID: 1224, Type: "FloorLetter", Style: "LetterX" },
-    { ID: 1225, Type: "FloorLetter", Style: "LetterY" },
-    { ID: 1226, Type: "FloorLetter", Style: "LetterZ" },
-    { ID: 1301, Type: "FloorIcon", Style: "IconCircle" },
-    { ID: 1302, Type: "FloorIcon", Style: "IconSquare" },
-    { ID: 1303, Type: "FloorIcon", Style: "IconTriangle" },
-    { ID: 1304, Type: "FloorIcon", Style: "IconCross" },
-    { ID: 1305, Type: "FloorIcon", Style: "IconDiamond" },
-    { ID: 1306, Type: "FloorIcon", Style: "IconArrowUp" },
-    { ID: 1307, Type: "FloorIcon", Style: "IconArrowDown" },
-    { ID: 1308, Type: "FloorIcon", Style: "IconArrowLeft" },
-    { ID: 1309, Type: "FloorIcon", Style: "IconArrowRight" },
-    { ID: 1400, Type: "ABDL", Style: "PinkPotty", Top: 0, Height: 1 },
-    { ID: 1401, Type: "ABDL", Style: "BluePotty", Top: 0, Height: 1 },
-    { ID: 1402, Type: "ABDL", Style: "ChangingTable", Top: -1, Height: 2 },
-    { ID: 1403, Type: "ABDL", Style: "RockingHorse", Top: 0.07, Height: 0.78 },
+    {
+        ID: 1097,
+        Type: "ABDL",
+        Style: "HighChair",
+        Top: -0.95,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1098,
+        Type: "ABDL",
+        Style: "Crib",
+        Top: -0.95,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1099,
+        Type: "ABDL",
+        Style: "PinkCrib",
+        Top: -0.95,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1110,
+        Type: "FloorNumber",
+        Style: "Number0",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1111,
+        Type: "FloorNumber",
+        Style: "Number1",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1112,
+        Type: "FloorNumber",
+        Style: "Number2",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1113,
+        Type: "FloorNumber",
+        Style: "Number3",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1114,
+        Type: "FloorNumber",
+        Style: "Number4",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1115,
+        Type: "FloorNumber",
+        Style: "Number5",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1116,
+        Type: "FloorNumber",
+        Style: "Number6",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1117,
+        Type: "FloorNumber",
+        Style: "Number7",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1118,
+        Type: "FloorNumber",
+        Style: "Number8",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1119,
+        Type: "FloorNumber",
+        Style: "Number9",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1201,
+        Type: "FloorLetter",
+        Style: "LetterA",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1202,
+        Type: "FloorLetter",
+        Style: "LetterB",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1203,
+        Type: "FloorLetter",
+        Style: "LetterC",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1204,
+        Type: "FloorLetter",
+        Style: "LetterD",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1205,
+        Type: "FloorLetter",
+        Style: "LetterE",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1206,
+        Type: "FloorLetter",
+        Style: "LetterF",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1207,
+        Type: "FloorLetter",
+        Style: "LetterG",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1208,
+        Type: "FloorLetter",
+        Style: "LetterH",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1209,
+        Type: "FloorLetter",
+        Style: "LetterI",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1210,
+        Type: "FloorLetter",
+        Style: "LetterJ",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1211,
+        Type: "FloorLetter",
+        Style: "LetterK",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1212,
+        Type: "FloorLetter",
+        Style: "LetterL",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1213,
+        Type: "FloorLetter",
+        Style: "LetterM",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1214,
+        Type: "FloorLetter",
+        Style: "LetterN",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1215,
+        Type: "FloorLetter",
+        Style: "LetterO",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1216,
+        Type: "FloorLetter",
+        Style: "LetterP",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1217,
+        Type: "FloorLetter",
+        Style: "LetterQ",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1218,
+        Type: "FloorLetter",
+        Style: "LetterR",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1219,
+        Type: "FloorLetter",
+        Style: "LetterS",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1220,
+        Type: "FloorLetter",
+        Style: "LetterT",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1221,
+        Type: "FloorLetter",
+        Style: "LetterU",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1222,
+        Type: "FloorLetter",
+        Style: "LetterV",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1223,
+        Type: "FloorLetter",
+        Style: "LetterW",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1224,
+        Type: "FloorLetter",
+        Style: "LetterX",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1225,
+        Type: "FloorLetter",
+        Style: "LetterY",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1226,
+        Type: "FloorLetter",
+        Style: "LetterZ",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1301,
+        Type: "FloorIcon",
+        Style: "IconCircle",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1302,
+        Type: "FloorIcon",
+        Style: "IconSquare",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1303,
+        Type: "FloorIcon",
+        Style: "IconTriangle",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1304,
+        Type: "FloorIcon",
+        Style: "IconCross",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1305,
+        Type: "FloorIcon",
+        Style: "IconDiamond",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1306,
+        Type: "FloorIcon",
+        Style: "IconArrowUp",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1307,
+        Type: "FloorIcon",
+        Style: "IconArrowDown",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1308,
+        Type: "FloorIcon",
+        Style: "IconArrowLeft",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1309,
+        Type: "FloorIcon",
+        Style: "IconArrowRight",
+        Layers: [{ Name: "", IsColorable: true, DefaultColor: "#FFFFFF" }],
+    },
+    {
+        ID: 1400,
+        Type: "ABDL",
+        Style: "PinkPotty",
+        Top: 0,
+        Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1401,
+        Type: "ABDL",
+        Style: "BluePotty",
+        Top: 0,
+        Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1402,
+        Type: "ABDL",
+        Style: "ChangingTable",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 1403,
+        Type: "ABDL",
+        Style: "RockingHorse",
+        Top: 0.07,
+        Height: 0.78,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2004,
         Type: "FloorObstacle",
         Style: "Stalagmite",
         Top: -0.125,
         Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2005,
@@ -2009,6 +3143,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Rocks",
         Top: -0.125,
         Height: 1.125,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2006,
@@ -2018,6 +3153,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.5,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2007,
@@ -2027,8 +3163,16 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.5,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 2010, Type: "FloorObstacle", Style: "Statue", Top: -1, Height: 2 },
+    {
+        ID: 2010,
+        Type: "FloorObstacle",
+        Style: "Statue",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2011,
         Type: "FloorObstacle",
@@ -2037,6 +3181,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.65,
         Width: 0.75,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2012,
@@ -2046,14 +3191,23 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.05,
         Height: 1.75,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 2013, Type: "FloorObstacle", Style: "Totem", Top: -1, Height: 2 },
+    {
+        ID: 2013,
+        Type: "FloorObstacle",
+        Style: "Totem",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2014,
         Type: "FloorObstacle",
         Style: "EasterIsland",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2015,
@@ -2061,6 +3215,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "OrderOfTheVoidTotem",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2016,
@@ -2070,6 +3225,11 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.15,
         Height: 2.3,
         Width: 0.7,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+        ],
     },
     {
         ID: 2017,
@@ -2077,6 +3237,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "FreyaStatue",
         Top: -1.55,
         Height: 2.5,
+        Layers: [
+            { Name: "Stone", IsColorable: true, DefaultColor: "#6A635C" },
+            { Name: "Gold", IsColorable: true, DefaultColor: "#C9A227" },
+            { Name: "Pedestal", IsColorable: false },
+        ],
     },
     {
         ID: 2018,
@@ -2084,6 +3249,10 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicTreasureChest",
         Top: -0.2,
         Height: 1.2,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+        ],
     },
     {
         ID: 2020,
@@ -2091,10 +3260,32 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Barrel",
         Top: -0.5,
         Height: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 2025, Type: "FloorObstacle", Style: "Chest", Top: 0, Height: 1 },
-    { ID: 2030, Type: "FloorObstacle", Style: "IronBars", Top: -1, Height: 2 },
-    { ID: 2031, Type: "FloorObstacle", Style: "BarbFence", Top: -1, Height: 2 },
+    {
+        ID: 2025,
+        Type: "FloorObstacle",
+        Style: "Chest",
+        Top: 0,
+        Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 2030,
+        Type: "FloorObstacle",
+        Style: "IronBars",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
+    {
+        ID: 2031,
+        Type: "FloorObstacle",
+        Style: "BarbFence",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2032,
         Type: "FloorObstacle",
@@ -2102,14 +3293,23 @@ window.FULL_OBJECT_CATALOG = [
         Top: -0.8,
         Height: 0.75,
         Width: 1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 2033, Type: "FloorObstacle", Style: "VelourRopeBarrier", Top: -0.35 },
+    {
+        ID: 2033,
+        Type: "FloorObstacle",
+        Style: "VelourRopeBarrier",
+        Top: -0.35,
+        Layers: [{ Name: "", IsColorable: false }],
+        JoinsNeighbors: true,
+    },
     {
         ID: 2034,
         Type: "FloorObstacle",
         Style: "FarmFenceSingle",
         Top: -0.15,
         Height: 1.1,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" }],
     },
     {
         ID: 2036,
@@ -2117,8 +3317,16 @@ window.FULL_OBJECT_CATALOG = [
         Style: "HomeFenceSingle",
         Top: -0.15,
         Height: 1.1,
+        Layers: [{ Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" }],
     },
-    { ID: 2035, Type: "FloorObstacle", Style: "Bush", Top: -0.25, Height: 1 },
+    {
+        ID: 2035,
+        Type: "FloorObstacle",
+        Style: "Bush",
+        Top: -0.25,
+        Height: 1,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2040,
         Type: "FloorObstacle",
@@ -2127,6 +3335,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.25,
         Height: 2.5,
         Width: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2045,
@@ -2136,6 +3345,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.25,
         Height: 2.5,
         Width: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2048,
@@ -2143,8 +3353,16 @@ window.FULL_OBJECT_CATALOG = [
         Style: "LeaflessTree",
         Top: -1.25,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 2050, Type: "FloorObstacle", Style: "PineTree", Top: -1, Height: 2 },
+    {
+        ID: 2050,
+        Type: "FloorObstacle",
+        Style: "PineTree",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+    },
     {
         ID: 2055,
         Type: "FloorObstacle",
@@ -2153,6 +3371,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.3,
         Height: 2.5,
         Width: 1.65,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2059,
@@ -2162,6 +3381,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.3,
         Height: 2,
         Width: 1.3,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2057,
@@ -2171,6 +3391,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.2,
         Height: 1.8,
         Width: 1.3,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2060,
@@ -2178,6 +3399,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ChristmasTree",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2070,
@@ -2185,6 +3407,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Window",
         Top: -0.5,
         Height: 1.5,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2080,
@@ -2193,6 +3416,7 @@ window.FULL_OBJECT_CATALOG = [
         Top: -0.25,
         Height: 0.75,
         Width: 0.75,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2085,
@@ -2202,6 +3426,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.13,
         Height: 0.75,
         Width: 0.75,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2090,
@@ -2209,6 +3434,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "LampPost",
         Top: -1.25,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2091,
@@ -2216,6 +3442,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Fountain",
         Top: -0.1,
         Height: 0.95,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2092,
@@ -2223,6 +3450,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ParkBench",
         Top: 0.19,
         Height: 0.66,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2093,
@@ -2230,6 +3458,7 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WishingWell",
         Top: -0.47,
         Height: 1.32,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 2098,
@@ -2239,21 +3468,77 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.16,
         Height: 2,
         Width: 0.7,
+        Layers: [{ Name: "", IsColorable: false }],
     },
-    { ID: 3010, Type: "WallDecoration", Style: "Painting" },
-    { ID: 3020, Type: "Bathroom", Style: "Mirror" },
-    { ID: 3021, Type: "Bathroom", Style: "BlueBathroomMat" },
-    { ID: 3022, Type: "Bathroom", Style: "GreenBathroomMat" },
-    { ID: 3023, Type: "Bathroom", Style: "PinkBathroomMat" },
-    { ID: 3024, Type: "Bathroom", Style: "Sink" },
-    { ID: 3025, Type: "Bathroom", Style: "ToiletPaper" },
-    { ID: 3026, Type: "Bathroom", Style: "Bathtub" },
+    {
+        ID: 3010,
+        Type: "WallDecoration",
+        Style: "Painting",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3020,
+        Type: "Bathroom",
+        Style: "Mirror",
+        Layers: [
+            { Name: "Frame", IsColorable: true, DefaultColor: "#82714A" },
+            { Name: "Glass", IsColorable: false },
+            { Name: "Gems", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3021,
+        Type: "Bathroom",
+        Style: "BlueBathroomMat",
+        Layers: [{ Name: "Mat", IsColorable: true, DefaultColor: "#8281AA" }],
+    },
+    {
+        ID: 3022,
+        Type: "Bathroom",
+        Style: "GreenBathroomMat",
+        Layers: [{ Name: "Mat", IsColorable: true, DefaultColor: "#7C9A82" }],
+    },
+    {
+        ID: 3023,
+        Type: "Bathroom",
+        Style: "PinkBathroomMat",
+        Layers: [{ Name: "Mat", IsColorable: true, DefaultColor: "#A28683" }],
+    },
+    {
+        ID: 3024,
+        Type: "Bathroom",
+        Style: "Sink",
+        Layers: [
+            { Name: "Porcelain", IsColorable: true, DefaultColor: "#7F8082" },
+        ],
+    },
+    {
+        ID: 3025,
+        Type: "Bathroom",
+        Style: "ToiletPaper",
+        Layers: [
+            { Name: "Holder", IsColorable: true, DefaultColor: "#82817F" },
+            { Name: "Paper", IsColorable: true, DefaultColor: "#82817F" },
+        ],
+    },
+    {
+        ID: 3026,
+        Type: "Bathroom",
+        Style: "Bathtub",
+        Layers: [{ Name: "Body", IsColorable: true, DefaultColor: "#828181" }],
+    },
     {
         ID: 3027,
         Type: "Bathroom",
         Style: "TowelRack",
         Top: -0.34,
         Height: 1.19,
+        Layers: [
+            { Name: "Rack", IsColorable: true, DefaultColor: "#808080" },
+            { Name: "Towels", IsColorable: true, DefaultColor: "#808080" },
+        ],
     },
     {
         ID: 3028,
@@ -2263,10 +3548,38 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.01,
         Height: 0.8,
         Width: 0.98,
+        Layers: [
+            { Name: "Basket", IsColorable: true, DefaultColor: "#B1704A" },
+            { Name: "Liner", IsColorable: false },
+            { Name: "Towels", IsColorable: false },
+        ],
     },
-    { ID: 3030, Type: "WallDecoration", Style: "Candelabra0" },
-    { ID: 3040, Type: "WallDecoration", Style: "Whip" },
-    { ID: 3050, Type: "LivingRoom", Style: "Fireplace" },
+    {
+        ID: 3030,
+        Type: "WallDecoration",
+        Style: "Candelabra0",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3040,
+        Type: "WallDecoration",
+        Style: "Whip",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3050,
+        Type: "LivingRoom",
+        Style: "Fireplace",
+        Layers: [
+            { Name: "Stone", IsColorable: true, DefaultColor: "#B4B3B2" },
+            { Name: "Iron", IsColorable: true, DefaultColor: "#4B8083" },
+            { Name: "Fire", IsColorable: true, DefaultColor: "#AA7311" },
+            { Name: "Glow", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3060,
         Type: "WallDecoration",
@@ -2275,14 +3588,28 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.5,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3070, Type: "WallDecoration", Style: "Moss", Top: 0.15, Height: 0.8 },
+    {
+        ID: 3070,
+        Type: "WallDecoration",
+        Style: "Moss",
+        Top: 0.15,
+        Height: 0.8,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3075,
         Type: "WallDecoration",
         Style: "Vines",
         Top: 0.15,
         Height: 0.8,
+        Layers: [
+            { Name: "Leaves", IsColorable: true, DefaultColor: "#454C25" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3076,
@@ -2290,9 +3617,26 @@ window.FULL_OBJECT_CATALOG = [
         Style: "Vines2",
         Top: 0.15,
         Height: 0.8,
+        Layers: [
+            { Name: "Leaves", IsColorable: true, DefaultColor: "#354129" },
+            { Name: "Flowers", IsColorable: true, DefaultColor: "#89211E" },
+        ],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3100, Type: "WallDecoration", Style: "SilverShield" },
-    { ID: 3110, Type: "WallDecoration", Style: "CrossedSabers" },
+    {
+        ID: 3100,
+        Type: "WallDecoration",
+        Style: "SilverShield",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3110,
+        Type: "WallDecoration",
+        Style: "CrossedSabers",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3120,
         Type: "WallDecoration",
@@ -2301,6 +3645,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.1,
         Height: 0.8,
         Width: 0.8,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3121,
@@ -2310,6 +3656,12 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.1,
         Height: 0.8,
         Width: 0.8,
+        Layers: [
+            { Name: "Curtains", IsColorable: true, DefaultColor: "#81342E" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#624B38" },
+            { Name: "Glass", IsColorable: true, DefaultColor: "#1D2548" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3122,
@@ -2319,6 +3671,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.13,
         Height: 0.75,
         Width: 0.75,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3130,
@@ -2326,6 +3680,8 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WallShelf",
         Top: 0.1,
         Height: 0.76,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3131,
@@ -2335,6 +3691,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.11,
         Height: 0.8,
         Width: 0.78,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3132,
@@ -2344,6 +3702,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.1,
         Height: 0.8,
         Width: 0.79,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3133,
@@ -2351,6 +3711,12 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicAxesCrossed",
         Top: 0.1,
         Height: 0.85,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+            { Name: "Leather", IsColorable: true, DefaultColor: "#5C4033" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3134,
@@ -2358,6 +3724,12 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicShieldRound",
         Top: 0.1,
         Height: 0.85,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+            { Name: "Paint", IsColorable: true, DefaultColor: "#C45C26" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3135,
@@ -2365,6 +3737,12 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicShieldKnot",
         Top: 0.1,
         Height: 0.85,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+            { Name: "Paint", IsColorable: true, DefaultColor: "#C45C26" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3136,
@@ -2372,6 +3750,13 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicShieldAxes",
         Top: 0,
         Height: 1,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Metal", IsColorable: true, DefaultColor: "#5A5A5E" },
+            { Name: "Paint", IsColorable: true, DefaultColor: "#C45C26" },
+            { Name: "Leather", IsColorable: true, DefaultColor: "#5C4033" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3137,
@@ -2379,6 +3764,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicDragonHeadLeft",
         Top: 0.1,
         Height: 0.85,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Paint", IsColorable: true, DefaultColor: "#C45C26" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3138,
@@ -2386,6 +3776,11 @@ window.FULL_OBJECT_CATALOG = [
         Style: "NordicDragonHeadRight",
         Top: 0.1,
         Height: 0.85,
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#A0693C" },
+            { Name: "Paint", IsColorable: true, DefaultColor: "#C45C26" },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3139,
@@ -2393,6 +3788,12 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernWallSconce",
         Top: 0.05,
         Height: 0.9,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3140,
@@ -2400,8 +3801,24 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ModernWallSconceDouble",
         Top: 0.05,
         Height: 0.9,
+        Layers: [
+            { Name: "Metal", IsColorable: true, DefaultColor: "#2B2B2B" },
+            { Name: "Shade", IsColorable: true, DefaultColor: "#F5F0E6" },
+            { Name: "Glow", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3200, Type: "School", Style: "SchoolBoard" },
+    {
+        ID: 3200,
+        Type: "School",
+        Style: "SchoolBoard",
+        Layers: [
+            { Name: "Board", IsColorable: true, DefaultColor: "#518153" },
+            { Name: "Frame", IsColorable: true, DefaultColor: "#996244" },
+            { Name: "Chalk", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3201,
         Type: "School",
@@ -2410,9 +3827,26 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.13,
         Height: 0.75,
         Width: 0.75,
+        Layers: [
+            { Name: "Frame", IsColorable: true, DefaultColor: "#808080" },
+            { Name: "Face", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3250, Type: "WallDecoration", Style: "FirstAidKit" },
-    { ID: 3260, Type: "WallDecoration", Style: "EyeTest" },
+    {
+        ID: 3250,
+        Type: "WallDecoration",
+        Style: "FirstAidKit",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3260,
+        Type: "WallDecoration",
+        Style: "EyeTest",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3261,
         Type: "WallDecoration",
@@ -2421,6 +3855,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.2,
         Height: 0.6,
         Width: 0.6,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 3262,
@@ -2430,21 +3866,72 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.2,
         Height: 0.7,
         Width: 0.6,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3270, Type: "LivingRoom", Style: "Bookshelf" },
+    {
+        ID: 3270,
+        Type: "LivingRoom",
+        Style: "Bookshelf",
+        Layers: [
+            { Name: "Wood", IsColorable: true, DefaultColor: "#966945" },
+            { Name: "Books", IsColorable: false },
+        ],
+        CanPlaceOnWalls: true,
+    },
     {
         ID: 3275,
         Type: "WallDecoration",
         Style: "AirConditioner",
         Top: 0.27,
         Height: 0.8,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
-    { ID: 3280, Type: "Bathroom", Style: "ShowerHead" },
-    { ID: 3290, Type: "Bathroom", Style: "EnemaHead" },
-    { ID: 3301, Type: "WallDecoration", Style: "MonitorSmall" },
-    { ID: 3302, Type: "WallDecoration", Style: "MonitorBigLeft" },
-    { ID: 3303, Type: "WallDecoration", Style: "MonitorBigRight" },
-    { ID: 3500, Type: "Functional", Style: "ConveyorBelt1", Top: 0, Left: 0 },
+    {
+        ID: 3280,
+        Type: "Bathroom",
+        Style: "ShowerHead",
+        Layers: [{ Name: "Metal", IsColorable: true, DefaultColor: "#8F9092" }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3290,
+        Type: "Bathroom",
+        Style: "EnemaHead",
+        Layers: [{ Name: "Metal", IsColorable: true, DefaultColor: "#7E7F82" }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3301,
+        Type: "WallDecoration",
+        Style: "MonitorSmall",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3302,
+        Type: "WallDecoration",
+        Style: "MonitorBigLeft",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3303,
+        Type: "WallDecoration",
+        Style: "MonitorBigRight",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+    {
+        ID: 3500,
+        Type: "Functional",
+        Style: "ConveyorBelt1",
+        Top: 0,
+        Left: 0,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
     {
         ID: 3501,
         Type: "Functional",
@@ -2452,6 +3939,8 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 180,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3502,
@@ -2460,6 +3949,8 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 270,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3503,
@@ -2468,6 +3959,8 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 90,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3510,
@@ -2475,6 +3968,8 @@ window.FULL_OBJECT_CATALOG = [
         Style: "ConveyorBeltFast1",
         Top: 0,
         Left: 0,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3511,
@@ -2483,6 +3978,8 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 180,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3512,
@@ -2491,6 +3988,8 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 270,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
     {
         ID: 3513,
@@ -2499,26 +3998,90 @@ window.FULL_OBJECT_CATALOG = [
         Top: 0,
         Left: 0,
         Rotation: 90,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
-    { ID: 3520, Type: "Functional", Style: "SignWood", Top: -0.25 },
-    { ID: 3521, Type: "Functional", Style: "SignWoodWall", Top: 0.1 },
-    { ID: 3522, Type: "Functional", Style: "SignMetal", Top: -0.25 },
-    { ID: 3523, Type: "Functional", Style: "SignMetalWall", Top: 0.1 },
+    {
+        ID: 3520,
+        Type: "Functional",
+        Style: "SignWood",
+        Top: -0.25,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3521,
+        Type: "Functional",
+        Style: "SignWoodWall",
+        Top: 0.1,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3522,
+        Type: "Functional",
+        Style: "SignMetal",
+        Top: -0.25,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
+    },
+    {
+        ID: 3523,
+        Type: "Functional",
+        Style: "SignMetalWall",
+        Top: 0.1,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
     {
         ID: 3530,
         Type: "Functional",
         Style: "TeleportPad",
         Name: "Teleport Pad",
+        Layers: [{ Name: "", IsColorable: false }],
+        CanBeCustomized: false,
     },
-    { ID: 4010, Type: "WallPath", Style: "WoodOpen", Top: -1, Height: 2 },
-    { ID: 4011, Type: "WallPath", Style: "WoodClosed", Top: -1, Height: 2 },
-    { ID: 4012, Type: "WallPath", Style: "WoodLocked", Top: -1, Height: 2 },
+    {
+        ID: 4010,
+        Type: "WallPath",
+        Style: "WoodOpen",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4011,
+        Type: "WallPath",
+        Style: "WoodClosed",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4012,
+        Type: "WallPath",
+        Style: "WoodLocked",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
     {
         ID: 4013,
         Type: "WallPath",
         Style: "WoodLockedBronze",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4014,
@@ -2526,15 +4089,39 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WoodLockedSilver",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
-    { ID: 4015, Type: "WallPath", Style: "WoodLockedGold", Top: -1, Height: 2 },
-    { ID: 4016, Type: "WallPath", Style: "WoodClosedAuto", Top: -1, Height: 2 },
+    {
+        ID: 4015,
+        Type: "WallPath",
+        Style: "WoodLockedGold",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4016,
+        Type: "WallPath",
+        Style: "WoodClosedAuto",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
     {
         ID: 4017,
         Type: "WallPath",
         Style: "WoodClosedAutoUp",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4018,
@@ -2542,16 +4129,49 @@ window.FULL_OBJECT_CATALOG = [
         Style: "WoodClosedAutoDown",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
-    { ID: 4020, Type: "WallPath", Style: "Metal", Top: -1, Height: 2 },
-    { ID: 4021, Type: "WallPath", Style: "MetalUp", Top: -1, Height: 2 },
-    { ID: 4022, Type: "WallPath", Style: "MetalDown", Top: -1, Height: 2 },
+    {
+        ID: 4020,
+        Type: "WallPath",
+        Style: "Metal",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4021,
+        Type: "WallPath",
+        Style: "MetalUp",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
+    {
+        ID: 4022,
+        Type: "WallPath",
+        Style: "MetalDown",
+        Top: -1,
+        Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
+    },
     {
         ID: 4023,
         Type: "WallPath",
         Style: "MetalLockedBronze",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4024,
@@ -2559,6 +4179,9 @@ window.FULL_OBJECT_CATALOG = [
         Style: "MetalLockedSilver",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4025,
@@ -2566,6 +4189,9 @@ window.FULL_OBJECT_CATALOG = [
         Style: "MetalLockedGold",
         Top: -1,
         Height: 2,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4030,
@@ -2575,6 +4201,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4031,
@@ -2584,6 +4213,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4032,
@@ -2593,6 +4225,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4033,
@@ -2602,6 +4237,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4034,
@@ -2611,6 +4249,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4035,
@@ -2620,6 +4261,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4036,
@@ -2629,6 +4273,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4037,
@@ -2638,6 +4285,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4038,
@@ -2647,6 +4297,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4039,
@@ -2656,6 +4309,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4040,
@@ -2665,6 +4321,9 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.06,
         Height: 1.55,
         Width: 0.85,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+        CanBeCustomized: false,
     },
     {
         ID: 4501,
@@ -2674,6 +4333,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4502,
@@ -2683,6 +4343,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4503,
@@ -2692,6 +4353,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4504,
@@ -2701,6 +4363,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4505,
@@ -2710,6 +4373,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4506,
@@ -2719,6 +4383,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4507,
@@ -2728,6 +4393,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4508,
@@ -2737,6 +4403,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4509,
@@ -2746,6 +4413,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4510,
@@ -2755,6 +4423,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4511,
@@ -2764,6 +4433,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 4512,
@@ -2773,6 +4443,7 @@ window.FULL_OBJECT_CATALOG = [
         Left: -0.1,
         Height: 1.1,
         Width: 1.1,
+        Layers: [{ Name: "", IsColorable: false }],
     },
     {
         ID: 5010,
@@ -2782,6 +4453,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5011,
@@ -2791,6 +4464,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5012,
@@ -2800,6 +4475,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5013,
@@ -2809,6 +4486,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5014,
@@ -2818,6 +4497,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "Cloth", IsColorable: true, DefaultColor: "#1F1F1F" }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5015,
@@ -2827,6 +4508,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5016,
@@ -2836,6 +4519,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5017,
@@ -2845,6 +4530,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5018,
@@ -2854,6 +4541,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5019,
@@ -2863,6 +4552,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5020,
@@ -2872,6 +4563,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5021,
@@ -2881,6 +4574,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5022,
@@ -2890,6 +4585,8 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
     },
     {
         ID: 5023,
@@ -2899,6 +4596,195 @@ window.FULL_OBJECT_CATALOG = [
         Left: 0.25,
         Height: 0.6,
         Width: 0.5,
+        Layers: [{ Name: "", IsColorable: false }],
+        CanPlaceOnWalls: true,
+    },
+];
+
+"use strict";
+window.DECALS = void 0;
+// Generated from BC's Female3DCG asset group: the 45 AssetGetDecals entries.
+// Regenerate from the R134 source when the game adds decals.
+window.DECALS = [
+    {
+        name: "DenOfSin",
+        description: "Den of Sin",
+    },
+    {
+        name: "AmberFam",
+        description: "Amber Family",
+    },
+    {
+        name: "AzureCorp",
+        description: "Azure Corporation",
+    },
+    {
+        name: "DemonsBar",
+        description: "Demon's Bar",
+    },
+    {
+        name: "Gangriels",
+        description: "Gangriels",
+    },
+    {
+        name: "LukeChill",
+        description: "Luke's Chill Tent",
+    },
+    {
+        name: "Malkuth",
+        description: "Malkuth",
+    },
+    {
+        name: "RatAss",
+        description: "The Rat's Ass",
+    },
+    {
+        name: "SlaveHelpline",
+        description: "Slave Helpline",
+    },
+    {
+        name: "VoidOrder",
+        description: "Void Order",
+    },
+    {
+        name: "DataRoom",
+        description: "Data Room",
+    },
+    {
+        name: "BCRules",
+        description: "The Bondage Club Rules",
+    },
+    {
+        name: "BondageCollege",
+        description: "Bondage College",
+    },
+    {
+        name: "Bonk",
+        description: "Bonk!",
+    },
+    {
+        name: "BTeacher",
+        description: "Bondage Teacher",
+    },
+    {
+        name: "BTG",
+        description: "BTG",
+    },
+    {
+        name: "Bullseye",
+        description: "Aim Your Boss Butt",
+    },
+    {
+        name: "ControlPad1",
+        description: "Control Padded",
+    },
+    {
+        name: "Dominant",
+        description: "Dominant",
+    },
+    {
+        name: "Eclipse",
+        description: "Eclipse",
+    },
+    {
+        name: "Elite",
+        description: "Kidnap League Elite",
+    },
+    {
+        name: "Hogtied",
+        description: "Hogtied",
+    },
+    {
+        name: "HWood",
+        description: "Hornywood",
+    },
+    {
+        name: "Keys",
+        description: "Keys?!",
+    },
+    {
+        name: "RadFrog",
+        description: "RadFrog",
+    },
+    {
+        name: "Raiders",
+        description: "Raiders Of The Pandora's Box",
+    },
+    {
+        name: "Shibari",
+        description: "Shibari Crew",
+    },
+    {
+        name: "Staff",
+        description: "Staff",
+    },
+    {
+        name: "WhiteMoon",
+        description: "White Moon",
+    },
+    {
+        name: "ZamStick",
+        description: "The Zam Sticker",
+    },
+    {
+        name: "ZamStickII",
+        description: "The Zam Sticker II",
+    },
+    {
+        name: "SkullDecal",
+        description: "Skull",
+    },
+    {
+        name: "CyberTechCorp",
+        description: "CyberTech Corp",
+    },
+    {
+        name: "SpreaderBar",
+        description: "The Spreader Bar",
+    },
+    {
+        name: "FireBite",
+        description: "Firebite",
+    },
+    {
+        name: "CRABS",
+        description: "CRABS",
+    },
+    {
+        name: "PirateRockRadio",
+        description: "Pirate Rock Radio",
+    },
+    {
+        name: "MelodysBoutique",
+        description: "Melody's Boutique",
+    },
+    {
+        name: "BellFlower",
+        description: "Bell Flower",
+    },
+    {
+        name: "VelvetBunny",
+        description: "Velvet Bunny Cabaret",
+    },
+    {
+        name: "LMF",
+        description: "LMF Ride or Die",
+    },
+    {
+        name: "BFPin",
+        description: " Bellflower Consortium (pin)",
+    },
+    {
+        name: "SADollhouse",
+        description: "SA Dollhouse",
+    },
+    {
+        name: "MansionValentine",
+        description: "Mansion Valentine",
+    },
+    {
+        name: "FaircloughManor",
+        description: "Fairclough Manor",
     },
 ];
 
@@ -2912,7 +4798,7 @@ window.FULL_OBJECT_CATALOG = [
 // these are hand-written derivations of BC's BuildImageName / WallEffect
 // rules. A single source keeps the runtime preloader, resolver, and asset
 // downloader from drifting apart.
-window.OBSTACLE_OBJECT_IDS = window.KITCHEN_COUNTER_IDS = window.CONNECTED_TEXTURE_GROUPS = window.RAILROAD_DIRECTIONS = window.WALL_EFFECT_INDICES = void 0;
+window.OBSTACLE_OBJECT_IDS = window.TETHER_OBJECT_IDS = window.TELEPORTER_OBJECT_ID = window.SIGN_OBJECT_IDS = window.KITCHEN_COUNTER_IDS = window.CONNECTED_TEXTURE_GROUPS = window.RAILROAD_DIRECTIONS = window.WALL_EFFECT_INDICES = void 0;
 window.railroadVariantStyles = railroadVariantStyles;
 window.resolveConnectedVariant = resolveConnectedVariant;
 window.connectedVariantAssets = connectedVariantAssets;
@@ -3090,6 +4976,18 @@ function resolveConnectedVariant(id, x, y, at) {
             return fenceVariant(id, group, x, y, at);
     }
 }
+/** Objects that own each CellData config type in BC (Map.js:2531-2555). */
+window.SIGN_OBJECT_IDS = new Set([
+    3520, 3521, 3522, 3523,
+]);
+window.TELEPORTER_OBJECT_ID = 3530;
+/** 38 FloorObstacle objects (type default) + X-Cross 1020 + Pole 1090. */
+window.TETHER_OBJECT_IDS = new Set([
+    1020, 1090, 2004, 2005, 2006, 2007, 2010, 2011, 2012, 2013, 2014, 2015,
+    2016, 2017, 2018, 2020, 2025, 2030, 2031, 2032, 2033, 2034, 2035, 2036,
+    2040, 2045, 2048, 2050, 2055, 2057, 2059, 2060, 2070, 2080, 2085, 2090,
+    2091, 2092, 2093, 2098,
+]);
 /**
  * R134 objects whose `CanEnter("")` is false — cells a character cannot
  * stand on. Pinned from the game data (Assets/MapData.js); includes the two
@@ -3132,8 +5030,10 @@ function connectedVariantAssets() {
 window.EFFECT_BY_ID = window.BLANK_EFFECT_ID = window.EFFECT_CATALOG = void 0;
 window.isKnownEffectId = isKnownEffectId;
 window.effectColorCss = effectColorCss;
+window.writeEffectsBody = writeEffectsBody;
 window.encodeEffects = encodeEffects;
 window.decodeEffects = decodeEffects;
+window.readEffectsBody = readEffectsBody;
 const bitstring_1 = window;
 /** The eight static-lighting effects, in BC's declared order. */
 window.EFFECT_CATALOG = [
@@ -3241,9 +5141,7 @@ function readArray(reader, elementBits, maxLen) {
  * The list is expected to be one entry per map cell (any length); the game's
  * decoder validates the length against 40x40 on read.
  */
-function encodeEffects(effectIds) {
-    const writer = new bitstring_1.BitStringWriter();
-    writer.writeUnsigned(EFFECTS_CODEC_VERSION, MAP_SYNC_VERSION_BIT_SIZE);
+function writeEffectsBody(writer, effectIds) {
     const settings = buildSettings(effectIds);
     writer.writeUnsigned(settings.baseIdBits, BIT_LEN_BITS);
     writer.writeUnsigned(settings.shiftedIdBits, BIT_LEN_BITS);
@@ -3267,6 +5165,12 @@ function encodeEffects(effectIds) {
             i++;
         }
     }
+}
+/** v0 wrapper for the legacy `Effects` JSON field and the old combined tail. */
+function encodeEffects(effectIds) {
+    const writer = new bitstring_1.BitStringWriter();
+    writer.writeUnsigned(EFFECTS_CODEC_VERSION, MAP_SYNC_VERSION_BIT_SIZE);
+    writeEffectsBody(writer, effectIds);
     return writer.toBase64();
 }
 /**
@@ -3284,6 +5188,15 @@ function decodeEffects(encoded, expectedLength) {
         const version = reader.readUnsigned(MAP_SYNC_VERSION_BIT_SIZE);
         if (version !== EFFECTS_CODEC_VERSION)
             return null;
+        return readEffectsBody(reader, expectedLength);
+    }
+    catch {
+        return null;
+    }
+}
+/** Read an effects body (no leading version) from an already-positioned reader. */
+function readEffectsBody(reader, expectedLength) {
+    try {
         const baseIdBits = reader.readUnsigned(BIT_LEN_BITS);
         const shiftedIdBits = reader.readUnsigned(BIT_LEN_BITS);
         const remappedIdBits = reader.readUnsigned(BIT_LEN_BITS);
@@ -3527,8 +5440,9 @@ function createHelpRenderer(deps) {
 // nothing, so empty presses never cost an undo step. One-shot actions (the
 // lighting and obstacle toggles) use commit() instead of a stroke.
 //
-// Snapshots are plain immutable values (all strings/booleans), so the stacks
-// never alias live editor state. The editor owns the MapData and applies
+// Snapshots are plain immutable values (strings, booleans and deep-cloned
+// config/settings objects), so the stacks never alias live editor state.
+// The editor owns the MapData and applies
 // snapshots; onChange fires whenever stack state changes so the UI can sync
 // undo/redo button states.
 window.MapHistory = void 0;
@@ -3687,6 +5601,9 @@ function lineCells(from, to) {
 // The editor model keeps lighting decoded as a per-cell `Effects` array, so
 // rendering and painting never touch the bit-packing. See src/effects.ts.
 window.GRASS_TILE_ID = window.MAP_CELL_COUNT = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
+window.isValidHexColor = isValidHexColor;
+window.sanitizeCellConfig = sanitizeCellConfig;
+window.cloneCellData = cloneCellData;
 window.createDefaultMap = createDefaultMap;
 window.hasVisibleEffects = hasVisibleEffects;
 window.effectsToGrid = effectsToGrid;
@@ -3694,8 +5611,70 @@ window.gridToEffects = gridToEffects;
 window.serializeMap = serializeMap;
 window.parseMapData = parseMapData;
 const lz_string_1 = LZString;
+
 const catalog_1 = window;
+const decals_1 = window;
+const objectSettings_1 = window;
 const effects_1 = window;
+const objectSettings_2 = window;
+/** Match BC's CommonIsColor with allowAlpha: #RGB, #RRGGBB or #RRGGBBAA. */
+function isValidHexColor(value) {
+    return (typeof value === "string" &&
+        /^#(?:[0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(value));
+}
+/**
+ * Mirror BC's #sanitizeObjectConfigs (Map.js:197-221): produce a fresh,
+ * validated config object for one import entry; unknown shapes are dropped.
+ */
+function sanitizeCellConfig(value) {
+    if (!value || typeof value !== "object")
+        return null;
+    const v = value;
+    if (v.Type === "Sign" && typeof v.Text === "string") {
+        return { Type: "Sign", Text: v.Text.slice(0, window.MAP_CELL_COUNT) };
+    }
+    if (v.Type === "Teleporter") {
+        const pad = { Type: "Teleporter", Shared: true };
+        const dest = v.Destination;
+        if (dest &&
+            typeof dest === "object" &&
+            Number.isInteger(dest.X) &&
+            Number.isInteger(dest.Y) &&
+            dest.X >= 0 &&
+            dest.X < window.MAP_WIDTH &&
+            dest.Y >= 0 &&
+            dest.Y < window.MAP_HEIGHT) {
+            const d = dest;
+            pad.Destination = { X: d.X, Y: d.Y };
+        }
+        if (isValidHexColor(v.Color))
+            pad.Color = v.Color;
+        return pad;
+    }
+    if (v.Type === "Tether")
+        return { Type: "Tether" };
+    return null;
+}
+/** Deep-clone a CellData record so undo snapshots never alias live state. */
+function cloneCellData(data) {
+    if (!data)
+        return undefined;
+    const out = {};
+    for (const [key, config] of Object.entries(data)) {
+        if (config.Type === "Teleporter") {
+            out[key] = {
+                ...config,
+                Destination: config.Destination
+                    ? { ...config.Destination }
+                    : undefined,
+            };
+        }
+        else {
+            out[key] = { ...config };
+        }
+    }
+    return out;
+}
 window.MAP_WIDTH = 40;
 window.MAP_HEIGHT = 40;
 window.MAP_CELL_COUNT = window.MAP_WIDTH * window.MAP_HEIGHT;
@@ -3727,6 +5706,22 @@ function effectsToGrid(effects) {
         out += String.fromCharCode(id);
     return out;
 }
+/** Clean imported settings against each object's capabilities (BC parity). */
+function sanitizeImportedSettings(settings) {
+    const out = {};
+    for (const [index, s] of Object.entries(settings)) {
+        const i = Number(index);
+        if (!Number.isInteger(i) || i < 0 || i >= window.MAP_CELL_COUNT)
+            continue;
+        const obj = catalog_1.FULL_OBJECT_CATALOG.find((o) => o.ID === s.ID);
+        if (!obj || obj.ID !== s.ID)
+            continue;
+        const clean = (0, objectSettings_1.cleanObjectSettings)(s, obj.Layers ?? [], decals_1.DECALS.map((d) => d.name), !!obj.DecalArea, obj.CanBeCustomized !== false, !obj.JoinsNeighbors && !obj.CanPlaceOnWalls);
+        if (clean)
+            out[index] = clean;
+    }
+    return out;
+}
 /** Inverse of {@link effectsToGrid}; "" maps back to undefined (no lighting). */
 function gridToEffects(grid) {
     if (!grid)
@@ -3749,10 +5744,23 @@ function serializeMap(data) {
         out.CellData = data.CellData;
     }
     const legacy = (0, lz_string_1.compressToBase64)(JSON.stringify(out));
-    if (hasVisibleEffects(data.Effects)) {
-        return legacy + "@" + (0, effects_1.encodeEffects)(data.Effects);
+    // Settings force v1 even with no lighting: v1 still writes the full
+    // (blank) effects body so old clients can read the effects (Map.js:988).
+    const settings = data.ObjectSettings;
+    const hasSettings = !!settings && Object.keys(settings).length > 0;
+    if (!hasVisibleEffects(data.Effects) && !hasSettings)
+        return legacy;
+    const writer = new bitstring_1.BitStringWriter();
+    writer.writeUnsigned(hasSettings ? 1 : 0, 8);
+    (0, effects_1.writeEffectsBody)(writer, hasVisibleEffects(data.Effects)
+        ? data.Effects
+        : new Array(window.MAP_CELL_COUNT).fill(effects_1.BLANK_EFFECT_ID));
+    if (hasSettings && !(0, objectSettings_2.writeObjectSettings)(writer, settings)) {
+        // BC refuses to export a map with an unencodable decal name
+        // (Map.js:1178-1181); fall back to a pure legacy map.
+        return legacy;
     }
-    return legacy;
+    return legacy + "@" + writer.toBase64();
 }
 /**
  * Parse and strictly validate an import code, returning a fresh MapData.
@@ -3799,23 +5807,62 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
     const next = { Type, Tiles, Objects };
     if (typeof raw.Fog === "boolean")
         next.Fog = raw.Fog;
-    // Lighting: the combined "@" part is authoritative; fall back to a legacy
-    // `Effects` string on the JSON object. Malformed data is dropped silently.
-    const rawEffects = effectsPart ?? (typeof raw.Effects === "string" ? raw.Effects : null);
-    if (rawEffects) {
-        const decoded = (0, effects_1.decodeEffects)(rawEffects, window.MAP_CELL_COUNT);
-        if (decoded) {
-            const sanitized = decoded.map((id) => (0, effects_1.isKnownEffectId)(id) ? id : effects_1.BLANK_EFFECT_ID);
-            // Keep the invariant that Effects is either absent or holds at
-            // least one non-Blank cell; sanitizing can blank an all-unknown
-            // grid, which should read as "no lighting".
-            if (hasVisibleEffects(sanitized))
-                next.Effects = sanitized;
+    // Lighting + settings: the combined "@" part is authoritative and starts
+    // with a one-byte map version (0 = effects only, 1 = effects + settings).
+    // Fall back to the legacy JSON `Effects`/`ObjectSettings` strings.
+    if (effectsPart) {
+        try {
+            const reader = bitstring_1.BitStringReader.fromBase64(effectsPart);
+            if (reader) {
+                const version = reader.readUnsigned(8);
+                const decoded = (0, effects_1.readEffectsBody)(reader, window.MAP_CELL_COUNT);
+                if (decoded) {
+                    const sanitized = decoded.map((id) => (0, effects_1.isKnownEffectId)(id) ? id : effects_1.BLANK_EFFECT_ID);
+                    if (hasVisibleEffects(sanitized))
+                        next.Effects = sanitized;
+                }
+                if (version === 1 && decoded) {
+                    const settings = (0, objectSettings_2.readObjectSettings)(reader, window.MAP_CELL_COUNT);
+                    if (Object.keys(settings).length) {
+                        const cleaned = sanitizeImportedSettings(settings);
+                        if (Object.keys(cleaned).length)
+                            next.ObjectSettings = cleaned;
+                    }
+                }
+            }
+        }
+        catch {
+            // Malformed modern part: drop it entirely (game behaviour).
         }
     }
-    // Carry over sign text (CellData). Validate shape; drop invalid entries.
-    // Matches BC's #sanitizeObjectConfigs: only Type === "Sign" with a string
-    // Text survive, sliced to the game's accepted maximum.
+    else {
+        if (typeof raw.Effects === "string") {
+            const decoded = (0, effects_1.decodeEffects)(raw.Effects, window.MAP_CELL_COUNT);
+            if (decoded) {
+                const sanitized = decoded.map((id) => (0, effects_1.isKnownEffectId)(id) ? id : effects_1.BLANK_EFFECT_ID);
+                if (hasVisibleEffects(sanitized))
+                    next.Effects = sanitized;
+            }
+        }
+        if (typeof raw.ObjectSettings === "string") {
+            try {
+                const reader = bitstring_1.BitStringReader.fromBase64(raw.ObjectSettings);
+                if (reader && reader.readUnsigned(8) === 0) {
+                    const settings = (0, objectSettings_2.readObjectSettings)(reader, window.MAP_CELL_COUNT);
+                    if (Object.keys(settings).length) {
+                        const cleaned = sanitizeImportedSettings(settings);
+                        if (Object.keys(cleaned).length)
+                            next.ObjectSettings = cleaned;
+                    }
+                }
+            }
+            catch {
+                // Legacy malformed settings are dropped.
+            }
+        }
+    }
+    // Carry over CellData configs. sanitizeCellConfig mirrors BC's
+    // #sanitizeObjectConfigs for Sign, Teleporter and Tether entries.
     if (rawCellData && typeof rawCellData === "object") {
         const cellData = {};
         for (const [key, value] of Object.entries(rawCellData)) {
@@ -3824,20 +5871,176 @@ function parseMapData(code, isKnownTileId, isKnownObjectId) {
                 index < 0 ||
                 index >= window.MAP_CELL_COUNT)
                 continue;
-            if (!value || typeof value !== "object")
-                continue;
-            const v = value;
-            if (v.Type !== "Sign" || typeof v.Text !== "string")
-                continue;
-            cellData[key] = {
-                Type: "Sign",
-                Text: v.Text.slice(0, 1600),
-            };
+            const config = sanitizeCellConfig(value);
+            if (config)
+                cellData[key] = config;
         }
         if (Object.keys(cellData).length > 0)
             next.CellData = cellData;
     }
     return next;
+}
+
+"use strict";
+// BCMap Editor - R134 per-object settings model and bit-packed codec.
+//
+// Wire format (Map.js:1154-1188): legacy JSON + "@" + base64 bitstring:
+//   [8-bit map version = 1][static-effects BODY][object-settings BODY]
+// There is no version inside the object-settings section of the "@" tail;
+// the legacy JSON `ObjectSettings` field does carry its own 8-bit codec
+// version. See src/effects.ts for the effects body codec.
+window.normalizeColor = normalizeColor;
+window.mapColorToNumber = mapColorToNumber;
+window.mapNumberToColor = mapNumberToColor;
+window.writeObjectSettings = writeObjectSettings;
+window.readObjectSettings = readObjectSettings;
+window.cleanObjectSettings = cleanObjectSettings;
+window.cloneObjectSettings = cloneObjectSettings;
+const INDEX_BITS = 16;
+const ID_BITS = 16;
+const ROTATION_BITS = 9;
+const SIZE_BITS = 8;
+const COLOR_COUNT_BITS = 8;
+const COLOR_BITS = 24;
+const DECAL_LENGTH_BITS = 6;
+const DECAL_CHAR_BITS = 7;
+/** #RGB -> #RRGGBB, upper-cased (Map.js:3202-3205). */
+function normalizeColor(color) {
+    let c = color.toUpperCase();
+    if (/^#[0-9A-F]{3}$/.test(c)) {
+        c = "#" + [...c.slice(1)].map((ch) => ch + ch).join("");
+    }
+    return c;
+}
+function mapColorToNumber(color) {
+    return parseInt(normalizeColor(color).slice(1), 16);
+}
+function mapNumberToColor(value) {
+    return "#" + value.toString(16).toUpperCase().padStart(6, "0");
+}
+/** Write the object-settings BODY (no version prefix). */
+function writeObjectSettings(writer, settings) {
+    const entries = Object.entries(settings);
+    writer.writeUnsigned(entries.length, INDEX_BITS);
+    for (const [index, s] of entries) {
+        writer.writeUnsigned(Number(index), INDEX_BITS);
+        writer.writeUnsigned(s.ID, ID_BITS);
+        writer.writeBool(s.Rotation != null);
+        if (s.Rotation != null)
+            writer.writeUnsigned(s.Rotation, ROTATION_BITS);
+        writer.writeBool(s.Size != null);
+        if (s.Size != null)
+            writer.writeUnsigned(s.Size, SIZE_BITS);
+        writer.writeBool(s.Colors != null);
+        if (s.Colors != null) {
+            writer.writeUnsigned(s.Colors.length, COLOR_COUNT_BITS);
+            for (const color of s.Colors) {
+                const isDefault = color === "Default";
+                writer.writeBool(isDefault);
+                if (!isDefault)
+                    writer.writeUnsigned(mapColorToNumber(color), COLOR_BITS);
+            }
+        }
+        writer.writeBool(s.Decal != null);
+        if (s.Decal != null) {
+            if (s.Decal.length >= 2 ** DECAL_LENGTH_BITS ||
+                [...s.Decal].some((c) => c.charCodeAt(0) >= 2 ** DECAL_CHAR_BITS))
+                return false;
+            writer.writeUnsigned(s.Decal.length, DECAL_LENGTH_BITS);
+            for (const ch of s.Decal)
+                writer.writeUnsigned(ch.charCodeAt(0), DECAL_CHAR_BITS);
+            writer.writeBool(s.DecalColor != null);
+            if (s.DecalColor != null)
+                writer.writeUnsigned(mapColorToNumber(s.DecalColor), COLOR_BITS);
+        }
+    }
+    return true;
+}
+/** Read an object-settings BODY from an already-positioned reader. */
+function readObjectSettings(reader, cellCount) {
+    const out = {};
+    const count = reader.readUnsigned(INDEX_BITS);
+    for (let i = 0; i < count; i++) {
+        const index = reader.readUnsigned(INDEX_BITS);
+        const settings = { ID: reader.readUnsigned(ID_BITS) };
+        if (reader.readBool())
+            settings.Rotation = reader.readUnsigned(ROTATION_BITS);
+        if (reader.readBool())
+            settings.Size = reader.readUnsigned(SIZE_BITS);
+        if (reader.readBool()) {
+            const colorCount = reader.readUnsigned(COLOR_COUNT_BITS);
+            settings.Colors = [];
+            for (let c = 0; c < colorCount; c++) {
+                settings.Colors.push(reader.readBool()
+                    ? "Default"
+                    : mapNumberToColor(reader.readUnsigned(COLOR_BITS)));
+            }
+        }
+        if (reader.readBool()) {
+            const length = reader.readUnsigned(DECAL_LENGTH_BITS);
+            let decal = "";
+            for (let c = 0; c < length; c++) {
+                decal += String.fromCharCode(reader.readUnsigned(DECAL_CHAR_BITS));
+            }
+            settings.Decal = decal;
+            if (reader.readBool()) {
+                settings.DecalColor = mapNumberToColor(reader.readUnsigned(COLOR_BITS));
+            }
+        }
+        if (index < cellCount)
+            out[index] = settings;
+    }
+    return out;
+}
+/**
+ * Mirror BC's #cleanObjectSettings (Map.js:1897-1911): keep only values the
+ * object can take, drop defaults, and return null when nothing remains.
+ */
+function cleanObjectSettings(settings, layers, decals, hasDecalArea, canBeCustomized = true, canTransform = true) {
+    if (!canBeCustomized)
+        return null;
+    const clean = { ID: settings.ID };
+    if (canTransform &&
+        Number.isInteger(settings.Rotation) &&
+        settings.Rotation >= 1 &&
+        settings.Rotation <= 359) {
+        clean.Rotation = settings.Rotation;
+    }
+    if (canTransform &&
+        Number.isInteger(settings.Size) &&
+        settings.Size >= 50 &&
+        settings.Size <= 200 &&
+        settings.Size !== 100) {
+        clean.Size = settings.Size;
+    }
+    const colorLayers = layers.filter((l) => l.IsColorable);
+    if (settings.Colors &&
+        settings.Colors.length === colorLayers.length &&
+        settings.Colors.some((c) => c !== "Default") &&
+        settings.Colors.every((c) => c === "Default" || /^#(?:[0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(c))) {
+        clean.Colors = settings.Colors.map((c) => c === "Default" ? c : c.toUpperCase());
+    }
+    if (hasDecalArea && settings.Decal && decals.includes(settings.Decal)) {
+        clean.Decal = settings.Decal;
+        if (settings.DecalColor &&
+            /^#[0-9A-F]{6}$/i.test(settings.DecalColor)) {
+            clean.DecalColor = settings.DecalColor.toUpperCase();
+        }
+    }
+    return Object.keys(clean).length > 1 ? clean : null;
+}
+/** Deep clone settings records so undo snapshots never alias live state. */
+function cloneObjectSettings(settings) {
+    if (!settings)
+        return undefined;
+    const out = {};
+    for (const [key, s] of Object.entries(settings)) {
+        out[key] = {
+            ...s,
+            Colors: s.Colors ? [...s.Colors] : undefined,
+        };
+    }
+    return out;
 }
 
 "use strict";
@@ -4664,8 +6867,9 @@ class PropertyPanel {
             this.setTarget(null, null);
     }
     /** Set the target cell; null clears to the placeholder state. */
-    setTarget(obj, pos) {
+    setTarget(obj, pos, configType) {
         this.target = obj && pos ? { obj, pos } : null;
+        this.renderedConfigType = this.target ? configType : undefined;
         const title = document.getElementById("propertiesTitle");
         const fields = document.getElementById("propertiesFields");
         const placeholder = document.getElementById("propertiesPlaceholder");
@@ -4683,6 +6887,7 @@ class PropertyPanel {
         const context = {
             obj: target,
             pos: targetPos,
+            configType: this.renderedConfigType,
             apply: () => {
                 // Slice 2 has no editable fields; later slices route their
                 // mutations through the editor's undo-coalescing path.
@@ -4704,6 +6909,9 @@ class PropertyPanel {
     }
     getTarget() {
         return this.target;
+    }
+    getRenderedConfigType() {
+        return this.renderedConfigType;
     }
     /** Update the sign textarea after undo/redo without rebuilding the panel. */
     refreshSignText(text) {
@@ -4815,6 +7023,313 @@ function inputKind(e) {
 });
 
 "use strict";
+// BCMap Editor - teleporter-pad provider for the shared Properties panel.
+// Manual pairing only: auto-pairing is deferred to the refinement slice.
+
+const constants_1 = window;
+const getTeleportEditor = () => window.editor;
+/** Parse an R134 pad colour (#RGB / #RRGGBB / #RRGGBBAA) for the inputs. */
+function splitColor(color) {
+    if (!color)
+        return { hex: "#3C8CFF", alpha: 255 };
+    let hex = color;
+    let alpha = 255;
+    if (/^#[0-9A-F]{3}$/i.test(hex)) {
+        hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
+    }
+    if (hex.length === 9) {
+        alpha = parseInt(hex.slice(7), 16);
+        hex = hex.slice(0, 7);
+    }
+    return { hex: hex.toUpperCase(), alpha };
+}
+(0, properties_1.registerPropertyProvider)({
+    id: "teleporter",
+    configType: "Teleporter",
+    matches: (obj) => obj.ID === constants_1.TELEPORTER_OBJECT_ID,
+    render: (host, context) => {
+        const e = getTeleportEditor();
+        const pos = context.pos;
+        const wrap = document.createElement("div");
+        wrap.className = "small";
+        const status = document.createElement("div");
+        status.className = "text-secondary mb-2";
+        host.appendChild(status);
+        const row = document.createElement("div");
+        row.className = "d-flex gap-2 mb-2";
+        const pickBtn = document.createElement("button");
+        pickBtn.type = "button";
+        pickBtn.className = "btn btn-sm btn-outline-light";
+        pickBtn.textContent = e.isTeleporterPickActive()
+            ? "Cancel pick"
+            : "Pick on map";
+        pickBtn.addEventListener("click", () => {
+            if (e.isTeleporterPickActive())
+                e.cancelTeleporterPick();
+            else
+                e.startTeleporterPick(pos);
+            e.refreshPropertyPanel();
+        });
+        row.appendChild(pickBtn);
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn btn-sm btn-outline-secondary";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", () => {
+            e.removeTeleporterDestination(pos);
+        });
+        row.appendChild(removeBtn);
+        const twoWayBtn = document.createElement("button");
+        twoWayBtn.type = "button";
+        twoWayBtn.className = "btn btn-sm btn-outline-secondary";
+        twoWayBtn.textContent = "Make two-way";
+        twoWayBtn.addEventListener("click", () => e.makeTeleporterTwoWay(pos));
+        row.appendChild(twoWayBtn);
+        wrap.appendChild(row);
+        const colorRow = document.createElement("div");
+        colorRow.className = "d-flex align-items-center gap-2";
+        const color = document.createElement("input");
+        color.type = "color";
+        color.className = "form-control form-control-sm";
+        color.style.width = "3rem";
+        color.setAttribute("aria-label", "Pad colour");
+        const opacity = document.createElement("input");
+        opacity.type = "range";
+        opacity.min = "0";
+        opacity.max = "255";
+        opacity.className = "form-range";
+        opacity.setAttribute("aria-label", "Pad opacity");
+        const applyColor = () => {
+            const a = Number(opacity.value)
+                .toString(16)
+                .padStart(2, "0")
+                .toUpperCase();
+            e.setTeleporterColor(pos, color.value.toUpperCase() + a);
+        };
+        color.addEventListener("change", applyColor);
+        opacity.addEventListener("change", applyColor);
+        const label = document.createElement("span");
+        label.className = "text-secondary";
+        label.textContent = "Colour / opacity";
+        colorRow.append(label, color, opacity);
+        wrap.appendChild(colorRow);
+        const current = e.getCellConfig(pos);
+        const { hex, alpha } = splitColor(current?.Color);
+        color.value = hex.toLowerCase();
+        opacity.value = String(alpha);
+        const { dest, destIsPad, twoWay } = e.getTeleporterTwoWay(pos);
+        status.textContent = twoWay
+            ? "Sends both ways"
+            : dest
+                ? `Sends to (${dest.X}, ${dest.Y})`
+                : "No destination";
+        removeBtn.classList.toggle("d-none", !dest);
+        twoWayBtn.classList.toggle("d-none", !(dest && destIsPad && !twoWay));
+        pickBtn.classList.toggle("btn-outline-light", !e.isTeleporterPickActive());
+        host.appendChild(wrap);
+    },
+});
+
+"use strict";
+// BCMap Editor - tether-point provider for the shared Properties panel.
+// A cell marked {Type:"Tether"} is a valid anchor; leashes are player state.
+
+
+(0, properties_1.registerPropertyProvider)({
+    id: "tether",
+    configType: "Tether",
+    matches: (obj) => constants_1.TETHER_OBJECT_IDS.has(obj.ID),
+    render: (host, context) => {
+        const e = window.editor;
+        const label = document.createElement("label");
+        label.className = "d-flex align-items-center gap-2 small";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "form-check-input";
+        checkbox.setAttribute("aria-label", "Tether point");
+        checkbox.checked = e.getCellConfig(context.pos)?.Type === "Tether";
+        checkbox.addEventListener("change", () => {
+            e.setCellConfig(context.pos, checkbox.checked ? { Type: "Tether" } : null);
+        });
+        const text = document.createElement("span");
+        text.textContent = "Tether point";
+        label.append(checkbox, text);
+        host.appendChild(label);
+    },
+});
+
+"use strict";
+// BCMap Editor - object transform/colour/decal provider for the Properties
+// panel. Full parity with R134: rotation, size, colourable layers, decal.
+window.DECAL_NAMES = void 0;
+
+
+
+function hasOwnConfig(obj) {
+    return constants_1.SIGN_OBJECT_IDS.has(obj.ID) || obj.ID === constants_1.TELEPORTER_OBJECT_ID;
+}
+const getObjectSettingsEditor = () => window.editor;
+window.DECAL_NAMES = decals_1.DECALS.map((d) => d.name);
+function canTransform(obj) {
+    return (!obj.JoinsNeighbors &&
+        !obj.CanPlaceOnWalls &&
+        obj.CanBeCustomized !== false);
+}
+(0, properties_1.registerPropertyProvider)({
+    id: "object-settings",
+    matches: (obj) => !hasOwnConfig(obj) &&
+        (canTransform(obj) ||
+            (obj.Layers?.some((l) => l.IsColorable) ?? false) ||
+            !!obj.DecalArea),
+    render: (host, context) => {
+        const e = getObjectSettingsEditor();
+        const pos = context.pos;
+        const obj = context.obj;
+        const current = e.getObjectSettings(pos);
+        const wrap = document.createElement("div");
+        wrap.className = "small";
+        const slider = (label, key, min, max, neutral) => {
+            const row = document.createElement("div");
+            row.className = "mb-2";
+            const cap = document.createElement("label");
+            cap.className = "text-secondary d-block";
+            cap.textContent = label;
+            const input = document.createElement("input");
+            input.type = "range";
+            input.min = String(min);
+            input.max = String(max);
+            input.value = String(current?.[key] ?? neutral);
+            input.className = "form-range";
+            input.setAttribute("aria-label", label);
+            input.addEventListener("pointerdown", () => e.beginObjectSettingsEdit());
+            input.addEventListener("input", () => {
+                e.setObjectSettings(pos, { [key]: Number(input.value) });
+            });
+            input.addEventListener("change", () => e.endObjectSettingsEdit());
+            row.append(cap, input);
+            return row;
+        };
+        if (canTransform(obj)) {
+            wrap.appendChild(slider("Rotation", "Rotation", 0, 359, 0));
+            wrap.appendChild(slider("Size", "Size", 50, 200, 100));
+            const reset = document.createElement("button");
+            reset.type = "button";
+            reset.className = "btn btn-sm btn-outline-secondary mb-2";
+            reset.textContent = "Reset transform";
+            reset.addEventListener("click", () => {
+                e.beginObjectSettingsEdit();
+                e.setObjectSettings(pos, { Rotation: 0, Size: 100 });
+                e.endObjectSettingsEdit();
+            });
+            wrap.appendChild(reset);
+        }
+        const colorable = (obj.Layers ?? []).filter((l) => l.IsColorable);
+        colorable.forEach((layer, index) => {
+            const row = document.createElement("div");
+            row.className = "d-flex align-items-center gap-2 mb-1";
+            const label = document.createElement("span");
+            label.className = "text-secondary";
+            label.textContent = layer.Name || "Colour";
+            const input = document.createElement("input");
+            input.type = "color";
+            input.className = "form-control form-control-sm";
+            input.style.width = "3rem";
+            input.setAttribute("aria-label", `Layer ${index} colour`);
+            const def = document.createElement("input");
+            def.type = "checkbox";
+            def.className = "form-check-input";
+            def.setAttribute("aria-label", `Layer ${index} default colour`);
+            def.checked =
+                current?.Colors?.[index] !== undefined &&
+                    current.Colors[index] !== "Default";
+            const value = current?.Colors?.[index];
+            input.value =
+                value && value !== "Default"
+                    ? value.toLowerCase()
+                    : (layer.DefaultColor ?? "#FFFFFF").toLowerCase();
+            const apply = () => {
+                // Read live settings each time so edits to other layers in the
+                // same open panel are not clobbered by a stale snapshot.
+                const live = e.getObjectSettings(pos);
+                const colors = [
+                    ...(live?.Colors ??
+                        current?.Colors ??
+                        colorable.map(() => "Default")),
+                ];
+                while (colors.length < colorable.length)
+                    colors.push("Default");
+                colors[index] = def.checked
+                    ? input.value.toUpperCase()
+                    : "Default";
+                e.setObjectSettings(pos, { Colors: colors });
+            };
+            input.addEventListener("change", apply);
+            def.addEventListener("change", () => {
+                input.disabled = !def.checked;
+                apply();
+            });
+            input.disabled = !def.checked;
+            row.append(label, input, def);
+            wrap.appendChild(row);
+        });
+        if (obj.DecalArea) {
+            const select = document.createElement("select");
+            select.className = "form-select form-select-sm mb-2";
+            select.setAttribute("aria-label", "Decal");
+            const none = document.createElement("option");
+            none.value = "";
+            none.textContent = "None";
+            select.appendChild(none);
+            for (const decal of decals_1.DECALS) {
+                const option = document.createElement("option");
+                option.value = decal.name;
+                option.textContent = decal.description;
+                select.appendChild(option);
+            }
+            select.value = current?.Decal ?? "";
+            const colorRow = document.createElement("div");
+            colorRow.className = "d-flex align-items-center gap-2 mb-2";
+            colorRow.classList.toggle("d-none", !current?.Decal);
+            const colorLabel = document.createElement("span");
+            colorLabel.className = "text-secondary";
+            colorLabel.textContent = "Decal colour";
+            const colorInput = document.createElement("input");
+            colorInput.type = "color";
+            colorInput.className = "form-control form-control-sm";
+            colorInput.style.width = "3rem";
+            colorInput.setAttribute("aria-label", "Decal colour");
+            colorInput.value = (current?.DecalColor ?? "#FFFFFF").toLowerCase();
+            const colorDefault = document.createElement("input");
+            colorDefault.type = "checkbox";
+            colorDefault.className = "form-check-input";
+            colorDefault.setAttribute("aria-label", "Default decal colour");
+            colorDefault.checked = !current?.DecalColor;
+            colorInput.disabled = colorDefault.checked;
+            colorInput.addEventListener("change", () => {
+                e.setObjectSettings(pos, {
+                    DecalColor: colorInput.value.toUpperCase(),
+                });
+            });
+            colorDefault.addEventListener("change", () => {
+                colorInput.disabled = colorDefault.checked;
+                e.setObjectSettings(pos, {
+                    DecalColor: colorDefault.checked
+                        ? undefined
+                        : colorInput.value.toUpperCase(),
+                });
+            });
+            colorRow.append(colorLabel, colorInput, colorDefault);
+            select.addEventListener("change", () => {
+                e.setObjectSettings(pos, { Decal: select.value || undefined });
+                colorRow.classList.toggle("d-none", !select.value);
+            });
+            wrap.append(select, colorRow);
+        }
+        host.appendChild(wrap);
+    },
+});
+
+"use strict";
 // BCMap Editor - pure render-resolution helpers.
 //
 // BC-faithful sprite selection (wall edge effects, neighbor-aware object
@@ -4829,12 +7344,15 @@ function inputKind(e) {
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged for the
 // legacy expandables and railroad pieces.
 window.RAILROAD_PREVIEW_ID = window.EXPANDABLE_LEFT_RIGHT = void 0;
+window.composeDecal = composeDecal;
+window.composeLayerImage = composeLayerImage;
 window.findWallEffectTile = findWallEffectTile;
 window.findFloorWallEffect = findFloorWallEffect;
 window.resolveExpandableVariant = resolveExpandableVariant;
+window.tintImage = tintImage;
 window.railroadStyleName = railroadStyleName;
 window.resolveVariantImageName = resolveVariantImageName;
-const constants_1 = window;
+
 // Neighbor-aware ("expanding") objects, mirroring BC's BuildImageName logic.
 // `prefix` is the texture name stem, `single` the variant used when the
 // object has no same-ID neighbors.
@@ -4850,6 +7368,124 @@ window.EXPANDABLE_LEFT_RIGHT = new Map([
     [2033, { prefix: "VelourRopeBarrier", single: "VelourRopeBarrier" }],
 ]);
 window.RAILROAD_PREVIEW_ID = 750;
+/**
+ * Composite a decal into an object's DecalArea: trim transparent bounds,
+ * scale to fit, centre, and optionally tint (BC's MapDecals.js:60-91).
+ */
+function composeDecal(base, decal, area, color) {
+    try {
+        const canvas = document.createElement("canvas");
+        if (typeof canvas.getContext !== "function")
+            return base;
+        canvas.width =
+            base.width ||
+                base.naturalWidth;
+        canvas.height =
+            base.height ||
+                base.naturalHeight;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx)
+            return base;
+        ctx.drawImage(base, 0, 0);
+        const probe = document.createElement("canvas");
+        probe.width = decal.naturalWidth;
+        probe.height = decal.naturalHeight;
+        const pctx = probe.getContext("2d", { willReadFrequently: true });
+        if (!pctx)
+            return base;
+        pctx.drawImage(decal, 0, 0);
+        const data = pctx.getImageData(0, 0, probe.width, probe.height).data;
+        let left = probe.width, top = probe.height, right = -1, bottom = -1;
+        for (let y = 0; y < probe.height; y++) {
+            for (let x = 0; x < probe.width; x++) {
+                if (data[(y * probe.width + x) * 4 + 3] === 0)
+                    continue;
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+            }
+        }
+        if (right < 0)
+            return base;
+        const cw = right - left + 1, ch = bottom - top + 1;
+        const scale = Math.min(area[2] / cw, area[3] / ch);
+        const w = cw * scale, h = ch * scale;
+        const dx = area[0] + (area[2] - w) / 2;
+        const dy = area[1] + (area[3] - h) / 2;
+        let source = decal;
+        let sx = left, sy = top;
+        if (color) {
+            // Crop to the opaque bounds FIRST, then tint the cropped pixels;
+            // tinting the whole image would squash it into the trimmed size.
+            const crop = document.createElement("canvas");
+            crop.width = cw;
+            crop.height = ch;
+            const cctx = crop.getContext("2d");
+            if (!cctx)
+                return base;
+            cctx.drawImage(decal, left, top, cw, ch, 0, 0, cw, ch);
+            source = tintImage(crop, color, cw, ch);
+            sx = 0;
+            sy = 0;
+        }
+        ctx.drawImage(source, sx, sy, cw, ch, dx, dy, w, h);
+        return canvas;
+    }
+    catch {
+        return base;
+    }
+}
+/**
+ * Compose an object's layer sprites into one tinted image, matching BC's
+ * ChatRoomMapViewGetColoredObjectImage: each layer is loaded from
+ * `<imageName>_<layerName>.png`, colourable ones tinted with their chosen
+ * colour (or the layer default), and non-colourable layers drawn as-is.
+ * Returns undefined until all layer images are available.
+ */
+function composeLayerImage(objectType, imageName, layers, colors, load) {
+    const colorable = layers.filter((l) => l.IsColorable);
+    if (colorable.length === 0)
+        return undefined;
+    let colorIndex = 0;
+    const images = [];
+    for (const layer of layers) {
+        const url = layer.Name
+            ? `assets/objects/${objectType}/${imageName}_${layer.Name}.png`
+            : `assets/objects/${objectType}/${imageName}.png`;
+        const img = load(url);
+        if (!img || !img.complete || img.naturalWidth === 0)
+            return undefined;
+        images.push({
+            img,
+            color: layer.IsColorable
+                ? colors?.[colorIndex] && colors[colorIndex] !== "Default"
+                    ? colors[colorIndex]
+                    : (layer.DefaultColor ?? null)
+                : null,
+        });
+        if (layer.IsColorable)
+            colorIndex++;
+    }
+    const canvas = document.createElement("canvas");
+    if (typeof canvas.getContext !== "function")
+        return undefined;
+    canvas.width = images[0].img.naturalWidth;
+    canvas.height = images[0].img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx)
+        return undefined;
+    for (const { img, color } of images) {
+        if (color) {
+            const tinted = tintImage(img, color, img.naturalWidth, img.naturalHeight);
+            ctx.drawImage(tinted, 0, 0);
+        }
+        else {
+            ctx.drawImage(img, 0, 0);
+        }
+    }
+    return canvas;
+}
 /**
  * BC's FindWallEffectTile algorithm (ChatRoomMapViewFindWallEffectTile).
  * CW = left, CE = right, SW/S C/SE = bottom-left/bottom/bottom-right.
@@ -4942,6 +7578,41 @@ function resolveExpandableVariant(prefix, single, hasLeft, hasRight) {
     if (hasRight)
         return prefix + "Left";
     return single;
+}
+/**
+ * Tint an image's coloured pixels with a hex colour (BC's DrawImageEx
+ * FullAlpha luminosity transform). Returns the original image when canvas
+ * pixel access is unavailable (e.g. unit-test mocks).
+ */
+function tintImage(img, color, width, height) {
+    try {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx)
+            return img;
+        ctx.drawImage(img, 0, 0, width, height);
+        const data = ctx.getImageData(0, 0, width, height);
+        const rgb = parseInt(color.replace("#", ""), 16);
+        const r = (rgb >> 16) & 255;
+        const g = (rgb >> 8) & 255;
+        const b = rgb & 255;
+        for (let i = 0; i < data.data.length; i += 4) {
+            const a = data.data[i + 3];
+            if (a === 0)
+                continue;
+            const lum = (data.data[i] + data.data[i + 1] + data.data[i + 2]) / 383;
+            data.data[i] = r * lum;
+            data.data[i + 1] = g * lum;
+            data.data[i + 2] = b * lum;
+        }
+        ctx.putImageData(data, 0, 0);
+        return canvas;
+    }
+    catch {
+        return img;
+    }
 }
 /**
  * Railroad connectivity style name. `neighbors` is [north, south, east,
@@ -5157,6 +7828,7 @@ function snapshotMap(data) {
         CellData: data.CellData,
         Effects: data.Effects,
         Fog: data.Fog,
+        ObjectSettings: data.ObjectSettings,
     });
 }
 /** True when the map differs from a baseline taken by snapshotMap. */
@@ -6503,6 +9175,8 @@ window.BCMapEditor = void 0;
 
 const history_1 = window;
 
+
+
 const mapdata_1 = window;
 const picker_1 = window;
 
@@ -6546,6 +9220,14 @@ const PAN_OVERSCROLL_TILES = 15;
 // lighting layer starts on a visible effect rather than the eraser.
 const DEFAULT_LIGHTING_EFFECT_ID = 11;
 class BCMapEditor {
+    cacheTinted(key, image) {
+        if (this.tintedImageCache.size >= 200) {
+            const first = this.tintedImageCache.keys().next().value;
+            if (first !== undefined)
+                this.tintedImageCache.delete(first);
+        }
+        this.tintedImageCache.set(key, image);
+    }
     constructor(canvasId) {
         this.zoom = 1.0;
         this.maxZoom = MAX_ZOOM;
@@ -6576,6 +9258,8 @@ class BCMapEditor {
         this.objectCatalog = [];
         this.tileImageCache = new Map();
         this.objectImageCache = new Map();
+        this.tintedImageCache = new Map();
+        this.decalImageCache = new Map();
         this.wallEffectImageCache = new Map();
         this.tileMap = new Map();
         this.objectMap = new Map();
@@ -6679,6 +9363,9 @@ class BCMapEditor {
         // --- Property text editing (signs) ---------------------------------------
         this.propertyEditKind = null;
         this.propertyEditOpen = false;
+        this.objectSettingsEditOpen = false;
+        // --- Teleporter pads -----------------------------------------------------
+        this.teleportPickIndex = null;
         const canvasElement = document.getElementById(canvasId);
         if (!canvasElement)
             throw new Error(`Canvas element #${canvasId} not found`);
@@ -6744,6 +9431,14 @@ class BCMapEditor {
                         suffix += dir;
                 });
                 variantJobs.push([folder, "Railroad" + suffix]);
+            }
+        }
+        for (const { name } of decals_1.DECALS) {
+            if (!this.decalImageCache.has(name)) {
+                const img = new Image();
+                img.onerror = () => { };
+                img.src = "assets/decals/" + name + ".png";
+                this.decalImageCache.set(name, img);
             }
         }
         for (const [folder, style] of variantJobs) {
@@ -6864,12 +9559,8 @@ class BCMapEditor {
             tiles: this.mapData.Tiles,
             objects: this.mapData.Objects,
             effects: (0, mapdata_1.effectsToGrid)(this.mapData.Effects),
-            cellData: this.mapData.CellData
-                ? Object.fromEntries(Object.entries(this.mapData.CellData).map(([k, v]) => [
-                    k,
-                    { ...v },
-                ]))
-                : undefined,
+            cellData: (0, mapdata_1.cloneCellData)(this.mapData.CellData),
+            objectSettings: (0, objectSettings_1.cloneObjectSettings)(this.mapData.ObjectSettings),
             showEffects: this.showEffects,
             showObstacles: this.showObstacles,
             fog: this.isFogEnabled(),
@@ -6880,12 +9571,8 @@ class BCMapEditor {
         this.mapData.Tiles = snapshot.tiles;
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = (0, mapdata_1.gridToEffects)(snapshot.effects);
-        this.mapData.CellData = snapshot.cellData
-            ? Object.fromEntries(Object.entries(snapshot.cellData).map(([k, v]) => [
-                k,
-                { ...v },
-            ]))
-            : undefined;
+        this.mapData.CellData = (0, mapdata_1.cloneCellData)(snapshot.cellData);
+        this.mapData.ObjectSettings = (0, objectSettings_1.cloneObjectSettings)(snapshot.objectSettings);
         this.showEffects = snapshot.showEffects;
         this.showObstacles = snapshot.showObstacles;
         if (snapshot.fog)
@@ -6959,7 +9646,7 @@ class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                     ch +
                     this.mapData.Objects.substring(index + 1);
-            this.clearSignConfigIfReplaced(index);
+            this.syncConfigForObjectAt(index);
             this.requestRender();
             return true;
         }
@@ -6978,21 +9665,35 @@ class BCMapEditor {
         return true;
     }
     /**
-     * Drop a Sign config when its cell no longer holds a sign. Other config
-     * types (teleporter/tether, added in later slices) are left untouched.
+     * Keep CellData consistent with the object now on a cell: seed a fresh
+     * Teleporter config for a new pad, and drop any config whose owning object
+     * is no longer there (Sign 3520-3523, Teleporter 3530, Tether eligible).
      */
-    clearSignConfigIfReplaced(index) {
-        const config = this.mapData.CellData?.[String(index)];
-        if (config?.Type !== "Sign")
-            return;
+    syncConfigForObjectAt(index) {
         const id = this.mapData.Objects.charCodeAt(index);
-        if (id >= 3520 && id <= 3523)
-            return;
+        const key = String(index);
+        const config = this.mapData.CellData?.[key];
         const cellData = { ...(this.mapData.CellData ?? {}) };
-        delete cellData[String(index)];
+        const owns = (config?.Type === "Sign" && constants_1.SIGN_OBJECT_IDS.has(id)) ||
+            (config?.Type === "Teleporter" && id === constants_1.TELEPORTER_OBJECT_ID) ||
+            (config?.Type === "Tether" && constants_1.TETHER_OBJECT_IDS.has(id));
+        if (config && !owns)
+            delete cellData[key];
+        if (id === constants_1.TELEPORTER_OBJECT_ID && config?.Type !== "Teleporter") {
+            cellData[key] = { Type: "Teleporter", Shared: true };
+        }
         this.mapData.CellData = Object.keys(cellData).length
             ? cellData
             : undefined;
+        // BC drops settings whose object ID no longer matches (Map.js:382).
+        const settings = this.mapData.ObjectSettings;
+        if (settings?.[index] && settings[index].ID !== id) {
+            const nextSettings = { ...settings };
+            delete nextSettings[index];
+            this.mapData.ObjectSettings = Object.keys(nextSettings).length
+                ? nextSettings
+                : undefined;
+        }
     }
     /** Blank every cell holding `objectId`, except `keepIndex`. */
     clearUniqueObject(objectId, keepIndex) {
@@ -7130,7 +9831,7 @@ class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                     objectChar +
                     this.mapData.Objects.substring(index + 1);
-            this.clearSignConfigIfReplaced(index);
+            this.syncConfigForObjectAt(index);
             changed = true;
         }
         if (effectChar !== undefined &&
@@ -7228,9 +9929,27 @@ class BCMapEditor {
         this.applyZoom(target, anchor);
     }
     onCanvasMouseDown(e) {
+        const plainLeft = e.button === 0 && !e.ctrlKey && !e.metaKey;
+        // Teleporter pick mode takes priority: click sets the destination.
+        if (this.propertiesMode &&
+            plainLeft &&
+            this.teleportPickIndex !== null) {
+            e.preventDefault();
+            const padIndex = this.teleportPickIndex;
+            this.teleportPickIndex = null;
+            const dest = this.getTilePosFromMouse(e);
+            const pad = {
+                X: padIndex % mapdata_1.MAP_WIDTH,
+                Y: Math.floor(padIndex / mapdata_1.MAP_WIDTH),
+            };
+            this.setTeleporterDestination(pad, dest);
+            this.refreshPropertyPanel();
+            this.requestRender();
+            return;
+        }
         // Properties mode: a single plain left-click selects the cell's
         // object without opening an undo stroke or painting anything.
-        if (this.propertiesMode && e.button === 0 && !e.ctrlKey && !e.metaKey) {
+        if (this.propertiesMode && plainLeft) {
             this.selectPropertyTarget(this.getTilePosFromMouse(e));
             return;
         }
@@ -7514,23 +10233,77 @@ class BCMapEditor {
                     const top = obj.Top ?? 0;
                     const width = obj.Width ?? 1;
                     const height = obj.Height ?? 1;
-                    const adjDrawX = startX + (x + left) * tileSize;
-                    const adjDrawW = tileSize * width;
-                    const adjDrawY = startY + (y + top) * tileSize;
-                    const adjDrawH = tileSize * height;
+                    // R134 per-object settings: size is bottom-anchored like
+                    // the game (ChatRoomMapView.js:1816-1825).
+                    const settings = this.getObjectSettings({ X: x, Y: y });
+                    const size = (settings?.Size ?? 100) / 100;
+                    const adjDrawX = startX +
+                        (x + left + (width * (1 - size)) / 2) * tileSize;
+                    const adjDrawW = tileSize * width * size;
+                    const adjDrawY = startY + (y + top + height * (1 - size)) * tileSize;
+                    const adjDrawH = tileSize * height * size;
                     // Conveyor belts bake direction purely as a rotation
                     // about the rect centre (degrees, clockwise on screen),
                     // mirroring BC. Zero rotation keeps the fast path with no
                     // transform so existing rendering is pixel-identical.
-                    const rotation = obj.Rotation ?? 0;
+                    const rotation = (obj.Rotation ?? 0) + (settings?.Rotation ?? 0);
                     if (rotation !== 0) {
                         ctx.save();
                         ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
                         ctx.rotate((rotation * Math.PI) / 180);
                         ctx.translate(-(adjDrawX + adjDrawW / 2), -(adjDrawY + adjDrawH / 2));
                     }
-                    if (img && img.complete && img.naturalWidth > 0) {
-                        ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+                    let drawImg = img;
+                    const colorable = obj.Layers?.filter((l) => l.IsColorable) ?? [];
+                    if (img &&
+                        img.complete &&
+                        img.naturalWidth > 0 &&
+                        colorable.length > 0) {
+                        const colors = settings?.Colors;
+                        const cacheKey = key + "|" + (colors ? colors.join(",") : "default");
+                        let composed = this.tintedImageCache.get(cacheKey);
+                        if (!composed) {
+                            const load = (url) => {
+                                const indexPath = url.replace("assets/objects/", "");
+                                let layerImg = this.objectImageCache.get(indexPath);
+                                if (!layerImg) {
+                                    layerImg = new Image();
+                                    layerImg.onerror = () => { };
+                                    layerImg.src = url;
+                                    this.objectImageCache.set(indexPath, layerImg);
+                                }
+                                return layerImg.complete &&
+                                    layerImg.naturalWidth > 0
+                                    ? layerImg
+                                    : undefined;
+                            };
+                            composed = (0, render_1.composeLayerImage)(obj.Type, variant, obj.Layers ?? [], colors, load);
+                            if (composed)
+                                this.cacheTinted(cacheKey, composed);
+                        }
+                        if (composed)
+                            drawImg = composed;
+                    }
+                    if (drawImg && obj.DecalArea && settings?.Decal) {
+                        const decalKey = key +
+                            "|decal:" +
+                            settings.Decal +
+                            "|" +
+                            (settings.DecalColor ?? "");
+                        let withDecal = this.tintedImageCache.get(decalKey);
+                        if (!withDecal) {
+                            const decalImg = this.decalImageCache.get(settings.Decal);
+                            if (decalImg?.complete &&
+                                decalImg.naturalWidth > 0) {
+                                withDecal = (0, render_1.composeDecal)(drawImg, decalImg, obj.DecalArea, settings.DecalColor);
+                                this.cacheTinted(decalKey, withDecal);
+                            }
+                        }
+                        if (withDecal)
+                            drawImg = withDecal;
+                    }
+                    if (drawImg) {
+                        ctx.drawImage(drawImg, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
                     }
                     else {
                         // Fallback to color if image not loaded
@@ -7606,6 +10379,37 @@ class BCMapEditor {
                 ctx.moveTo(startX, startY + j * tileSize);
                 ctx.lineTo(startX + mapdata_1.MAP_WIDTH * tileSize, startY + j * tileSize);
                 ctx.stroke();
+            }
+        }
+        // Teleporter outlines: pad (solid white) and its destination (cyan,
+        // matching the game's 5px accent) while its properties are open.
+        if (this.propertiesMode) {
+            const target = this.properties.getTarget();
+            if (target?.obj.ID === constants_1.TELEPORTER_OBJECT_ID) {
+                const drawOutline = (x, y, color, width) => {
+                    ctx.save();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.strokeRect(startX + x * tileSize + 1, startY + y * tileSize + 1, tileSize - 2, tileSize - 2);
+                    ctx.restore();
+                };
+                drawOutline(target.pos.X, target.pos.Y, HOVER_OUTLINE_COLOR, HOVER_OUTLINE_WIDTH);
+                const config = this.getCellConfig(target.pos);
+                const dest = config?.Type === "Teleporter"
+                    ? config.Destination
+                    : undefined;
+                if (dest &&
+                    dest.X >= firstTileX &&
+                    dest.X <= lastTileX &&
+                    dest.Y >= firstTileY &&
+                    dest.Y <= lastTileY) {
+                    drawOutline(dest.X, dest.Y, "#00FFFF", 5);
+                }
+                if (this.teleportPickIndex !== null) {
+                    const px = this.teleportPickIndex % mapdata_1.MAP_WIDTH;
+                    const py = Math.floor(this.teleportPickIndex / mapdata_1.MAP_WIDTH);
+                    drawOutline(px, py, "#00FFFF", 5);
+                }
             }
         }
         // Ease render positions toward the logical state first so the
@@ -8071,6 +10875,8 @@ class BCMapEditor {
     setPropertiesMode(enabled) {
         if (this.propertiesMode === enabled)
             return;
+        if (!enabled)
+            this.cancelTeleporterPick();
         this.propertiesMode = enabled;
         this.properties.setVisible(enabled);
         this.updateStatusSelection();
@@ -8094,7 +10900,7 @@ class BCMapEditor {
         const obj = this.objectMap.get(id) ?? this.fullObjectMap.get(id) ?? null;
         // An empty (or legacy empty-space) cell has no object to inspect.
         const target = obj && !(0, catalog_1.isEmptyObject)(obj) ? obj : null;
-        this.properties.setTarget(target, { X: pos.X, Y: pos.Y });
+        this.properties.setTarget(target, { X: pos.X, Y: pos.Y }, this.getCellConfig(pos)?.Type);
         this.updateStatusSelection();
         this.requestRender();
     }
@@ -8155,9 +10961,166 @@ class BCMapEditor {
         this.session.flush();
     }
     getPropertyText(pos) {
-        const key = String(pos.X + pos.Y * mapdata_1.MAP_WIDTH);
-        const config = this.mapData.CellData?.[key];
+        const config = this.getCellConfig(pos);
         return config?.Type === "Sign" ? config.Text : "";
+    }
+    getCellConfig(pos) {
+        const key = String(pos.X + pos.Y * mapdata_1.MAP_WIDTH);
+        return this.mapData.CellData?.[key] ?? null;
+    }
+    /** Atomic one-shot config write with an undo entry; rebuilds the panel. */
+    setCellConfig(pos, config, silent = false) {
+        this.endPropertyEdit();
+        this.session.flush();
+        const key = String(pos.X + pos.Y * mapdata_1.MAP_WIDTH);
+        const current = this.mapData.CellData?.[key];
+        if (JSON.stringify(current) === JSON.stringify(config))
+            return;
+        const before = this.snapshot();
+        const cellData = { ...(this.mapData.CellData ?? {}) };
+        if (config)
+            cellData[key] = config;
+        else
+            delete cellData[key];
+        this.mapData.CellData = Object.keys(cellData).length
+            ? cellData
+            : undefined;
+        this.history.commit(before);
+        if (silent)
+            this.refreshPropertyPanel();
+        else
+            this.selectPropertyTarget(pos);
+        this.requestRender();
+    }
+    /** Re-render the panel fields from current map state (undo/import). */
+    refreshPropertyPanel() {
+        const target = this.properties.getTarget();
+        if (target) {
+            this.properties.setTarget(target.obj, target.pos, this.getCellConfig(target.pos)?.Type);
+        }
+    }
+    // --- Object settings (rotation / size / colours / decal) ------------------
+    getObjectSettings(pos) {
+        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        const settings = this.mapData.ObjectSettings?.[index];
+        if (!settings)
+            return null;
+        const id = this.mapData.Objects.charCodeAt(index);
+        return settings.ID === id ? settings : null;
+    }
+    beginObjectSettingsEdit() {
+        this.session.flush();
+        this.objectSettingsEditOpen = true;
+        this.session.hold();
+    }
+    setObjectSettings(pos, changes) {
+        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        const id = this.mapData.Objects.charCodeAt(index);
+        const current = this.getObjectSettings(pos) ?? { ID: id };
+        const next = { ...current, ...changes, ID: id };
+        let changed = false;
+        this.session.runEdit(() => {
+            const before = (0, objectSettings_1.cloneObjectSettings)(this.mapData.ObjectSettings);
+            const map = { ...(this.mapData.ObjectSettings ?? {}) };
+            if (Object.keys(next).length > 1)
+                map[index] = next;
+            else
+                delete map[index];
+            this.mapData.ObjectSettings = Object.keys(map).length
+                ? map
+                : undefined;
+            changed =
+                JSON.stringify(before) !==
+                    JSON.stringify(this.mapData.ObjectSettings);
+            if (changed) {
+                this.requestRender();
+                return true;
+            }
+            return false;
+        });
+        return changed;
+    }
+    endObjectSettingsEdit() {
+        if (!this.objectSettingsEditOpen)
+            return;
+        this.objectSettingsEditOpen = false;
+        this.session.release();
+        this.session.flush();
+    }
+    isTeleporterPickActive() {
+        return this.teleportPickIndex !== null;
+    }
+    startTeleporterPick(pos) {
+        this.teleportPickIndex = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        this.requestRender();
+    }
+    cancelTeleporterPick() {
+        if (this.teleportPickIndex === null)
+            return;
+        this.teleportPickIndex = null;
+        this.requestRender();
+    }
+    isWallAt(pos) {
+        if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
+            return true;
+        const id = this.mapData.Tiles.charCodeAt(pos.X + pos.Y * mapdata_1.MAP_WIDTH);
+        const tile = this.tileMap.get(id) ?? this.fullTileMap.get(id);
+        return tile?.Type === "Wall";
+    }
+    /** Set a pad's destination; returns false for self/wall/out-of-bounds. */
+    setTeleporterDestination(pad, dest) {
+        const padIndex = pad.X + pad.Y * mapdata_1.MAP_WIDTH;
+        if (dest.X < 0 ||
+            dest.X >= mapdata_1.MAP_WIDTH ||
+            dest.Y < 0 ||
+            dest.Y >= mapdata_1.MAP_HEIGHT)
+            return false;
+        const destIndex = dest.X + dest.Y * mapdata_1.MAP_WIDTH;
+        if (destIndex === padIndex || this.isWallAt(dest))
+            return false;
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter")
+            return false;
+        this.setCellConfig(pad, { ...config, Destination: { ...dest } });
+        return true;
+    }
+    removeTeleporterDestination(pad) {
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter" || !config.Destination)
+            return;
+        const next = { ...config };
+        delete next.Destination;
+        this.setCellConfig(pad, next);
+    }
+    setTeleporterColor(pad, color) {
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter" || !(0, mapdata_1.isValidHexColor)(color))
+            return;
+        this.setCellConfig(pad, { ...config, Color: color });
+    }
+    /** BC's Two-way rule (Assets/MapData.js:128-152). */
+    getTeleporterTwoWay(pad) {
+        const config = this.getCellConfig(pad);
+        const dest = config?.Type === "Teleporter" ? config.Destination : undefined;
+        if (!dest)
+            return { dest: null, destIsPad: false, twoWay: false };
+        const id = this.mapData.Objects.charCodeAt(dest.X + dest.Y * mapdata_1.MAP_WIDTH);
+        const destIsPad = id === constants_1.TELEPORTER_OBJECT_ID;
+        const destConfig = this.getCellConfig(dest);
+        const back = destConfig?.Type === "Teleporter"
+            ? destConfig.Destination
+            : undefined;
+        const twoWay = !!back && back.X === pad.X && back.Y === pad.Y;
+        return { dest, destIsPad, twoWay };
+    }
+    makeTeleporterTwoWay(pad) {
+        const { dest, destIsPad, twoWay } = this.getTeleporterTwoWay(pad);
+        if (!dest || !destIsPad || twoWay)
+            return;
+        const destConfig = this.getCellConfig(dest);
+        if (destConfig?.Type !== "Teleporter")
+            return;
+        this.setCellConfig(dest, { ...destConfig, Destination: { ...pad } }, true);
     }
     /** Re-resolve the panel target after the map contents change. */
     revalidatePropertyTarget() {
@@ -8174,9 +11137,19 @@ class BCMapEditor {
         // A synthetic/legacy empty-space target is never valid, so always
         // re-resolve it to the placeholder.
         if (obj && !(0, catalog_1.isEmptyObject)(obj) && obj.ID === target.obj.ID) {
-            // Same object still there, but wholesale changes (import, new
-            // map, slot load) may have replaced its text: refresh in place.
-            this.properties.refreshSignText(this.getPropertyText(target.pos));
+            // Same object still there: refresh fields from current config.
+            // A different config TYPE changes which fields exist, so rebuild;
+            // otherwise update values in place to keep focus (sign typing).
+            const currentType = this.getCellConfig(target.pos)?.Type;
+            // Only sign text is refreshed in place (to keep focus while
+            // typing). Every other config type rebuilds its fields so undo /
+            // import values (destination, colour, sliders, decal) are shown.
+            if (currentType === "Sign") {
+                this.properties.refreshSignText(this.getPropertyText(target.pos));
+            }
+            else {
+                this.properties.setTarget(obj, target.pos, currentType);
+            }
             return;
         }
         this.selectPropertyTarget(target.pos);
@@ -8234,6 +11207,7 @@ class BCMapEditor {
             CellData: this.mapData.CellData,
             Effects: this.mapData.Effects,
             Fog: this.mapData.Fog,
+            ObjectSettings: this.mapData.ObjectSettings,
         });
     }
     importMap(code) {
@@ -8243,6 +11217,7 @@ class BCMapEditor {
             this.syncObstaclesToBrush();
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
+            this.cancelTeleporterPick();
             this.vim.clearCursor();
             this.resetView();
             // Wholesale content swap reads as a transition, not a glitch.
@@ -8317,23 +11292,67 @@ class BCMapEditor {
             const baseKey = obj.Type + "/" + obj.Style;
             const img = this.objectImageCache.get(obj.Type + "/" + variant) ??
                 this.objectImageCache.get(baseKey);
+            const settings = this.getObjectSettings({ X: x, Y: y });
+            const size = (settings?.Size ?? 100) / 100;
             const left = obj.Left ?? 0;
             const top = obj.Top ?? 0;
             const width = obj.Width ?? 1;
             const height = obj.Height ?? 1;
-            const adjDrawX = drawX + left * cell;
-            const adjDrawW = cell * width;
-            const adjDrawY = drawY + top * cell;
-            const adjDrawH = cell * height;
-            const rotation = obj.Rotation ?? 0;
+            const adjDrawX = drawX + (left + (width * (1 - size)) / 2) * cell;
+            const adjDrawW = cell * width * size;
+            const adjDrawY = drawY + (top + height * (1 - size)) * cell;
+            const adjDrawH = cell * height * size;
+            const rotation = (obj.Rotation ?? 0) + (settings?.Rotation ?? 0);
+            let thumbImg = img;
+            if (img &&
+                (obj.Layers?.some((l) => l.IsColorable) ||
+                    (obj.DecalArea && settings?.Decal))) {
+                const colorKey = obj.Type +
+                    "/" +
+                    variant +
+                    "|" +
+                    (settings
+                        ? JSON.stringify(settings.Colors) +
+                            (settings.Decal ?? "") +
+                            (settings.DecalColor ?? "")
+                        : "default");
+                let composed = this.tintedImageCache.get(colorKey);
+                if (!composed) {
+                    const load = (url) => {
+                        const indexPath = url.replace("assets/objects/", "");
+                        let layerImg = this.objectImageCache.get(indexPath);
+                        if (!layerImg) {
+                            layerImg = new Image();
+                            layerImg.onerror = () => { };
+                            layerImg.src = url;
+                            this.objectImageCache.set(indexPath, layerImg);
+                        }
+                        return layerImg.complete && layerImg.naturalWidth > 0
+                            ? layerImg
+                            : undefined;
+                    };
+                    let composedBase = (0, render_1.composeLayerImage)(obj.Type, variant, obj.Layers ?? [], settings?.Colors, load) ?? img;
+                    if (obj.DecalArea && settings?.Decal) {
+                        const decalImg = this.decalImageCache.get(settings.Decal);
+                        if (decalImg?.complete && decalImg.naturalWidth > 0) {
+                            composedBase = (0, render_1.composeDecal)(composedBase, decalImg, obj.DecalArea, settings.DecalColor);
+                        }
+                    }
+                    composed = composedBase;
+                    if (composed)
+                        this.cacheTinted(colorKey, composed);
+                }
+                if (composed)
+                    thumbImg = composed;
+            }
             if (rotation !== 0) {
                 ctx.save();
                 ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
                 ctx.rotate((rotation * Math.PI) / 180);
                 ctx.translate(-(adjDrawX + adjDrawW / 2), -(adjDrawY + adjDrawH / 2));
             }
-            if (img && img.complete && img.naturalWidth > 0) {
-                ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+            if (thumbImg && img && img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(thumbImg, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
             }
             else {
                 // Fallback to color if image not loaded
@@ -8362,6 +11381,7 @@ class BCMapEditor {
             effects_1.EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.cancelTeleporterPick();
         this.vim.clearCursor();
         this.revalidatePropertyTarget();
         this.syncObstaclesToBrush();
@@ -8387,6 +11407,7 @@ class BCMapEditor {
         // identity — pre-flushing would steal the wrong entry (the vim `u`
         // path flushes via the controller's flushEdits intent).
         this.endPropertyEdit();
+        this.endObjectSettingsEdit();
         const prev = this.history.undo(this.snapshot());
         if (!prev)
             return;
@@ -8404,6 +11425,7 @@ class BCMapEditor {
     }
     redo() {
         this.endPropertyEdit();
+        this.endObjectSettingsEdit();
         const next = this.history.redo(this.snapshot());
         if (!next)
             return;

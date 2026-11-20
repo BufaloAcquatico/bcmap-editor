@@ -8,18 +8,23 @@
 // nothing, so empty presses never cost an undo step. One-shot actions (the
 // lighting and obstacle toggles) use commit() instead of a stroke.
 //
-// Snapshots are plain immutable values (all strings/booleans), so the stacks
-// never alias live editor state. The editor owns the MapData and applies
+// Snapshots are plain immutable values (strings, booleans and deep-cloned
+// config/settings objects), so the stacks never alias live editor state.
+// The editor owns the MapData and applies
 // snapshots; onChange fires whenever stack state changes so the UI can sync
 // undo/redo button states.
+
+import type { CellConfig } from "./mapdata";
 
 /** A whole-editor snapshot. `effects` is a per-cell char grid ("" = none). */
 export interface MapSnapshot {
     tiles: string;
     objects: string;
     effects: string;
-    /** Per-cell configs (sign text); always a deep clone, never aliased. */
-    cellData: Record<string, { Type: "Sign"; Text: string }> | undefined;
+    /** Per-cell configs; always a deep clone, never aliased. */
+    cellData: Record<string, CellConfig> | undefined;
+    /** Per-object transform settings; deep-cloned. */
+    objectSettings: import("./objectSettings").ObjectSettingsMap | undefined;
     showEffects: boolean;
     /** Whether the obstacle-X overlay is visible (undoable view aid). */
     showObstacles: boolean;

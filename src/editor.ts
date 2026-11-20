@@ -12,6 +12,9 @@ import {
 import {
     connectedVariantAssets,
     OBSTACLE_OBJECT_IDS,
+    SIGN_OBJECT_IDS,
+    TELEPORTER_OBJECT_ID,
+    TETHER_OBJECT_IDS,
     RAILROAD_DIRECTIONS,
     WALL_EFFECT_INDICES,
 } from "./constants";
@@ -24,9 +27,15 @@ import {
 } from "./effects";
 import { MapHistory, type MapSnapshot } from "./history";
 import { PropertyPanel } from "./properties";
+import { DECALS } from "./decals";
+import { cloneObjectSettings } from "./objectSettings";
 import {
     MAP_CELL_COUNT,
     createDefaultMap,
+    cloneCellData,
+    isValidHexColor,
+    type CellConfig,
+    type ObjectSettings,
     effectsToGrid,
     GRASS_TILE_ID,
     gridToEffects,
@@ -64,6 +73,8 @@ import {
     findWallEffectTile,
     RAILROAD_PREVIEW_ID,
     resolveVariantImageName as resolveVariantStyle,
+    composeLayerImage,
+    composeDecal,
 } from "./render";
 
 export type { ObjectDef, TileDef } from "./catalog";
@@ -144,6 +155,16 @@ export class BCMapEditor {
     private objectCatalog: ObjectDef[] = [];
     private tileImageCache: Map<string, HTMLImageElement> = new Map();
     private objectImageCache: Map<string, HTMLImageElement> = new Map();
+    private tintedImageCache: Map<string, CanvasImageSource> = new Map();
+
+    private cacheTinted(key: string, image: CanvasImageSource): void {
+        if (this.tintedImageCache.size >= 200) {
+            const first = this.tintedImageCache.keys().next().value;
+            if (first !== undefined) this.tintedImageCache.delete(first);
+        }
+        this.tintedImageCache.set(key, image);
+    }
+    private decalImageCache: Map<string, HTMLImageElement> = new Map();
     private wallEffectImageCache: Map<number, HTMLImageElement> = new Map();
     private tileMap = new Map<number, TileDef>();
     private objectMap = new Map<number, ObjectDef>();
@@ -322,6 +343,14 @@ export class BCMapEditor {
                 variantJobs.push([folder, "Railroad" + suffix]);
             }
         }
+        for (const { name } of DECALS) {
+            if (!this.decalImageCache.has(name)) {
+                const img = new Image();
+                img.onerror = () => {};
+                img.src = "assets/decals/" + name + ".png";
+                this.decalImageCache.set(name, img);
+            }
+        }
         for (const [folder, style] of variantJobs) {
             const key = folder + "/" + style;
             if (!this.objectImageCache.has(key)) {
@@ -466,14 +495,8 @@ export class BCMapEditor {
             tiles: this.mapData.Tiles,
             objects: this.mapData.Objects,
             effects: effectsToGrid(this.mapData.Effects),
-            cellData: this.mapData.CellData
-                ? Object.fromEntries(
-                      Object.entries(this.mapData.CellData).map(([k, v]) => [
-                          k,
-                          { ...v },
-                      ]),
-                  )
-                : undefined,
+            cellData: cloneCellData(this.mapData.CellData),
+            objectSettings: cloneObjectSettings(this.mapData.ObjectSettings),
             showEffects: this.showEffects,
             showObstacles: this.showObstacles,
             fog: this.isFogEnabled(),
@@ -485,14 +508,10 @@ export class BCMapEditor {
         this.mapData.Tiles = snapshot.tiles;
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = gridToEffects(snapshot.effects);
-        this.mapData.CellData = snapshot.cellData
-            ? Object.fromEntries(
-                  Object.entries(snapshot.cellData).map(([k, v]) => [
-                      k,
-                      { ...v },
-                  ]),
-              )
-            : undefined;
+        this.mapData.CellData = cloneCellData(snapshot.cellData);
+        this.mapData.ObjectSettings = cloneObjectSettings(
+            snapshot.objectSettings,
+        );
         this.showEffects = snapshot.showEffects;
         this.showObstacles = snapshot.showObstacles;
         if (snapshot.fog) this.mapData.Fog = true;
@@ -565,7 +584,7 @@ export class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                 ch +
                 this.mapData.Objects.substring(index + 1);
-            this.clearSignConfigIfReplaced(index);
+            this.syncConfigForObjectAt(index);
             this.requestRender();
             return true;
         }
@@ -583,19 +602,35 @@ export class BCMapEditor {
     }
 
     /**
-     * Drop a Sign config when its cell no longer holds a sign. Other config
-     * types (teleporter/tether, added in later slices) are left untouched.
+     * Keep CellData consistent with the object now on a cell: seed a fresh
+     * Teleporter config for a new pad, and drop any config whose owning object
+     * is no longer there (Sign 3520-3523, Teleporter 3530, Tether eligible).
      */
-    private clearSignConfigIfReplaced(index: number): void {
-        const config = this.mapData.CellData?.[String(index)];
-        if (config?.Type !== "Sign") return;
+    private syncConfigForObjectAt(index: number): void {
         const id = this.mapData.Objects.charCodeAt(index);
-        if (id >= 3520 && id <= 3523) return;
+        const key = String(index);
+        const config = this.mapData.CellData?.[key];
         const cellData = { ...(this.mapData.CellData ?? {}) };
-        delete cellData[String(index)];
+        const owns =
+            (config?.Type === "Sign" && SIGN_OBJECT_IDS.has(id)) ||
+            (config?.Type === "Teleporter" && id === TELEPORTER_OBJECT_ID) ||
+            (config?.Type === "Tether" && TETHER_OBJECT_IDS.has(id));
+        if (config && !owns) delete cellData[key];
+        if (id === TELEPORTER_OBJECT_ID && config?.Type !== "Teleporter") {
+            cellData[key] = { Type: "Teleporter", Shared: true };
+        }
         this.mapData.CellData = Object.keys(cellData).length
             ? cellData
             : undefined;
+        // BC drops settings whose object ID no longer matches (Map.js:382).
+        const settings = this.mapData.ObjectSettings;
+        if (settings?.[index] && settings[index].ID !== id) {
+            const nextSettings = { ...settings };
+            delete nextSettings[index];
+            this.mapData.ObjectSettings = Object.keys(nextSettings).length
+                ? nextSettings
+                : undefined;
+        }
     }
 
     /** Blank every cell holding `objectId`, except `keepIndex`. */
@@ -769,7 +804,7 @@ export class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                 objectChar +
                 this.mapData.Objects.substring(index + 1);
-            this.clearSignConfigIfReplaced(index);
+            this.syncConfigForObjectAt(index);
             changed = true;
         }
         if (
@@ -885,9 +920,29 @@ export class BCMapEditor {
     }
 
     private onCanvasMouseDown(e: MouseEvent): void {
+        const plainLeft = e.button === 0 && !e.ctrlKey && !e.metaKey;
+        // Teleporter pick mode takes priority: click sets the destination.
+        if (
+            this.propertiesMode &&
+            plainLeft &&
+            this.teleportPickIndex !== null
+        ) {
+            e.preventDefault();
+            const padIndex = this.teleportPickIndex;
+            this.teleportPickIndex = null;
+            const dest = this.getTilePosFromMouse(e);
+            const pad = {
+                X: padIndex % MAP_WIDTH,
+                Y: Math.floor(padIndex / MAP_WIDTH),
+            };
+            this.setTeleporterDestination(pad, dest);
+            this.refreshPropertyPanel();
+            this.requestRender();
+            return;
+        }
         // Properties mode: a single plain left-click selects the cell's
         // object without opening an undo stroke or painting anything.
-        if (this.propertiesMode && e.button === 0 && !e.ctrlKey && !e.metaKey) {
+        if (this.propertiesMode && plainLeft) {
             this.selectPropertyTarget(this.getTilePosFromMouse(e));
             return;
         }
@@ -1236,15 +1291,23 @@ export class BCMapEditor {
                     const top = obj.Top ?? 0;
                     const width = obj.Width ?? 1;
                     const height = obj.Height ?? 1;
-                    const adjDrawX = startX + (x + left) * tileSize;
-                    const adjDrawW = tileSize * width;
-                    const adjDrawY = startY + (y + top) * tileSize;
-                    const adjDrawH = tileSize * height;
+                    // R134 per-object settings: size is bottom-anchored like
+                    // the game (ChatRoomMapView.js:1816-1825).
+                    const settings = this.getObjectSettings({ X: x, Y: y });
+                    const size = (settings?.Size ?? 100) / 100;
+                    const adjDrawX =
+                        startX +
+                        (x + left + (width * (1 - size)) / 2) * tileSize;
+                    const adjDrawW = tileSize * width * size;
+                    const adjDrawY =
+                        startY + (y + top + height * (1 - size)) * tileSize;
+                    const adjDrawH = tileSize * height * size;
                     // Conveyor belts bake direction purely as a rotation
                     // about the rect centre (degrees, clockwise on screen),
                     // mirroring BC. Zero rotation keeps the fast path with no
                     // transform so existing rendering is pixel-identical.
-                    const rotation = obj.Rotation ?? 0;
+                    const rotation =
+                        (obj.Rotation ?? 0) + (settings?.Rotation ?? 0);
                     if (rotation !== 0) {
                         ctx.save();
                         ctx.translate(
@@ -1257,9 +1320,84 @@ export class BCMapEditor {
                             -(adjDrawY + adjDrawH / 2),
                         );
                     }
-                    if (img && img.complete && img.naturalWidth > 0) {
+                    let drawImg: CanvasImageSource | undefined = img;
+                    const colorable =
+                        obj.Layers?.filter((l) => l.IsColorable) ?? [];
+                    if (
+                        img &&
+                        img.complete &&
+                        img.naturalWidth > 0 &&
+                        colorable.length > 0
+                    ) {
+                        const colors = settings?.Colors;
+                        const cacheKey =
+                            key + "|" + (colors ? colors.join(",") : "default");
+                        let composed = this.tintedImageCache.get(cacheKey);
+                        if (!composed) {
+                            const load = (
+                                url: string,
+                            ): HTMLImageElement | undefined => {
+                                const indexPath = url.replace(
+                                    "assets/objects/",
+                                    "",
+                                );
+                                let layerImg =
+                                    this.objectImageCache.get(indexPath);
+                                if (!layerImg) {
+                                    layerImg = new Image();
+                                    layerImg.onerror = () => {};
+                                    layerImg.src = url;
+                                    this.objectImageCache.set(
+                                        indexPath,
+                                        layerImg,
+                                    );
+                                }
+                                return layerImg.complete &&
+                                    layerImg.naturalWidth > 0
+                                    ? layerImg
+                                    : undefined;
+                            };
+                            composed = composeLayerImage(
+                                obj.Type,
+                                variant,
+                                obj.Layers ?? [],
+                                colors,
+                                load,
+                            );
+                            if (composed) this.cacheTinted(cacheKey, composed);
+                        }
+                        if (composed) drawImg = composed;
+                    }
+                    if (drawImg && obj.DecalArea && settings?.Decal) {
+                        const decalKey =
+                            key +
+                            "|decal:" +
+                            settings.Decal +
+                            "|" +
+                            (settings.DecalColor ?? "");
+                        let withDecal = this.tintedImageCache.get(decalKey);
+                        if (!withDecal) {
+                            const decalImg = this.decalImageCache.get(
+                                settings.Decal,
+                            );
+                            if (
+                                decalImg?.complete &&
+                                decalImg.naturalWidth > 0
+                            ) {
+                                withDecal = composeDecal(
+                                    drawImg,
+                                    decalImg,
+                                    obj.DecalArea,
+                                    settings.DecalColor,
+                                );
+                                this.cacheTinted(decalKey, withDecal);
+                            }
+                        }
+                        if (withDecal) drawImg = withDecal;
+                    }
+                    if (drawImg) {
                         ctx.drawImage(
-                            img,
+                            drawImg,
                             adjDrawX,
                             adjDrawY,
                             adjDrawW,
@@ -1355,6 +1493,56 @@ export class BCMapEditor {
                     startY + j * tileSize,
                 );
                 ctx.stroke();
+            }
+        }
+
+        // Teleporter outlines: pad (solid white) and its destination (cyan,
+        // matching the game's 5px accent) while its properties are open.
+        if (this.propertiesMode) {
+            const target = this.properties.getTarget();
+            if (target?.obj.ID === TELEPORTER_OBJECT_ID) {
+                const drawOutline = (
+                    x: number,
+                    y: number,
+                    color: string,
+                    width: number,
+                ) => {
+                    ctx.save();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = width;
+                    ctx.strokeRect(
+                        startX + x * tileSize + 1,
+                        startY + y * tileSize + 1,
+                        tileSize - 2,
+                        tileSize - 2,
+                    );
+                    ctx.restore();
+                };
+                drawOutline(
+                    target.pos.X,
+                    target.pos.Y,
+                    HOVER_OUTLINE_COLOR,
+                    HOVER_OUTLINE_WIDTH,
+                );
+                const config = this.getCellConfig(target.pos);
+                const dest =
+                    config?.Type === "Teleporter"
+                        ? config.Destination
+                        : undefined;
+                if (
+                    dest &&
+                    dest.X >= firstTileX &&
+                    dest.X <= lastTileX &&
+                    dest.Y >= firstTileY &&
+                    dest.Y <= lastTileY
+                ) {
+                    drawOutline(dest.X, dest.Y, "#00FFFF", 5);
+                }
+                if (this.teleportPickIndex !== null) {
+                    const px = this.teleportPickIndex % MAP_WIDTH;
+                    const py = Math.floor(this.teleportPickIndex / MAP_WIDTH);
+                    drawOutline(px, py, "#00FFFF", 5);
+                }
             }
         }
 
@@ -1904,6 +2092,7 @@ export class BCMapEditor {
     /** Enter or leave Properties mode; leaving clears the panel target. */
     public setPropertiesMode(enabled: boolean): void {
         if (this.propertiesMode === enabled) return;
+        if (!enabled) this.cancelTeleporterPick();
         this.propertiesMode = enabled;
         this.properties.setVisible(enabled);
         this.updateStatusSelection();
@@ -1930,7 +2119,11 @@ export class BCMapEditor {
             this.objectMap.get(id) ?? this.fullObjectMap.get(id) ?? null;
         // An empty (or legacy empty-space) cell has no object to inspect.
         const target = obj && !isEmptyObject(obj) ? obj : null;
-        this.properties.setTarget(target, { X: pos.X, Y: pos.Y });
+        this.properties.setTarget(
+            target,
+            { X: pos.X, Y: pos.Y },
+            this.getCellConfig(pos)?.Type,
+        );
         this.updateStatusSelection();
         this.requestRender();
     }
@@ -2008,9 +2201,204 @@ export class BCMapEditor {
     }
 
     public getPropertyText(pos: { X: number; Y: number }): string {
-        const key = String(pos.X + pos.Y * MAP_WIDTH);
-        const config = this.mapData.CellData?.[key];
+        const config = this.getCellConfig(pos);
         return config?.Type === "Sign" ? config.Text : "";
+    }
+
+    public getCellConfig(pos: { X: number; Y: number }): CellConfig | null {
+        const key = String(pos.X + pos.Y * MAP_WIDTH);
+        return this.mapData.CellData?.[key] ?? null;
+    }
+
+    /** Atomic one-shot config write with an undo entry; rebuilds the panel. */
+    public setCellConfig(
+        pos: { X: number; Y: number },
+        config: CellConfig | null,
+        silent = false,
+    ): void {
+        this.endPropertyEdit();
+        this.session.flush();
+        const key = String(pos.X + pos.Y * MAP_WIDTH);
+        const current = this.mapData.CellData?.[key];
+        if (JSON.stringify(current) === JSON.stringify(config)) return;
+        const before = this.snapshot();
+        const cellData = { ...(this.mapData.CellData ?? {}) };
+        if (config) cellData[key] = config;
+        else delete cellData[key];
+        this.mapData.CellData = Object.keys(cellData).length
+            ? cellData
+            : undefined;
+        this.history.commit(before);
+        if (silent) this.refreshPropertyPanel();
+        else this.selectPropertyTarget(pos);
+        this.requestRender();
+    }
+
+    /** Re-render the panel fields from current map state (undo/import). */
+    public refreshPropertyPanel(): void {
+        const target = this.properties.getTarget();
+        if (target) {
+            this.properties.setTarget(
+                target.obj,
+                target.pos,
+                this.getCellConfig(target.pos)?.Type,
+            );
+        }
+    }
+
+    // --- Object settings (rotation / size / colours / decal) ------------------
+
+    public getObjectSettings(pos: {
+        X: number;
+        Y: number;
+    }): ObjectSettings | null {
+        const index = pos.X + pos.Y * MAP_WIDTH;
+        const settings = this.mapData.ObjectSettings?.[index];
+        if (!settings) return null;
+        const id = this.mapData.Objects.charCodeAt(index);
+        return settings.ID === id ? settings : null;
+    }
+
+    private objectSettingsEditOpen = false;
+
+    public beginObjectSettingsEdit(): void {
+        this.session.flush();
+        this.objectSettingsEditOpen = true;
+        this.session.hold();
+    }
+
+    public setObjectSettings(
+        pos: { X: number; Y: number },
+        changes: Partial<Omit<ObjectSettings, "ID">>,
+    ): boolean {
+        const index = pos.X + pos.Y * MAP_WIDTH;
+        const id = this.mapData.Objects.charCodeAt(index);
+        const current = this.getObjectSettings(pos) ?? { ID: id };
+        const next: ObjectSettings = { ...current, ...changes, ID: id };
+        let changed = false;
+        this.session.runEdit(() => {
+            const before = cloneObjectSettings(this.mapData.ObjectSettings);
+            const map = { ...(this.mapData.ObjectSettings ?? {}) };
+            if (Object.keys(next).length > 1) map[index] = next;
+            else delete map[index];
+            this.mapData.ObjectSettings = Object.keys(map).length
+                ? map
+                : undefined;
+            changed =
+                JSON.stringify(before) !==
+                JSON.stringify(this.mapData.ObjectSettings);
+            if (changed) {
+                this.requestRender();
+                return true;
+            }
+            return false;
+        });
+        return changed;
+    }
+
+    public endObjectSettingsEdit(): void {
+        if (!this.objectSettingsEditOpen) return;
+        this.objectSettingsEditOpen = false;
+        this.session.release();
+        this.session.flush();
+    }
+
+    // --- Teleporter pads -----------------------------------------------------
+
+    private teleportPickIndex: number | null = null;
+
+    public isTeleporterPickActive(): boolean {
+        return this.teleportPickIndex !== null;
+    }
+
+    public startTeleporterPick(pos: { X: number; Y: number }): void {
+        this.teleportPickIndex = pos.X + pos.Y * MAP_WIDTH;
+        this.requestRender();
+    }
+
+    public cancelTeleporterPick(): void {
+        if (this.teleportPickIndex === null) return;
+        this.teleportPickIndex = null;
+        this.requestRender();
+    }
+
+    private isWallAt(pos: { X: number; Y: number }): boolean {
+        if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
+            return true;
+        const id = this.mapData.Tiles.charCodeAt(pos.X + pos.Y * MAP_WIDTH);
+        const tile = this.tileMap.get(id) ?? this.fullTileMap.get(id);
+        return tile?.Type === "Wall";
+    }
+
+    /** Set a pad's destination; returns false for self/wall/out-of-bounds. */
+    public setTeleporterDestination(
+        pad: { X: number; Y: number },
+        dest: { X: number; Y: number },
+    ): boolean {
+        const padIndex = pad.X + pad.Y * MAP_WIDTH;
+        if (
+            dest.X < 0 ||
+            dest.X >= MAP_WIDTH ||
+            dest.Y < 0 ||
+            dest.Y >= MAP_HEIGHT
+        )
+            return false;
+        const destIndex = dest.X + dest.Y * MAP_WIDTH;
+        if (destIndex === padIndex || this.isWallAt(dest)) return false;
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter") return false;
+        this.setCellConfig(pad, { ...config, Destination: { ...dest } });
+        return true;
+    }
+
+    public removeTeleporterDestination(pad: { X: number; Y: number }): void {
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter" || !config.Destination) return;
+        const next = { ...config };
+        delete next.Destination;
+        this.setCellConfig(pad, next);
+    }
+
+    public setTeleporterColor(
+        pad: { X: number; Y: number },
+        color: string,
+    ): void {
+        const config = this.getCellConfig(pad);
+        if (config?.Type !== "Teleporter" || !isValidHexColor(color)) return;
+        this.setCellConfig(pad, { ...config, Color: color });
+    }
+
+    /** BC's Two-way rule (Assets/MapData.js:128-152). */
+    public getTeleporterTwoWay(pad: { X: number; Y: number }): {
+        dest: { X: number; Y: number } | null;
+        destIsPad: boolean;
+        twoWay: boolean;
+    } {
+        const config = this.getCellConfig(pad);
+        const dest =
+            config?.Type === "Teleporter" ? config.Destination : undefined;
+        if (!dest) return { dest: null, destIsPad: false, twoWay: false };
+        const id = this.mapData.Objects.charCodeAt(dest.X + dest.Y * MAP_WIDTH);
+        const destIsPad = id === TELEPORTER_OBJECT_ID;
+        const destConfig = this.getCellConfig(dest);
+        const back =
+            destConfig?.Type === "Teleporter"
+                ? destConfig.Destination
+                : undefined;
+        const twoWay = !!back && back.X === pad.X && back.Y === pad.Y;
+        return { dest, destIsPad, twoWay };
+    }
+
+    public makeTeleporterTwoWay(pad: { X: number; Y: number }): void {
+        const { dest, destIsPad, twoWay } = this.getTeleporterTwoWay(pad);
+        if (!dest || !destIsPad || twoWay) return;
+        const destConfig = this.getCellConfig(dest);
+        if (destConfig?.Type !== "Teleporter") return;
+        this.setCellConfig(
+            dest,
+            { ...destConfig, Destination: { ...pad } },
+            true,
+        );
     }
 
     /** Re-resolve the panel target after the map contents change. */
@@ -2027,9 +2415,20 @@ export class BCMapEditor {
         // A synthetic/legacy empty-space target is never valid, so always
         // re-resolve it to the placeholder.
         if (obj && !isEmptyObject(obj) && obj.ID === target.obj.ID) {
-            // Same object still there, but wholesale changes (import, new
-            // map, slot load) may have replaced its text: refresh in place.
-            this.properties.refreshSignText(this.getPropertyText(target.pos));
+            // Same object still there: refresh fields from current config.
+            // A different config TYPE changes which fields exist, so rebuild;
+            // otherwise update values in place to keep focus (sign typing).
+            const currentType = this.getCellConfig(target.pos)?.Type;
+            // Only sign text is refreshed in place (to keep focus while
+            // typing). Every other config type rebuilds its fields so undo /
+            // import values (destination, colour, sliders, decal) are shown.
+            if (currentType === "Sign") {
+                this.properties.refreshSignText(
+                    this.getPropertyText(target.pos),
+                );
+            } else {
+                this.properties.setTarget(obj, target.pos, currentType);
+            }
             return;
         }
         this.selectPropertyTarget(target.pos);
@@ -2091,6 +2490,7 @@ export class BCMapEditor {
             CellData: this.mapData.CellData,
             Effects: this.mapData.Effects,
             Fog: this.mapData.Fog,
+            ObjectSettings: this.mapData.ObjectSettings,
         });
     }
     public importMap(code: string): void {
@@ -2104,6 +2504,7 @@ export class BCMapEditor {
             this.syncObstaclesToBrush();
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
+            this.cancelTeleporterPick();
             this.vim.clearCursor();
             this.resetView();
             // Wholesale content swap reads as a transition, not a glitch.
@@ -2185,15 +2586,76 @@ export class BCMapEditor {
             const img =
                 this.objectImageCache.get(obj.Type + "/" + variant) ??
                 this.objectImageCache.get(baseKey);
+            const settings = this.getObjectSettings({ X: x, Y: y });
+            const size = (settings?.Size ?? 100) / 100;
             const left = obj.Left ?? 0;
             const top = obj.Top ?? 0;
             const width = obj.Width ?? 1;
             const height = obj.Height ?? 1;
-            const adjDrawX = drawX + left * cell;
-            const adjDrawW = cell * width;
-            const adjDrawY = drawY + top * cell;
-            const adjDrawH = cell * height;
-            const rotation = obj.Rotation ?? 0;
+            const adjDrawX = drawX + (left + (width * (1 - size)) / 2) * cell;
+            const adjDrawW = cell * width * size;
+            const adjDrawY = drawY + (top + height * (1 - size)) * cell;
+            const adjDrawH = cell * height * size;
+            const rotation = (obj.Rotation ?? 0) + (settings?.Rotation ?? 0);
+            let thumbImg: CanvasImageSource | undefined = img;
+            if (
+                img &&
+                (obj.Layers?.some((l) => l.IsColorable) ||
+                    (obj.DecalArea && settings?.Decal))
+            ) {
+                const colorKey =
+                    obj.Type +
+                    "/" +
+                    variant +
+                    "|" +
+                    (settings
+                        ? JSON.stringify(settings.Colors) +
+                          (settings.Decal ?? "") +
+                          (settings.DecalColor ?? "")
+                        : "default");
+                let composed = this.tintedImageCache.get(colorKey);
+                if (!composed) {
+                    const load = (
+                        url: string,
+                    ): HTMLImageElement | undefined => {
+                        const indexPath = url.replace("assets/objects/", "");
+                        let layerImg = this.objectImageCache.get(indexPath);
+                        if (!layerImg) {
+                            layerImg = new Image();
+                            layerImg.onerror = () => {};
+                            layerImg.src = url;
+                            this.objectImageCache.set(indexPath, layerImg);
+                        }
+                        return layerImg.complete && layerImg.naturalWidth > 0
+                            ? layerImg
+                            : undefined;
+                    };
+                    let composedBase: CanvasImageSource | undefined =
+                        composeLayerImage(
+                            obj.Type,
+                            variant,
+                            obj.Layers ?? [],
+                            settings?.Colors,
+                            load,
+                        ) ?? img;
+                    if (obj.DecalArea && settings?.Decal) {
+                        const decalImg = this.decalImageCache.get(
+                            settings.Decal,
+                        );
+                        if (decalImg?.complete && decalImg.naturalWidth > 0) {
+                            composedBase = composeDecal(
+                                composedBase,
+                                decalImg,
+                                obj.DecalArea,
+                                settings.DecalColor,
+                            );
+                        }
+                    }
+                    composed = composedBase;
+                    if (composed) this.cacheTinted(colorKey, composed);
+                }
+                if (composed) thumbImg = composed;
+            }
             if (rotation !== 0) {
                 ctx.save();
                 ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
@@ -2203,8 +2665,8 @@ export class BCMapEditor {
                     -(adjDrawY + adjDrawH / 2),
                 );
             }
-            if (img && img.complete && img.naturalWidth > 0) {
-                ctx.drawImage(img, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
+            if (thumbImg && img && img.complete && img.naturalWidth > 0) {
+                ctx.drawImage(thumbImg, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
             } else {
                 // Fallback to color if image not loaded
                 ctx.fillStyle = this.getObjectColor(obj.Type);
@@ -2238,6 +2700,7 @@ export class BCMapEditor {
             EFFECT_BY_ID.get(DEFAULT_LIGHTING_EFFECT_ID) ?? null;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.cancelTeleporterPick();
         this.vim.clearCursor();
         this.revalidatePropertyTarget();
         this.syncObstaclesToBrush();
@@ -2264,6 +2727,7 @@ export class BCMapEditor {
         // identity — pre-flushing would steal the wrong entry (the vim `u`
         // path flushes via the controller's flushEdits intent).
         this.endPropertyEdit();
+        this.endObjectSettingsEdit();
         const prev = this.history.undo(this.snapshot());
         if (!prev) return;
         this.applySnapshot(prev);
@@ -2280,6 +2744,7 @@ export class BCMapEditor {
 
     public redo(): void {
         this.endPropertyEdit();
+        this.endObjectSettingsEdit();
         const next = this.history.redo(this.snapshot());
         if (!next) return;
         this.applySnapshot(next);

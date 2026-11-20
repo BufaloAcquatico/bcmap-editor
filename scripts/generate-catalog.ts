@@ -26,6 +26,17 @@ interface RawEntry {
     Unique?: boolean;
     DeprecatedID?: number;
     PaletteImage?: string;
+    Layers?: Array<{
+        Name: string;
+        IsColorable: boolean;
+        DefaultColor?: string;
+    }>;
+    DecalArea?: [number, number, number, number];
+    JoinsNeighbors?: boolean;
+    CanPlaceOnWalls?: boolean;
+    CanPlaceOnFloors?: boolean;
+    CanPlaceInWalls?: boolean;
+    CanBeCustomized?: boolean;
 }
 
 const DEFAULT_SOURCES = [
@@ -77,9 +88,35 @@ function loadGameData(file: string): {
         "\n;globalThis.__tiles = AssetsMapDataTiles; " +
         "globalThis.__objects = AssetsMapDataObjects;";
     vm.runInContext(script, sandbox);
+    // BC computes customization flags from type defaults at load time
+    // (Map.js:2715-2745). MapDataLayersPlain is the NON-colorable fallback;
+    // only FloorNumber/Letter/Icon get the white fill layer.
+    const plain: RawEntry["Layers"] = [{ Name: "", IsColorable: false }];
+    const fill: RawEntry["Layers"] = [
+        { Name: "", IsColorable: true, DefaultColor: "#FFFFFF" },
+    ];
+    const defaults: Record<string, Partial<RawEntry>> = {
+        EmptySpace: { CanBeCustomized: false },
+        Functional: { CanBeCustomized: false },
+        WallPath: { CanPlaceOnWalls: true, CanBeCustomized: false },
+        FloorNumber: { Layers: fill },
+        FloorLetter: { Layers: fill },
+        FloorIcon: { Layers: fill },
+        WallDecoration: { CanPlaceOnWalls: true, CanPlaceOnFloors: false },
+        Banners: { CanPlaceOnWalls: true, CanPlaceOnFloors: false },
+        FloorDecorationExpanding: { JoinsNeighbors: true },
+    };
+    const objects = (sandbox.__objects as RawEntry[]).map((o) => {
+        const d = defaults[o.Type] ?? {};
+        return {
+            ...d,
+            ...o,
+            Layers: o.Layers ?? d.Layers ?? plain,
+        };
+    });
     return {
         tiles: sandbox.__tiles as RawEntry[],
-        objects: sandbox.__objects as RawEntry[],
+        objects,
     };
 }
 
@@ -109,6 +146,11 @@ function emitObject(o: RawEntry): string {
         fields.push(["deprecatedId", o.DeprecatedID]);
     if (o.PaletteImage !== undefined)
         fields.push(["paletteImage", o.PaletteImage]);
+    if (o.Layers?.length) fields.push(["Layers", o.Layers]);
+    if (o.DecalArea) fields.push(["DecalArea", o.DecalArea]);
+    if (o.JoinsNeighbors) fields.push(["JoinsNeighbors", true]);
+    if (o.CanPlaceOnWalls) fields.push(["CanPlaceOnWalls", true]);
+    if (o.CanBeCustomized === false) fields.push(["CanBeCustomized", false]);
     return "    { " + fields.map(emitField).join(", ") + " },";
 }
 
@@ -159,10 +201,20 @@ export interface ObjectDef {
     Left?: number;
     Height?: number;
     Width?: number;
+    /** Colourable layers (BC's Layers), for the object-settings panel. */
+    Layers?: Array<{ Name: string; IsColorable: boolean; DefaultColor?: string }>;
+    /** Area to composite a decal into, in sprite pixels. */
+    DecalArea?: [number, number, number, number];
+    JoinsNeighbors?: boolean;
+    CanPlaceOnWalls?: boolean;
+    CanBeCustomized?: boolean;
 }
 
 /** Object ID used for an empty object cell / the eraser tool. */
 export const BLANK_OBJECT_ID = 100;
+
+/** Impassable empty-space object, available via the quick eraser tool. */
+export const IMPASSABLE_OBJECT_ID = 101;
 
 /** True for BC's EmptySpace objects: they render nothing on the map. */
 export function isEmptyObject(o: { Type: string }): boolean {

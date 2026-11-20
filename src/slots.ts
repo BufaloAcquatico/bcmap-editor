@@ -198,7 +198,13 @@ export function deleteSlot(storage: MinimalStorage, name: string): boolean {
 
 export type MapSnapshot = Pick<
     MapData,
-    "Type" | "Tiles" | "Objects" | "CellData" | "Effects" | "Fog"
+    | "Type"
+    | "Tiles"
+    | "Objects"
+    | "CellData"
+    | "Effects"
+    | "Fog"
+    | "ObjectSettings"
 >;
 
 /** Comparable baseline of the editable map state for dirty checking. */
@@ -210,6 +216,7 @@ export function snapshotMap(data: MapSnapshot): string {
         CellData: data.CellData,
         Effects: data.Effects,
         Fog: data.Fog,
+        ObjectSettings: data.ObjectSettings,
     });
 }
 

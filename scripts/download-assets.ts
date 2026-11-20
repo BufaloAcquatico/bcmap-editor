@@ -312,12 +312,47 @@ export function objectVariantJobs(): Job[] {
     return jobs;
 }
 
+/** 566 R134 per-layer variant sprites, listed in scripts/layer-sprites.txt. */
+export function layerSpriteJobs(): Job[] {
+    const manifest = path.join(__dirname, "layer-sprites.txt");
+    const paths = fs
+        .readFileSync(manifest, "utf8")
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    return paths.map((rel) => {
+        const [type, style] = rel.split("/");
+        return {
+            label: `objects/${rel}`,
+            url: `${BASE_URL}/Objects/${type}/${style}`,
+            dest: path.join(__dirname, "..", "assets", "objects", type, style),
+        };
+    });
+}
+
+/** 45 selectable decals from BC's Female3DCG group. */
+export function decalJobs(): Job[] {
+    const decals: Array<{ name: string }> = JSON.parse(
+        fs.readFileSync(
+            path.join(__dirname, "..", "scripts", "decals.json"),
+            "utf8",
+        ),
+    );
+    return decals.map(({ name }) => ({
+        label: `decals/${name}`,
+        url: `https://www.bondage-europe.com/R134/BondageClub/Assets/Female3DCG/Decals/${name}.png`,
+        dest: path.join(__dirname, "..", "assets", "decals", `${name}.png`),
+    }));
+}
+
 async function verifyAssets(): Promise<void> {
     const jobs = [
         ...tileJobs(),
         ...objectJobs(),
         ...paletteImageJobs(),
         ...objectVariantJobs(),
+        ...layerSpriteJobs(),
+        ...decalJobs(),
         ...wallEffectJobs(),
     ];
     const seen = new Set<string>();
@@ -356,6 +391,8 @@ async function main(): Promise<void> {
     const objects = objectJobs();
     const paletteImages = paletteImageJobs();
     const variants = objectVariantJobs();
+    const layers = layerSpriteJobs();
+    const decals = decalJobs();
     const wallEffects = wallEffectJobs();
     console.log(
         `Downloading ${tiles.length} tiles, ${objects.length} objects, ${paletteImages.length} palette icons, ${variants.length} object variants, ${wallEffects.length} wall effects ` +
@@ -382,6 +419,16 @@ async function main(): Promise<void> {
         `Variants: ${variantResult.ok} downloaded, ${variantResult.skipped} skipped, ${variantResult.failed.length} failed`,
     );
 
+    const layerResult = await runPool(layers, opts);
+    console.log(
+        `Layer sprites: ${layerResult.ok} downloaded, ${layerResult.skipped} skipped, ${layerResult.failed.length} failed`,
+    );
+
+    const decalResult = await runPool(decals, opts);
+    console.log(
+        `Decals: ${decalResult.ok} downloaded, ${decalResult.skipped} skipped, ${decalResult.failed.length} failed`,
+    );
+
     const wallEffectResult = await runPool(wallEffects, opts);
     console.log(
         `WallEffects: ${wallEffectResult.ok} downloaded, ${wallEffectResult.skipped} skipped, ${wallEffectResult.failed.length} failed`,
@@ -392,6 +439,8 @@ async function main(): Promise<void> {
         ...objectResult.failed,
         ...paletteResult.failed,
         ...variantResult.failed,
+        ...layerResult.failed,
+        ...decalResult.failed,
         ...wallEffectResult.failed,
     ];
     if (failed.length > 0) {

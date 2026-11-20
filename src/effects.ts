@@ -168,10 +168,10 @@ function readArray(
  * The list is expected to be one entry per map cell (any length); the game's
  * decoder validates the length against 40x40 on read.
  */
-export function encodeEffects(effectIds: readonly number[]): string {
-    const writer = new BitStringWriter();
-    writer.writeUnsigned(EFFECTS_CODEC_VERSION, MAP_SYNC_VERSION_BIT_SIZE);
-
+export function writeEffectsBody(
+    writer: BitStringWriter,
+    effectIds: readonly number[],
+): void {
     const settings = buildSettings(effectIds);
     writer.writeUnsigned(settings.baseIdBits, BIT_LEN_BITS);
     writer.writeUnsigned(settings.shiftedIdBits, BIT_LEN_BITS);
@@ -198,6 +198,13 @@ export function encodeEffects(effectIds: readonly number[]): string {
             i++;
         }
     }
+}
+
+/** v0 wrapper for the legacy `Effects` JSON field and the old combined tail. */
+export function encodeEffects(effectIds: readonly number[]): string {
+    const writer = new BitStringWriter();
+    writer.writeUnsigned(EFFECTS_CODEC_VERSION, MAP_SYNC_VERSION_BIT_SIZE);
+    writeEffectsBody(writer, effectIds);
     return writer.toBase64();
 }
 
@@ -216,7 +223,18 @@ export function decodeEffects(
     try {
         const version = reader.readUnsigned(MAP_SYNC_VERSION_BIT_SIZE);
         if (version !== EFFECTS_CODEC_VERSION) return null;
+        return readEffectsBody(reader, expectedLength);
+    } catch {
+        return null;
+    }
+}
 
+/** Read an effects body (no leading version) from an already-positioned reader. */
+export function readEffectsBody(
+    reader: BitStringReader,
+    expectedLength: number,
+): number[] | null {
+    try {
         const baseIdBits = reader.readUnsigned(BIT_LEN_BITS);
         const shiftedIdBits = reader.readUnsigned(BIT_LEN_BITS);
         const remappedIdBits = reader.readUnsigned(BIT_LEN_BITS);

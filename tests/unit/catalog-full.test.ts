@@ -132,6 +132,21 @@ describe("Catalog - Full mirror of official game data", () => {
         expect(FULL_OBJECT_CATALOG.length).toBe(373);
     });
 
+    it("pins BC's type-default customization counts", () => {
+        const colorable = FULL_OBJECT_CATALOG.filter((o) =>
+            o.Layers?.some((l) => l.IsColorable),
+        );
+        const customizable = FULL_OBJECT_CATALOG.filter(
+            (o) => o.CanBeCustomized !== false,
+        );
+        const transformable = customizable.filter(
+            (o) => !o.JoinsNeighbors && !o.CanPlaceOnWalls,
+        );
+        expect(colorable).toHaveLength(168);
+        expect(customizable).toHaveLength(306);
+        expect(transformable).toHaveLength(237);
+    });
+
     it("keys previously re-typed entries by their game type", () => {
         // Renderer, preloader, and downloader all key on Type/Style; these
         // entries used to carry rewritten types, forking the asset paths.

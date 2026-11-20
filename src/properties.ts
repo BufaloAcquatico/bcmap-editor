@@ -17,6 +17,8 @@ export interface CellPoint {
 export interface PropertyContext {
     obj: ObjectDef;
     pos: CellPoint;
+    /** Config type currently on the cell (or undefined); providers use it. */
+    configType?: string;
     /** Request a live map edit; the editor owns undo coalescing. */
     apply: (mutator: () => void) => void;
 }
@@ -25,6 +27,8 @@ export interface PropertyContext {
 export interface PropertyProvider {
     id: string;
     matches: (obj: ObjectDef, pos: CellPoint) => boolean;
+    /** Which CellData config type this provider renders (for refresh logic). */
+    configType?: string;
     render: (host: HTMLElement, context: PropertyContext) => void;
 }
 
@@ -42,6 +46,7 @@ const FIELD_SELECTOR =
 
 export class PropertyPanel {
     private target: { obj: ObjectDef; pos: CellPoint } | null = null;
+    private renderedConfigType: string | undefined;
 
     /** Show/hide the panel and its sibling picker/scroll regions. */
     setVisible(visible: boolean): void {
@@ -55,8 +60,13 @@ export class PropertyPanel {
     }
 
     /** Set the target cell; null clears to the placeholder state. */
-    setTarget(obj: ObjectDef | null, pos: CellPoint | null): void {
+    setTarget(
+        obj: ObjectDef | null,
+        pos: CellPoint | null,
+        configType?: string,
+    ): void {
         this.target = obj && pos ? { obj, pos } : null;
+        this.renderedConfigType = this.target ? configType : undefined;
         const title = document.getElementById("propertiesTitle");
         const fields = document.getElementById("propertiesFields");
         const placeholder = document.getElementById("propertiesPlaceholder");
@@ -73,6 +83,7 @@ export class PropertyPanel {
         const context: PropertyContext = {
             obj: target,
             pos: targetPos,
+            configType: this.renderedConfigType,
             apply: () => {
                 // Slice 2 has no editable fields; later slices route their
                 // mutations through the editor's undo-coalescing path.
@@ -94,6 +105,10 @@ export class PropertyPanel {
 
     getTarget(): { obj: ObjectDef; pos: CellPoint } | null {
         return this.target;
+    }
+
+    getRenderedConfigType(): string | undefined {
+        return this.renderedConfigType;
     }
 
     /** Update the sign textarea after undo/redo without rebuilding the panel. */
