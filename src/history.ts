@@ -18,6 +18,8 @@ export interface MapSnapshot {
     tiles: string;
     objects: string;
     effects: string;
+    /** Per-cell configs (sign text); always a deep clone, never aliased. */
+    cellData: Record<string, { Type: "Sign"; Text: string }> | undefined;
     showEffects: boolean;
     /** Whether the obstacle-X overlay is visible (undoable view aid). */
     showObstacles: boolean;

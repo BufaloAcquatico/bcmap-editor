@@ -96,6 +96,14 @@ export class PropertyPanel {
         return this.target;
     }
 
+    /** Update the sign textarea after undo/redo without rebuilding the panel. */
+    refreshSignText(text: string): void {
+        const field = document.getElementById(
+            "signText",
+        ) as HTMLTextAreaElement | null;
+        if (field && field.value !== text) field.value = text;
+    }
+
     /** Focusable elements in the panel, in visual order. */
     fields(): HTMLElement[] {
         const panel = document.getElementById("propertiesPanel");

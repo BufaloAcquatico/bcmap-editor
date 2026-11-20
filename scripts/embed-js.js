@@ -22,6 +22,7 @@ const files = [
     "mapdata.js",
     "picker.js",
     "properties.js",
+    "signProperties.js",
     "render.js",
     "slots.js",
     "vim/motions.js",

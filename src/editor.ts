@@ -466,6 +466,14 @@ export class BCMapEditor {
             tiles: this.mapData.Tiles,
             objects: this.mapData.Objects,
             effects: effectsToGrid(this.mapData.Effects),
+            cellData: this.mapData.CellData
+                ? Object.fromEntries(
+                      Object.entries(this.mapData.CellData).map(([k, v]) => [
+                          k,
+                          { ...v },
+                      ]),
+                  )
+                : undefined,
             showEffects: this.showEffects,
             showObstacles: this.showObstacles,
             fog: this.isFogEnabled(),
@@ -477,6 +485,14 @@ export class BCMapEditor {
         this.mapData.Tiles = snapshot.tiles;
         this.mapData.Objects = snapshot.objects;
         this.mapData.Effects = gridToEffects(snapshot.effects);
+        this.mapData.CellData = snapshot.cellData
+            ? Object.fromEntries(
+                  Object.entries(snapshot.cellData).map(([k, v]) => [
+                      k,
+                      { ...v },
+                  ]),
+              )
+            : undefined;
         this.showEffects = snapshot.showEffects;
         this.showObstacles = snapshot.showObstacles;
         if (snapshot.fog) this.mapData.Fog = true;
@@ -549,6 +565,7 @@ export class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                 ch +
                 this.mapData.Objects.substring(index + 1);
+            this.clearSignConfigIfReplaced(index);
             this.requestRender();
             return true;
         }
@@ -563,6 +580,22 @@ export class BCMapEditor {
             this.mapData.Tiles.substring(index + 1);
         this.requestRender();
         return true;
+    }
+
+    /**
+     * Drop a Sign config when its cell no longer holds a sign. Other config
+     * types (teleporter/tether, added in later slices) are left untouched.
+     */
+    private clearSignConfigIfReplaced(index: number): void {
+        const config = this.mapData.CellData?.[String(index)];
+        if (config?.Type !== "Sign") return;
+        const id = this.mapData.Objects.charCodeAt(index);
+        if (id >= 3520 && id <= 3523) return;
+        const cellData = { ...(this.mapData.CellData ?? {}) };
+        delete cellData[String(index)];
+        this.mapData.CellData = Object.keys(cellData).length
+            ? cellData
+            : undefined;
     }
 
     /** Blank every cell holding `objectId`, except `keepIndex`. */
@@ -736,6 +769,7 @@ export class BCMapEditor {
                 this.mapData.Objects.substring(0, index) +
                 objectChar +
                 this.mapData.Objects.substring(index + 1);
+            this.clearSignConfigIfReplaced(index);
             changed = true;
         }
         if (
@@ -1924,11 +1958,80 @@ export class BCMapEditor {
         return this.properties;
     }
 
+    // --- Property text editing (signs) ---------------------------------------
+
+    private propertyEditKind: "insert" | "delete" | null = null;
+    private propertyEditOpen = false;
+
+    /** Begin a held text-edit stroke; same-kind input coalesces into one undo. */
+    public beginPropertyEdit(): void {
+        this.session.flush();
+        this.propertyEditKind = null;
+        this.propertyEditOpen = true;
+        this.session.hold();
+    }
+
+    /** Apply a text edit; flip the undo run when the input kind changes. */
+    public propertyEditInput(
+        kind: "insert" | "delete",
+        pos: { X: number; Y: number },
+        value: string,
+    ): void {
+        if (this.propertyEditKind && this.propertyEditKind !== kind) {
+            // Close the current run and open a fresh undo entry for the new kind.
+            this.session.flush();
+            this.propertyEditKind = null;
+            this.session.hold();
+        }
+        this.propertyEditKind = kind;
+        const text = value.slice(0, 150);
+        const key = String(pos.X + pos.Y * MAP_WIDTH);
+        this.session.runEdit(() => {
+            const existing = this.mapData.CellData?.[key];
+            if (existing?.Type === "Sign" && existing.Text === text)
+                return false;
+            const cellData = { ...(this.mapData.CellData ?? {}) };
+            cellData[key] = { Type: "Sign", Text: text };
+            this.mapData.CellData = cellData;
+            this.requestRender();
+            return true;
+        });
+    }
+
+    /** Close the held text-edit stroke (no-op when no property edit is open). */
+    public endPropertyEdit(): void {
+        if (!this.propertyEditOpen) return;
+        this.propertyEditOpen = false;
+        this.propertyEditKind = null;
+        this.session.release();
+        this.session.flush();
+    }
+
+    public getPropertyText(pos: { X: number; Y: number }): string {
+        const key = String(pos.X + pos.Y * MAP_WIDTH);
+        const config = this.mapData.CellData?.[key];
+        return config?.Type === "Sign" ? config.Text : "";
+    }
+
     /** Re-resolve the panel target after the map contents change. */
     private revalidatePropertyTarget(): void {
         if (!this.propertiesMode) return;
         const target = this.properties.getTarget();
         if (!target) return;
+        const index = target.pos.X + target.pos.Y * MAP_WIDTH;
+        const id = this.mapData.Objects.charCodeAt(index);
+        const obj =
+            this.objectMap.get(id) ?? this.fullObjectMap.get(id) ?? null;
+        // Rebuilding replaces the focused field; keep the panel DOM when the
+        // object is unchanged (undo/redo of its text just refreshes the value).
+        // A synthetic/legacy empty-space target is never valid, so always
+        // re-resolve it to the placeholder.
+        if (obj && !isEmptyObject(obj) && obj.ID === target.obj.ID) {
+            // Same object still there, but wholesale changes (import, new
+            // map, slot load) may have replaced its text: refresh in place.
+            this.properties.refreshSignText(this.getPropertyText(target.pos));
+            return;
+        }
         this.selectPropertyTarget(target.pos);
     }
     public setSelectedTile(tile: TileDef | null): void {
@@ -2160,10 +2263,14 @@ export class BCMapEditor {
         // the stroke's own entry, and endStroke's rollback skips it by
         // identity — pre-flushing would steal the wrong entry (the vim `u`
         // path flushes via the controller's flushEdits intent).
+        this.endPropertyEdit();
         const prev = this.history.undo(this.snapshot());
         if (!prev) return;
         this.applySnapshot(prev);
         this.revalidatePropertyTarget();
+        const target = this.properties.getTarget();
+        if (target)
+            this.properties.refreshSignText(this.getPropertyText(target.pos));
         if (this.obstacleFollowsBrush) this.syncObstaclesToBrush();
         this.requestRender();
         // History notified before the snapshot was applied; re-notify now so
@@ -2172,10 +2279,14 @@ export class BCMapEditor {
     }
 
     public redo(): void {
+        this.endPropertyEdit();
         const next = this.history.redo(this.snapshot());
         if (!next) return;
         this.applySnapshot(next);
         this.revalidatePropertyTarget();
+        const target = this.properties.getTarget();
+        if (target)
+            this.properties.refreshSignText(this.getPropertyText(target.pos));
         if (this.obstacleFollowsBrush) this.syncObstaclesToBrush();
         this.requestRender();
         this.notifyHistoryChange();

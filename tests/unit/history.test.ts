@@ -8,10 +8,12 @@ const snap = (
     showEffects = true,
     fog = false,
     showObstacles = false,
+    cellData: MapSnapshot["cellData"] = undefined,
 ): MapSnapshot => ({
     tiles,
     objects,
     effects,
+    cellData,
     showEffects,
     showObstacles,
     fog,
@@ -137,5 +139,16 @@ describe("MapHistory", () => {
         expect(restored).toEqual(foggy);
         expect(restored!.fog).toBe(true);
         expect(h.redo(foggy)).toEqual(clear);
+    });
+
+    it("carries sign CellData through undo/redo", () => {
+        const h = new MapHistory();
+        const signed = snap("t", "o", "", true, false, false, {
+            "5": { Type: "Sign", Text: "hello" },
+        });
+        const empty = snap("t", "o");
+        h.commit(signed);
+        expect(h.undo(empty)).toEqual(signed);
+        expect(h.redo(signed)).toEqual(empty);
     });
 });
