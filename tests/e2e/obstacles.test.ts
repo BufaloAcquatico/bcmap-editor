@@ -62,6 +62,64 @@ test("the overlay does not change map data or dirty state", async ({
     expect(after.dirty).toBe(before.dirty);
 });
 
+test("selecting an eraser turns X on and another brush turns it off", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").focus();
+    // d selects Passable; derive X on.
+    await page.keyboard.press("d");
+    expect(await visible(page)).toBe(true);
+    // D switches to Impassable; X stays on.
+    await page.keyboard.press("D");
+    expect(await visible(page)).toBe(true);
+    // Picking a normal object from the picker turns it off.
+    await page.click('label[for="layerObject"]');
+    await page.locator("#searchInput").fill("DiningChair");
+    await page
+        .locator("#objectCategories .sprite-item:visible")
+        .first()
+        .click();
+    expect(await visible(page)).toBe(false);
+});
+
+test("quick tools drive the overlay without adding undo entries", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#quickTools .quick-tool").first().click();
+    expect(await visible(page)).toBe(true);
+    expect(
+        await page.evaluate(
+            () =>
+                (document.getElementById("btnUndo") as HTMLButtonElement)
+                    ?.disabled,
+        ),
+    ).toBe(true);
+    await page.locator("#quickTools .quick-tool").nth(1).click();
+    expect(await visible(page)).toBe(true);
+});
+
+test("a brush pick after a manual toggle restores brush-following on undo", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.locator("#mapCanvas").focus();
+    // Manual toggle on (tile layer), then select the eraser (X already on —
+    // a no-op sync) and undo: X must re-derive on from the eraser brush.
+    await page.keyboard.press("X");
+    expect(await visible(page)).toBe(true);
+    await page.keyboard.press("d");
+    await page.keyboard.press("Control+z");
+    expect(await visible(page)).toBe(true);
+});
+
 test("fog does not suppress the obstacle overlay", async ({
     page,
 }: {

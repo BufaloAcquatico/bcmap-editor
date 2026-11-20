@@ -6496,6 +6496,8 @@ class BCMapEditor {
         this.showEffects = true;
         /** Obstacle-X overlay: view aid, default off, undoable, not map state. */
         this.showObstacles = false;
+        /** True while the overlay follows the brush; manual X/:obstacles clears it. */
+        this.obstacleFollowsBrush = true;
         this.isDragging = false;
         this.lastMousePos = { x: 0, y: 0 };
         this.hoveredTile = null;
@@ -7948,6 +7950,7 @@ class BCMapEditor {
         }
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.syncObstaclesToBrush();
     }
     setCurrentLayer(layer) {
         // Same layer: nothing to do. Keyboard ([ / ]) and clicks can
@@ -8025,11 +8028,13 @@ class BCMapEditor {
         this.selectedTile = tile;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.syncObstaclesToBrush();
     }
     setSelectedObject(obj) {
         this.selectedObject = obj;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.syncObstaclesToBrush();
     }
     /** Select the Passable eraser and switch to the object layer (`d`). */
     selectEraser() {
@@ -8053,6 +8058,7 @@ class BCMapEditor {
         this.selectedEffect = effect;
         this.updateStatusSelection();
         this.syncPickerSelection();
+        this.syncObstaclesToBrush();
     }
     getSelectedTile() {
         return this.selectedTile;
@@ -8077,6 +8083,7 @@ class BCMapEditor {
         try {
             this.mapData = (0, mapdata_1.parseMapData)(code, (id) => this.fullTileMap.has(id), (id) => this.fullObjectMap.has(id));
             this.revalidatePropertyTarget();
+            this.syncObstaclesToBrush();
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
             this.vim.clearCursor();
@@ -8200,6 +8207,7 @@ class BCMapEditor {
         this.syncPickerSelection();
         this.vim.clearCursor();
         this.revalidatePropertyTarget();
+        this.syncObstaclesToBrush();
         this.resetView();
         // Wholesale content swap reads as a transition, not a glitch.
         (0, anim_1.fadeIn)(this.canvas);
@@ -8226,6 +8234,8 @@ class BCMapEditor {
             return;
         this.applySnapshot(prev);
         this.revalidatePropertyTarget();
+        if (this.obstacleFollowsBrush)
+            this.syncObstaclesToBrush();
         this.requestRender();
         // History notified before the snapshot was applied; re-notify now so
         // dependent UI reads the restored fog/lighting/dirty state.
@@ -8237,6 +8247,8 @@ class BCMapEditor {
             return;
         this.applySnapshot(next);
         this.revalidatePropertyTarget();
+        if (this.obstacleFollowsBrush)
+            this.syncObstaclesToBrush();
         this.requestRender();
         this.notifyHistoryChange();
     }
@@ -8267,10 +8279,33 @@ class BCMapEditor {
     isObstaclesVisible() {
         return this.showObstacles;
     }
-    /** Toggle the obstacle-X overlay, one undoable view-flag entry. */
+    /**
+     * Change the overlay without touching history: brush picks are not map
+     * edits, so they must not add undo entries. Idempotent to avoid render
+     * churn when several selection setters run for one interaction.
+     */
+    setObstaclesInternal(on) {
+        // A brush pick always re-establishes brush-following, even when the
+        // derived value equals the current one (else a manual override would
+        // survive a no-op sync and break undo re-derivation).
+        this.obstacleFollowsBrush = true;
+        if (this.showObstacles === on)
+            return;
+        this.showObstacles = on;
+        this.requestRender();
+    }
+    /** X is on only while the active brush places EmptySpace (game parity). */
+    syncObstaclesToBrush() {
+        const obj = this.selectedObject;
+        const eraser = this.currentLayer === "object" &&
+            (obj?.ID === catalog_1.BLANK_OBJECT_ID || obj?.ID === catalog_1.IMPASSABLE_OBJECT_ID);
+        this.setObstaclesInternal(eraser);
+    }
+    /** Manual X/:obstacles override — stays undoable; brush picks re-sync. */
     toggleObstacles() {
         const before = this.snapshot();
         this.showObstacles = !this.showObstacles;
+        this.obstacleFollowsBrush = false;
         this.history.commit(before);
         this.render();
     }
