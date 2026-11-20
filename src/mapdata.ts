@@ -65,6 +65,27 @@ export function isValidHexColor(value: unknown): value is string {
 }
 
 /**
+ * Split a stored pad colour into a 6-digit tint colour and 0-255 opacity.
+ * Returns null when there is no valid colour, so renderers never substitute a
+ * UI default (BC leaves uncoloured pads untinted).
+ */
+export function splitPadColor(
+    color: string | undefined,
+): { hex: string; alpha: number } | null {
+    if (!isValidHexColor(color)) return null;
+    let hex = color.toUpperCase();
+    if (/^#[0-9A-F]{3}$/.test(hex)) {
+        hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
+    }
+    let alpha = 255;
+    if (hex.length === 9) {
+        alpha = parseInt(hex.slice(7), 16);
+        hex = hex.slice(0, 7);
+    }
+    return { hex, alpha };
+}
+
+/**
  * Mirror BC's #sanitizeObjectConfigs (Map.js:197-221): produce a fresh,
  * validated config object for one import entry; unknown shapes are dropped.
  */

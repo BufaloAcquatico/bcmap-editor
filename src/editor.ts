@@ -34,7 +34,9 @@ import {
     createDefaultMap,
     cloneCellData,
     isValidHexColor,
+    splitPadColor,
     type CellConfig,
+    type TeleporterCellConfig,
     type ObjectSettings,
     effectsToGrid,
     GRASS_TILE_ID,
@@ -75,6 +77,7 @@ import {
     resolveVariantImageName as resolveVariantStyle,
     composeLayerImage,
     composeDecal,
+    tintImage,
 } from "./render";
 
 export type { ObjectDef, TileDef } from "./catalog";
@@ -1401,6 +1404,45 @@ export class BCMapEditor {
                         }
                         if (withDecal) drawImg = withDecal;
                     }
+
+                    // Teleporter pad colour: BC tints the base sprite with the
+                    // stored colour (alpha stripped) and draws it at the
+                    // stored opacity. An uncoloured pad stays untinted.
+                    let padOpacity = 1;
+                    let nearlyInvisible = false;
+                    if (objId === TELEPORTER_OBJECT_ID) {
+                        const cfg = this.getCellConfig({ X: x, Y: y });
+                        const padColor = splitPadColor(
+                            cfg?.Type === "Teleporter"
+                                ? (cfg as TeleporterCellConfig).Color
+                                : undefined,
+                        );
+                        if (
+                            padColor &&
+                            img &&
+                            img.complete &&
+                            img.naturalWidth > 0
+                        ) {
+                            const padKey = "pad|" + key + "|" + padColor.hex;
+                            let tinted = this.tintedImageCache.get(padKey);
+                            if (!tinted) {
+                                tinted = tintImage(
+                                    img,
+                                    padColor.hex,
+                                    img.naturalWidth,
+                                    img.naturalHeight,
+                                );
+                                this.cacheTinted(padKey, tinted);
+                            }
+                            drawImg = tinted;
+                            padOpacity = padColor.alpha / 255;
+                            nearlyInvisible = padOpacity < 0.3;
+                        }
+                    }
+                    if (padOpacity < 1) {
+                        ctx.save();
+                        ctx.globalAlpha = padOpacity;
+                    }
                     if (drawImg) {
                         ctx.drawImage(
                             drawImg,
@@ -1418,6 +1460,24 @@ export class BCMapEditor {
                             adjDrawW * OBJECT_DRAW_SIZE,
                             adjDrawH * OBJECT_DRAW_SIZE,
                         );
+                    }
+                    if (padOpacity < 1) ctx.restore();
+                    // BC draws a faint circle around nearly invisible objects
+                    // while building so an admin can still find them.
+                    if (nearlyInvisible && typeof ctx.arc === "function") {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.strokeStyle = "#FFFFFF80";
+                        ctx.lineWidth = 1.5;
+                        ctx.arc(
+                            adjDrawX + adjDrawW / 2,
+                            adjDrawY + adjDrawH / 2,
+                            Math.min(adjDrawW, adjDrawH) * 0.47,
+                            0,
+                            Math.PI * 2,
+                        );
+                        ctx.stroke();
+                        ctx.restore();
                     }
                     if (rotation !== 0) ctx.restore();
                 }
@@ -2662,6 +2722,39 @@ export class BCMapEditor {
                 }
                 if (composed) thumbImg = composed;
             }
+            let thumbOpacity = 1;
+            if (
+                objId === TELEPORTER_OBJECT_ID &&
+                img &&
+                img.complete &&
+                img.naturalWidth > 0
+            ) {
+                const padConfig = this.getCellConfig({ X: x, Y: y });
+                const padColor = splitPadColor(
+                    padConfig?.Type === "Teleporter"
+                        ? padConfig.Color
+                        : undefined,
+                );
+                if (padColor) {
+                    const padKey = "thumb-pad|" + baseKey + "|" + padColor.hex;
+                    let tinted = this.tintedImageCache.get(padKey);
+                    if (!tinted) {
+                        tinted = tintImage(
+                            img,
+                            padColor.hex,
+                            img.naturalWidth,
+                            img.naturalHeight,
+                        );
+                        this.cacheTinted(padKey, tinted);
+                    }
+                    thumbImg = tinted;
+                    thumbOpacity = padColor.alpha / 255;
+                }
+            }
+            if (thumbOpacity < 1) {
+                ctx.save();
+                ctx.globalAlpha = thumbOpacity;
+            }
             if (rotation !== 0) {
                 ctx.save();
                 ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
@@ -2684,6 +2777,7 @@ export class BCMapEditor {
                 );
             }
             if (rotation !== 0) ctx.restore();
+            if (thumbOpacity < 1) ctx.restore();
         }
         // Lighting overlay last, matching the game's tiles → objects →
         // effects draw order. Thumbnails always show lighting (independent of

@@ -10,7 +10,12 @@ import {
     cloneObjectSettings,
 } from "../../src/objectSettings";
 import { BitStringReader } from "../../src/bitstring";
-import { MAP_CELL_COUNT, serializeMap, parseMapData } from "../../src/mapdata";
+import {
+    MAP_CELL_COUNT,
+    serializeMap,
+    parseMapData,
+    splitPadColor,
+} from "../../src/mapdata";
 import { FULL_TILE_CATALOG, FULL_OBJECT_CATALOG } from "../../src/catalog";
 
 const BLANK_GRID = new Array(MAP_CELL_COUNT).fill(10);
@@ -143,6 +148,25 @@ describe("object settings codec", () => {
         expect(parsed.ObjectSettings).toEqual(map.ObjectSettings);
         expect(parsed.Effects).toEqual(map.Effects);
         expect(serializeMap(parsed as any)).toBe(code);
+    });
+
+    it("splits stored pad colours into tint hex and alpha", () => {
+        expect(splitPadColor(undefined)).toBeNull();
+        expect(splitPadColor("#ABC")).toEqual({ hex: "#AABBCC", alpha: 255 });
+        expect(splitPadColor("#aabbcc")).toEqual({
+            hex: "#AABBCC",
+            alpha: 255,
+        });
+        expect(splitPadColor("#AABBCC80")).toEqual({
+            hex: "#AABBCC",
+            alpha: 128,
+        });
+        expect(splitPadColor("#00000000")).toEqual({
+            hex: "#000000",
+            alpha: 0,
+        });
+        expect(splitPadColor("red")).toBeNull();
+        expect(splitPadColor("#GGGGGG")).toBeNull();
     });
 
     it("deep-clones settings including the Colors array", () => {

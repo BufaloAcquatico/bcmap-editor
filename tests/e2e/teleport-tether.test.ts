@@ -72,6 +72,77 @@ test("pad colour writes #RRGGBBAA", async ({ page }: { page: Page }) => {
     expect(at(await cellData(page), "205").Color).toBe("#AABBCC80");
 });
 
+test("pad opacity is applied on the main canvas at draw time", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    // Instrument drawImage before the pad is coloured to record the alpha in
+    // force for each sprite draw, without depending on cell pixel geometry.
+    await page.evaluate(() => {
+        const w = window as any;
+        w.__alphas = [];
+        const proto = CanvasRenderingContext2D.prototype;
+        if (!w.__origDraw) w.__origDraw = proto.drawImage;
+        proto.drawImage = function (...args: any[]) {
+            w.__alphas.push(this.globalAlpha);
+            return w.__origDraw.apply(this, args);
+        };
+    });
+    try {
+        await place(page, 3530);
+        await page.evaluate(() =>
+            window.editor.setTeleporterColor({ X: 5, Y: 5 }, "#FF000080"),
+        );
+        await page.waitForTimeout(100);
+        const alphas: number[] = await page.evaluate(
+            () => (window as any).__alphas,
+        );
+        // 0x80 / 255 ≈ 0.502 must appear for the pad sprite draw.
+        expect(alphas.some((a) => Math.abs(a - 128 / 255) < 0.01)).toBe(true);
+    } finally {
+        await page.evaluate(() => {
+            const w = window as any;
+            if (w.__origDraw) {
+                CanvasRenderingContext2D.prototype.drawImage = w.__origDraw;
+            }
+        });
+    }
+});
+
+test("an uncoloured pad stays untinted (no partial alpha)", async ({
+    page,
+}: {
+    page: Page;
+}) => {
+    await openEditor(page);
+    await page.evaluate(() => {
+        const w = window as any;
+        w.__alphas = [];
+        const proto = CanvasRenderingContext2D.prototype;
+        if (!w.__origDraw) w.__origDraw = proto.drawImage;
+        proto.drawImage = function (...args: any[]) {
+            w.__alphas.push(this.globalAlpha);
+            return w.__origDraw.apply(this, args);
+        };
+    });
+    try {
+        await place(page, 3530);
+        await page.waitForTimeout(100);
+        const alphas: number[] = await page.evaluate(
+            () => (window as any).__alphas,
+        );
+        expect(alphas.some((a) => a < 0.99)).toBe(false);
+    } finally {
+        await page.evaluate(() => {
+            const w = window as any;
+            if (w.__origDraw)
+                CanvasRenderingContext2D.prototype.drawImage = w.__origDraw;
+        });
+    }
+});
+
 test("tether checkbox appears for eligible objects only", async ({
     page,
 }: {

@@ -5612,6 +5612,7 @@ function lineCells(from, to) {
 // rendering and painting never touch the bit-packing. See src/effects.ts.
 window.GRASS_TILE_ID = window.MAP_CELL_COUNT = window.MAP_HEIGHT = window.MAP_WIDTH = void 0;
 window.isValidHexColor = isValidHexColor;
+window.splitPadColor = splitPadColor;
 window.sanitizeCellConfig = sanitizeCellConfig;
 window.cloneCellData = cloneCellData;
 window.createDefaultMap = createDefaultMap;
@@ -5631,6 +5632,25 @@ const objectSettings_2 = window;
 function isValidHexColor(value) {
     return (typeof value === "string" &&
         /^#(?:[0-9A-F]{3}|[0-9A-F]{6}|[0-9A-F]{8})$/i.test(value));
+}
+/**
+ * Split a stored pad colour into a 6-digit tint colour and 0-255 opacity.
+ * Returns null when there is no valid colour, so renderers never substitute a
+ * UI default (BC leaves uncoloured pads untinted).
+ */
+function splitPadColor(color) {
+    if (!isValidHexColor(color))
+        return null;
+    let hex = color.toUpperCase();
+    if (/^#[0-9A-F]{3}$/.test(hex)) {
+        hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
+    }
+    let alpha = 255;
+    if (hex.length === 9) {
+        alpha = parseInt(hex.slice(7), 16);
+        hex = hex.slice(0, 7);
+    }
+    return { hex, alpha };
 }
 /**
  * Mirror BC's #sanitizeObjectConfigs (Map.js:197-221): produce a fresh,
@@ -7039,22 +7059,10 @@ function inputKind(e) {
 // Manual pairing only: auto-pairing is deferred to the refinement slice.
 
 const constants_1 = window;
+const mapdata_1 = window;
 const getTeleportEditor = () => window.editor;
-/** Parse an R134 pad colour (#RGB / #RRGGBB / #RRGGBBAA) for the inputs. */
-function splitColor(color) {
-    if (!color)
-        return { hex: "#3C8CFF", alpha: 255 };
-    let hex = color;
-    let alpha = 255;
-    if (/^#[0-9A-F]{3}$/i.test(hex)) {
-        hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
-    }
-    if (hex.length === 9) {
-        alpha = parseInt(hex.slice(7), 16);
-        hex = hex.slice(0, 7);
-    }
-    return { hex: hex.toUpperCase(), alpha };
-}
+/** UI fallback when a pad has no stored colour (BC's first default swatch). */
+const DEFAULT_PAD_COLOR = "#3C8CFF";
 (0, properties_1.registerPropertyProvider)({
     id: "teleporter",
     configType: "Teleporter",
@@ -7126,7 +7134,10 @@ function splitColor(color) {
         colorRow.append(label, color, opacity);
         wrap.appendChild(colorRow);
         const current = e.getCellConfig(pos);
-        const { hex, alpha } = splitColor(current?.Color);
+        const { hex, alpha } = (0, mapdata_1.splitPadColor)(current?.Color) ?? {
+            hex: DEFAULT_PAD_COLOR,
+            alpha: 255,
+        };
         color.value = hex.toLowerCase();
         opacity.value = String(alpha);
         const { dest, destIsPad, twoWay } = e.getTeleporterTwoWay(pos);
@@ -9189,7 +9200,7 @@ const history_1 = window;
 
 
 
-const mapdata_1 = window;
+
 const picker_1 = window;
 
 
@@ -10320,6 +10331,35 @@ class BCMapEditor {
                         if (withDecal)
                             drawImg = withDecal;
                     }
+                    // Teleporter pad colour: BC tints the base sprite with the
+                    // stored colour (alpha stripped) and draws it at the
+                    // stored opacity. An uncoloured pad stays untinted.
+                    let padOpacity = 1;
+                    let nearlyInvisible = false;
+                    if (objId === constants_1.TELEPORTER_OBJECT_ID) {
+                        const cfg = this.getCellConfig({ X: x, Y: y });
+                        const padColor = (0, mapdata_1.splitPadColor)(cfg?.Type === "Teleporter"
+                            ? cfg.Color
+                            : undefined);
+                        if (padColor &&
+                            img &&
+                            img.complete &&
+                            img.naturalWidth > 0) {
+                            const padKey = "pad|" + key + "|" + padColor.hex;
+                            let tinted = this.tintedImageCache.get(padKey);
+                            if (!tinted) {
+                                tinted = (0, render_1.tintImage)(img, padColor.hex, img.naturalWidth, img.naturalHeight);
+                                this.cacheTinted(padKey, tinted);
+                            }
+                            drawImg = tinted;
+                            padOpacity = padColor.alpha / 255;
+                            nearlyInvisible = padOpacity < 0.3;
+                        }
+                    }
+                    if (padOpacity < 1) {
+                        ctx.save();
+                        ctx.globalAlpha = padOpacity;
+                    }
                     if (drawImg) {
                         ctx.drawImage(drawImg, adjDrawX, adjDrawY, adjDrawW, adjDrawH);
                     }
@@ -10327,6 +10367,19 @@ class BCMapEditor {
                         // Fallback to color if image not loaded
                         ctx.fillStyle = this.getObjectColor(obj.Type);
                         ctx.fillRect(adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN, adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN, adjDrawW * OBJECT_DRAW_SIZE, adjDrawH * OBJECT_DRAW_SIZE);
+                    }
+                    if (padOpacity < 1)
+                        ctx.restore();
+                    // BC draws a faint circle around nearly invisible objects
+                    // while building so an admin can still find them.
+                    if (nearlyInvisible && typeof ctx.arc === "function") {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.strokeStyle = "#FFFFFF80";
+                        ctx.lineWidth = 1.5;
+                        ctx.arc(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2, Math.min(adjDrawW, adjDrawH) * 0.47, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
                     }
                     if (rotation !== 0)
                         ctx.restore();
@@ -11363,6 +11416,30 @@ class BCMapEditor {
                 if (composed)
                     thumbImg = composed;
             }
+            let thumbOpacity = 1;
+            if (objId === constants_1.TELEPORTER_OBJECT_ID &&
+                img &&
+                img.complete &&
+                img.naturalWidth > 0) {
+                const padConfig = this.getCellConfig({ X: x, Y: y });
+                const padColor = (0, mapdata_1.splitPadColor)(padConfig?.Type === "Teleporter"
+                    ? padConfig.Color
+                    : undefined);
+                if (padColor) {
+                    const padKey = "thumb-pad|" + baseKey + "|" + padColor.hex;
+                    let tinted = this.tintedImageCache.get(padKey);
+                    if (!tinted) {
+                        tinted = (0, render_1.tintImage)(img, padColor.hex, img.naturalWidth, img.naturalHeight);
+                        this.cacheTinted(padKey, tinted);
+                    }
+                    thumbImg = tinted;
+                    thumbOpacity = padColor.alpha / 255;
+                }
+            }
+            if (thumbOpacity < 1) {
+                ctx.save();
+                ctx.globalAlpha = thumbOpacity;
+            }
             if (rotation !== 0) {
                 ctx.save();
                 ctx.translate(adjDrawX + adjDrawW / 2, adjDrawY + adjDrawH / 2);
@@ -11378,6 +11455,8 @@ class BCMapEditor {
                 ctx.fillRect(adjDrawX + adjDrawW * OBJECT_DRAW_MARGIN, adjDrawY + adjDrawH * OBJECT_DRAW_MARGIN, adjDrawW * OBJECT_DRAW_SIZE, adjDrawH * OBJECT_DRAW_SIZE);
             }
             if (rotation !== 0)
+                ctx.restore();
+            if (thumbOpacity < 1)
                 ctx.restore();
         }
         // Lighting overlay last, matching the game's tiles → objects →

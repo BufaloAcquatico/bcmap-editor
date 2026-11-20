@@ -3,7 +3,7 @@
 
 import { registerPropertyProvider } from "./properties";
 import { TELEPORTER_OBJECT_ID } from "./constants";
-import type { TeleporterCellConfig } from "./mapdata";
+import { splitPadColor, type TeleporterCellConfig } from "./mapdata";
 
 type EditorBridge = {
     getCellConfig(pos: { X: number; Y: number }): TeleporterCellConfig | null;
@@ -23,20 +23,8 @@ type EditorBridge = {
 
 const getTeleportEditor = () => (window as any).editor as EditorBridge;
 
-/** Parse an R134 pad colour (#RGB / #RRGGBB / #RRGGBBAA) for the inputs. */
-function splitColor(color: string | undefined): { hex: string; alpha: number } {
-    if (!color) return { hex: "#3C8CFF", alpha: 255 };
-    let hex = color;
-    let alpha = 255;
-    if (/^#[0-9A-F]{3}$/i.test(hex)) {
-        hex = "#" + [...hex.slice(1)].map((c) => c + c).join("");
-    }
-    if (hex.length === 9) {
-        alpha = parseInt(hex.slice(7), 16);
-        hex = hex.slice(0, 7);
-    }
-    return { hex: hex.toUpperCase(), alpha };
-}
+/** UI fallback when a pad has no stored colour (BC's first default swatch). */
+const DEFAULT_PAD_COLOR = "#3C8CFF";
 
 registerPropertyProvider({
     id: "teleporter",
@@ -113,7 +101,10 @@ registerPropertyProvider({
         wrap.appendChild(colorRow);
 
         const current = e.getCellConfig(pos);
-        const { hex, alpha } = splitColor(current?.Color);
+        const { hex, alpha } = splitPadColor(current?.Color) ?? {
+            hex: DEFAULT_PAD_COLOR,
+            alpha: 255,
+        };
         color.value = hex.toLowerCase();
         opacity.value = String(alpha);
 
