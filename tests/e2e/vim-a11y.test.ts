@@ -395,8 +395,9 @@ test("[ and ] step through the picker layers, clamped at the ends", async ({
     const tileRadio = page.locator("#layerTile");
     const objectRadio = page.locator("#layerObject");
     const effectRadio = page.locator("#layerEffect");
+    const propsRadio = page.locator("#layerProperties");
     await expect(tileRadio).toBeChecked();
-    // ] steps right: tiles -> objects -> lighting, then stops.
+    // ] steps right: tiles -> objects -> lighting -> properties, then stops.
     await page.keyboard.press("]");
     await expect(objectRadio).toBeChecked();
     await expect(page.locator("#objectCategories")).toBeVisible();
@@ -406,8 +407,13 @@ test("[ and ] step through the picker layers, clamped at the ends", async ({
     await expect(page.locator("#effectCategories")).toBeVisible();
     await expect(page.locator("#objectCategories")).not.toBeVisible();
     await page.keyboard.press("]");
-    await expect(effectRadio).toBeChecked(); // clamped at the right end
-    // [ steps left: lighting -> objects -> tiles, then stops.
+    await expect(propsRadio).toBeChecked();
+    await expect(page.locator("#propertiesPanel")).toBeVisible();
+    await page.keyboard.press("]");
+    await expect(propsRadio).toBeChecked(); // clamped at the right end
+    // [ steps left: properties -> lighting -> objects -> tiles, then stops.
+    await page.keyboard.press("[");
+    await expect(effectRadio).toBeChecked();
     await page.keyboard.press("[");
     await expect(objectRadio).toBeChecked();
     await page.keyboard.press("[");

@@ -91,6 +91,7 @@ export const SURFACE_HELP_KEYS: Record<AppSurface, string[]> = {
         "v",
         "d",
         "D",
+        "Enter (Properties)",
         "y / Y",
         "p",
         "u",

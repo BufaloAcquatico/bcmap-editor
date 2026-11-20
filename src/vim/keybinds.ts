@@ -66,6 +66,12 @@ export const KEYBIND_HELP: {
         group: "paint",
     },
     {
+        keys: "Enter (Properties)",
+        description: "Open properties for the cursor cell",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "d",
         description: "Select the eraser (Passable)",
         scope: "map",
@@ -233,6 +239,12 @@ export interface EditorKeybindActions {
     selectEraser: () => void;
     /** Select the Impassable brush (`D`). */
     selectImpassable: () => void;
+    /** Open Properties on the cursor cell (`Enter` in Properties mode). */
+    openProperties: () => void;
+    /** True while the Properties panel replaces the picker. */
+    isPropertiesMode: () => boolean;
+    /** Focus the first/last panel field from the map in Properties mode. */
+    focusPropertiesFirst: (backwards?: boolean) => void;
     /**
      * Sidebar key router: navigate/collapse with arrows, printable keys to
      * the search box, Esc back to the map surface. Returns false for keys it
@@ -335,6 +347,12 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 const target = e.target as HTMLElement | null;
+                // In Properties mode, Tab from the map enters the panel at
+                // its first field (continuous map <-> field focus cycle).
+                if (actions.isPropertiesMode()) {
+                    actions.focusPropertiesFirst(e.shiftKey);
+                    return true;
+                }
                 // Search-box Tab → map; map-surface Tab → picker resume.
                 // Sidebar-surface Tab never reaches here (sidebar router owns
                 // it: Tab → map, no commit).
@@ -530,6 +548,25 @@ export function installEditorKeybinds(
                 // browser default (e.g. arrow-key page scroll) regardless.
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
+            },
+        },
+        {
+            keys: "Enter (Properties)",
+            description: "Open properties for the cursor cell",
+            scope: "map",
+            group: "navigate",
+            applies: (e) =>
+                e.key === "Enter" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e) &&
+                actions.isPropertiesMode(),
+            run: (e) => {
+                e.preventDefault();
+                actions.openProperties();
                 return true;
             },
         },

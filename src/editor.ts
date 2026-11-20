@@ -22,6 +22,7 @@ import {
     effectColorCss,
 } from "./effects";
 import { MapHistory, type MapSnapshot } from "./history";
+import { PropertyPanel } from "./properties";
 import {
     MAP_CELL_COUNT,
     createDefaultMap,
@@ -117,6 +118,11 @@ export class BCMapEditor {
     private maxZoom = MAX_ZOOM;
     private minZoom = MIN_ZOOM; // min zoom
     private currentLayer: PickerLayer = "tile";
+    /** Orthogonal to the paint layer: Properties mode never paints. */
+    private propertiesMode = false;
+    /** Set by init.ts to resync the 4-position radio on mode changes. */
+    public onSelectorChange: (() => void) | null = null;
+    private properties = new PropertyPanel();
     private selectedTile: TileDef | null = null;
     private selectedObject: ObjectDef | null = null;
     private selectedEffect: EffectDef | null = null;
@@ -170,6 +176,7 @@ export class BCMapEditor {
         onSelectObject: (obj) => this.setSelectedObject(obj),
         onSelectEffect: (effect) => this.setSelectedEffect(effect),
         onQuickTool: (obj) => {
+            this.setPropertiesMode(false);
             this.setCurrentLayer("object");
             this.setSelectedObject(obj);
         },
@@ -508,6 +515,7 @@ export class BCMapEditor {
      * Returns whether the map changed, so no-op edits cost no undo entry.
      */
     private writeCell(pos: Point): boolean {
+        if (this.propertiesMode) return false;
         if (pos.X < 0 || pos.X >= MAP_WIDTH || pos.Y < 0 || pos.Y >= MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * MAP_WIDTH;
@@ -702,6 +710,7 @@ export class BCMapEditor {
         objectChar: string,
         effectChar: string,
     ): boolean {
+        if (this.propertiesMode) return false;
         if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return false;
         const index = x + y * MAP_WIDTH;
         let changed = false;
@@ -835,6 +844,12 @@ export class BCMapEditor {
     }
 
     private onCanvasMouseDown(e: MouseEvent): void {
+        // Properties mode: a single plain left-click selects the cell's
+        // object without opening an undo stroke or painting anything.
+        if (this.propertiesMode && e.button === 0 && !e.ctrlKey && !e.metaKey) {
+            this.selectPropertyTarget(this.getTilePosFromMouse(e));
+            return;
+        }
         const isLeftButton = e.button === 0;
         // Panning is done with the right button. Ctrl/Cmd + left does
         // nothing (neither paints nor pans); plain left paints.
@@ -1751,7 +1766,12 @@ export class BCMapEditor {
         const el = document.getElementById("statusSelection");
         if (!el) return;
         let text: string;
-        if (this.currentLayer === "effect" && this.selectedEffect) {
+        if (this.propertiesMode) {
+            const target = this.properties.getTarget();
+            text = target
+                ? `Properties: ${target.obj.Type}/${target.obj.Style}`
+                : "Properties: no target";
+        } else if (this.currentLayer === "effect" && this.selectedEffect) {
             text =
                 this.selectedEffect.ID === BLANK_EFFECT_ID
                     ? "Selection: Lighting Off (Erase)"
@@ -1797,6 +1817,76 @@ export class BCMapEditor {
         this.currentLayer = layer;
         this.applyDefaultSelection();
         this.picker.setLayer(layer);
+        this.onSelectorChange?.();
+    }
+
+    public isPropertiesMode(): boolean {
+        return this.propertiesMode;
+    }
+
+    /** Enter or leave Properties mode; leaving clears the panel target. */
+    public setPropertiesMode(enabled: boolean): void {
+        if (this.propertiesMode === enabled) return;
+        this.propertiesMode = enabled;
+        this.properties.setVisible(enabled);
+        this.updateStatusSelection();
+        this.onSelectorChange?.();
+        this.requestRender();
+    }
+
+    /** Resolve and display the object under a cell, or clear to placeholder. */
+    public selectPropertyTarget(pos: Point): void {
+        if (!this.propertiesMode) return;
+        if (
+            pos.X < 0 ||
+            pos.X >= MAP_WIDTH ||
+            pos.Y < 0 ||
+            pos.Y >= MAP_HEIGHT
+        ) {
+            this.properties.setTarget(null, null);
+            this.updateStatusSelection();
+            return;
+        }
+        const index = pos.X + pos.Y * MAP_WIDTH;
+        const id = this.mapData.Objects.charCodeAt(index);
+        const obj =
+            this.objectMap.get(id) ?? this.fullObjectMap.get(id) ?? null;
+        // An empty (or legacy empty-space) cell has no object to inspect.
+        const target = obj && !isEmptyObject(obj) ? obj : null;
+        this.properties.setTarget(target, { X: pos.X, Y: pos.Y });
+        this.updateStatusSelection();
+        this.requestRender();
+    }
+
+    /** Keyboard path: open Properties on the cell under the vim cursor. */
+    public selectPropertiesAtCursor(): void {
+        const cursor = this.vim.getCursor();
+        if (!cursor) return;
+        this.selectPropertyTarget({ X: cursor.X, Y: cursor.Y });
+    }
+
+    public focusPropertiesFirst(backwards = false): boolean {
+        if (backwards) return this.properties.focusLast();
+        return this.properties.focusFirst();
+    }
+
+    public focusPropertiesAdjacent(
+        current: HTMLElement | null,
+        backwards: boolean,
+    ): HTMLElement | null {
+        return this.properties.focusAdjacent(current, backwards);
+    }
+
+    public getPropertyPanel(): PropertyPanel {
+        return this.properties;
+    }
+
+    /** Re-resolve the panel target after the map contents change. */
+    private revalidatePropertyTarget(): void {
+        if (!this.propertiesMode) return;
+        const target = this.properties.getTarget();
+        if (!target) return;
+        this.selectPropertyTarget(target.pos);
     }
     public setSelectedTile(tile: TileDef | null): void {
         this.selectedTile = tile;
@@ -1811,6 +1901,7 @@ export class BCMapEditor {
 
     /** Select the Passable eraser and switch to the object layer (`d`). */
     public selectEraser(): void {
+        this.setPropertiesMode(false);
         this.setCurrentLayer("object");
         const obj =
             this.objectMap.get(BLANK_OBJECT_ID) ??
@@ -1821,6 +1912,7 @@ export class BCMapEditor {
 
     /** Select the Impassable brush and switch to the object layer (`D`). */
     public selectImpassable(): void {
+        this.setPropertiesMode(false);
         this.setCurrentLayer("object");
         const obj =
             this.objectMap.get(IMPASSABLE_OBJECT_ID) ??
@@ -1859,6 +1951,7 @@ export class BCMapEditor {
                 (id) => this.fullTileMap.has(id),
                 (id) => this.fullObjectMap.has(id),
             );
+            this.revalidatePropertyTarget();
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
             this.vim.clearCursor();
@@ -1996,6 +2089,7 @@ export class BCMapEditor {
         this.updateStatusSelection();
         this.syncPickerSelection();
         this.vim.clearCursor();
+        this.revalidatePropertyTarget();
         this.resetView();
         // Wholesale content swap reads as a transition, not a glitch.
         fadeIn(this.canvas);
@@ -2021,6 +2115,7 @@ export class BCMapEditor {
         const prev = this.history.undo(this.snapshot());
         if (!prev) return;
         this.applySnapshot(prev);
+        this.revalidatePropertyTarget();
         this.requestRender();
         // History notified before the snapshot was applied; re-notify now so
         // dependent UI reads the restored fog/lighting/dirty state.
@@ -2031,6 +2126,7 @@ export class BCMapEditor {
         const next = this.history.redo(this.snapshot());
         if (!next) return;
         this.applySnapshot(next);
+        this.revalidatePropertyTarget();
         this.requestRender();
         this.notifyHistoryChange();
     }

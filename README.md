@@ -62,6 +62,7 @@ docker compose up -d
 | Paste what you copied                  | `p`                                  |
 | Undo the last change                   | `u`                                  |
 | **Navigate**                           |                                      |
+| Open properties for the cursor cell    | `Enter (Properties)`                 |
 | Search tiles, objects or lighting      | `/`                                  |
 | Move through the tile list             | `arrows`                             |
 | Switch between the map and the sidebar | `Tab`                                |

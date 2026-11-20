@@ -57,43 +57,73 @@ document.addEventListener("DOMContentLoaded", () => {
     const layerEffectRadio = document.getElementById(
         "layerEffect",
     ) as HTMLInputElement | null;
-    const setLayer = (layer: "tile" | "object" | "effect") => {
-        const radio =
-            layer === "tile"
-                ? layerTileRadio
-                : layer === "object"
-                  ? layerObjectRadio
-                  : layerEffectRadio;
-        if (radio) radio.checked = true;
-        editor.setCurrentLayer(layer);
-    };
-    // `[` / `]` step one layer at a time and stop at the ends (tiles on the
-    // left, lighting on the right). Directional, not absolute, so the third
-    // layer stays reachable; clamped so a key at an end is a no-op.
-    const LAYER_ORDER: readonly ("tile" | "object" | "effect")[] = [
+    const layerPropertiesRadio = document.getElementById(
+        "layerProperties",
+    ) as HTMLInputElement | null;
+    // UI selector positions. "properties" is an orthogonal mode, not a
+    // paint layer: the editor keeps its active brush while the panel is open.
+    type SelectorMode = "tile" | "object" | "effect" | "properties";
+    const SELECTOR_ORDER: readonly SelectorMode[] = [
         "tile",
         "object",
         "effect",
+        "properties",
     ];
+    const syncSelectorRadio = () => {
+        const mode: SelectorMode = editor.isPropertiesMode()
+            ? "properties"
+            : (editor.getCurrentLayer() as SelectorMode);
+        const radio =
+            mode === "tile"
+                ? layerTileRadio
+                : mode === "object"
+                  ? layerObjectRadio
+                  : mode === "effect"
+                    ? layerEffectRadio
+                    : layerPropertiesRadio;
+        if (radio) radio.checked = true;
+    };
+    editor.onSelectorChange = syncSelectorRadio;
+    const setSelector = (mode: SelectorMode) => {
+        const radio =
+            mode === "tile"
+                ? layerTileRadio
+                : mode === "object"
+                  ? layerObjectRadio
+                  : mode === "effect"
+                    ? layerEffectRadio
+                    : layerPropertiesRadio;
+        if (radio) radio.checked = true;
+        const properties = mode === "properties";
+        editor.setPropertiesMode(properties);
+        if (!properties) editor.setCurrentLayer(mode);
+        appSurface.set("map");
+    };
+    // `[` / `]` step one position at a time and stop at the ends. From
+    // Properties, `[` returns to lighting and `]` is a no-op (clamped).
     const stepLayer = (delta: number) => {
-        const index = LAYER_ORDER.indexOf(editor.getCurrentLayer());
+        const current: SelectorMode = editor.isPropertiesMode()
+            ? "properties"
+            : (editor.getCurrentLayer() as SelectorMode);
+        const index = SELECTOR_ORDER.indexOf(current);
         const next = Math.min(
-            LAYER_ORDER.length - 1,
+            SELECTOR_ORDER.length - 1,
             Math.max(0, index + delta),
         );
-        setLayer(LAYER_ORDER[next]);
+        setSelector(SELECTOR_ORDER[next]);
     };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
         radio.addEventListener("change", (e) => {
             const target = e.target as HTMLInputElement;
-            if (target.checked) {
-                editor.setCurrentLayer(
-                    target.value as "tile" | "object" | "effect",
-                );
-            }
+            if (target.checked) setSelector(target.value as SelectorMode);
         });
     });
+    document
+        .getElementById("propertiesClose")
+        ?.addEventListener("click", () => {
+            setSelector(editor.getCurrentLayer() as SelectorMode);
+        });
 
     // New map: a clean map resets instantly; unsaved work gets the shared
     // destructive confirm. doNewMapFlow lives in the slots section below;
@@ -855,8 +885,13 @@ document.addEventListener("DOMContentLoaded", () => {
         handleVimKey: (e: KeyboardEvent) => editor.handleVimKey(e),
         selectEraser: () => editor.selectEraser(),
         selectImpassable: () => editor.selectImpassable(),
+        openProperties: () => editor.selectPropertiesAtCursor(),
+        isPropertiesMode: () => editor.isPropertiesMode(),
         openCommandPrompt: () => setCommandPromptOpen(true),
         focusSearch: () => focusSearchSelect(),
+        focusPropertiesFirst: (backwards?: boolean) => {
+            editor.focusPropertiesFirst(backwards);
+        },
         focusPicker: () => {
             if (
                 editor
@@ -877,6 +912,32 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         },
         handleSidebarKey: (e: KeyboardEvent): boolean => {
+            // Properties panel: one continuous Tab cycle across its fields
+            // and the map, with Esc always returning to the map. Field-owned
+            // keys stay with the field (INPUT/TEXTAREA/SELECT/BUTTON).
+            if (editor.isPropertiesMode()) {
+                const fieldTarget = e.target as HTMLElement | null;
+                const isField =
+                    fieldTarget?.tagName === "INPUT" ||
+                    fieldTarget?.tagName === "TEXTAREA" ||
+                    fieldTarget?.tagName === "SELECT" ||
+                    fieldTarget?.tagName === "BUTTON";
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    focusMapSurface();
+                    return true;
+                }
+                if (e.key === "Tab") {
+                    e.preventDefault();
+                    const next = editor.focusPropertiesAdjacent(
+                        fieldTarget,
+                        e.shiftKey,
+                    );
+                    if (!next) focusMapSurface();
+                    return true;
+                }
+                if (isField) return false;
+            }
             // Esc always returns to the map surface (also from the search
             // box inside the sidebar). The command prompt has its own Esc
             // and lives outside the sidebar.

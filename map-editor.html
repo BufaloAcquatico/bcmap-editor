@@ -211,7 +211,7 @@
       position: absolute;
       top: 3px;
       left: 3px;
-      width: calc(33.3333% - 2px);
+      width: calc(25% - 2px);
       height: calc(100% - 6px);
       background: #fff;
       border-radius: 999px;
@@ -222,6 +222,9 @@
     }
     .layer-switch:has(#layerEffect:checked) .layer-switch-thumb {
       transform: translateX(200%);
+    }
+    .layer-switch:has(#layerProperties:checked) .layer-switch-thumb {
+      transform: translateX(300%);
     }
     .layer-switch-option {
       flex: 1;
@@ -342,11 +345,13 @@
         <label class="layer-switch-option" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
         <input type="radio" class="btn-check" name="layer" id="layerEffect" value="effect" autocomplete="off">
         <label class="layer-switch-option" for="layerEffect" title="Lighting Layer"><i class="bi bi-lightbulb"></i> Light</label>
+        <input type="radio" class="btn-check" name="layer" id="layerProperties" value="properties" autocomplete="off">
+        <label class="layer-switch-option" for="layerProperties" title="Properties Layer"><i class="bi bi-sliders"></i> Props</label>
       </div>
       <div id="quickTools" class="quick-tools p-2 border-bottom border-secondary d-flex gap-2" role="group" aria-label="Quick object tools">
         <!-- Populated by MapPicker: Erase (Passable) and Impassable, always visible -->
       </div>
-      <div class="p-2 border-bottom border-secondary">
+      <div id="searchBoxWrap" class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
           <span class="input-group-text bg-transparent border-secondary text-light"><i class="bi bi-search"></i></span>
           <input type="text" id="searchInput" class="form-control search-box bg-dark border-secondary text-light" placeholder="Search tiles/objects/lighting... (/ · Enter → results · Tab → map)" aria-label="Search tiles, objects and lighting">
@@ -359,6 +364,16 @@
         <div id="objectCategories"></div>
         <!-- Lighting Picker Section -->
         <div id="effectCategories"></div>
+      </div>
+      <div id="propertiesPanel" class="flex-1 overflow-auto p-3 d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 id="propertiesTitle" class="mb-0 text-light">Object Properties</h6>
+          <button type="button" id="propertiesClose" class="btn btn-sm btn-outline-secondary" aria-label="Close properties panel">Close</button>
+        </div>
+        <div id="propertiesPlaceholder" class="text-secondary">
+          Click an object on the map to inspect it, or move the cursor and press Enter.
+        </div>
+        <div id="propertiesFields"></div>
       </div>
     </aside>
 
@@ -3342,6 +3357,7 @@ window.SURFACE_HELP_KEYS = {
         "v",
         "d",
         "D",
+        "Enter (Properties)",
         "y / Y",
         "p",
         "u",
@@ -4602,6 +4618,123 @@ class MapPicker {
 window.MapPicker = MapPicker;
 
 "use strict";
+// BCMap Editor - reusable object-properties panel.
+//
+// Slice 2 builds the framework only: a docked sidebar panel, a placeholder,
+// and a registry that later feature slices (signs, teleporters, tether,
+// object settings) add field providers to. The panel is never a modal: it
+// occupies the same spot every time and shares one target-cell model with
+// the map's single-click / Enter selection.
+window.PropertyPanel = void 0;
+window.registerPropertyProvider = registerPropertyProvider;
+const providers = [];
+/** Register a provider; order determines field order in the panel. */
+function registerPropertyProvider(provider) {
+    providers.push(provider);
+}
+/** Focusable elements inside the panel, in DOM order. */
+const FIELD_SELECTOR = 'input:not([tabindex="-1"]), select:not([tabindex="-1"]), ' +
+    'textarea:not([tabindex="-1"]), button:not([tabindex="-1"])';
+class PropertyPanel {
+    constructor() {
+        this.target = null;
+    }
+    /** Show/hide the panel and its sibling picker/scroll regions. */
+    setVisible(visible) {
+        const panel = document.getElementById("propertiesPanel");
+        const content = document.getElementById("sidebarContent");
+        const search = document.getElementById("searchBoxWrap");
+        panel?.classList.toggle("d-none", !visible);
+        content?.classList.toggle("d-none", visible);
+        search?.classList.toggle("d-none", visible);
+        if (!visible)
+            this.setTarget(null, null);
+    }
+    /** Set the target cell; null clears to the placeholder state. */
+    setTarget(obj, pos) {
+        this.target = obj && pos ? { obj, pos } : null;
+        const title = document.getElementById("propertiesTitle");
+        const fields = document.getElementById("propertiesFields");
+        const placeholder = document.getElementById("propertiesPlaceholder");
+        if (!title || !fields || !placeholder)
+            return;
+        fields.replaceChildren();
+        if (!this.target) {
+            title.textContent = "Object Properties";
+            placeholder.classList.remove("d-none");
+            return;
+        }
+        placeholder.classList.add("d-none");
+        const { obj: target, pos: targetPos } = this.target;
+        title.textContent = `${target.Type}/${target.Style}`;
+        const context = {
+            obj: target,
+            pos: targetPos,
+            apply: () => {
+                // Slice 2 has no editable fields; later slices route their
+                // mutations through the editor's undo-coalescing path.
+            },
+        };
+        let rendered = 0;
+        for (const provider of providers) {
+            if (!provider.matches(target, targetPos))
+                continue;
+            provider.render(fields, context);
+            rendered++;
+        }
+        if (rendered === 0) {
+            const note = document.createElement("div");
+            note.className = "text-secondary small";
+            note.textContent = "No editable properties for this object.";
+            fields.appendChild(note);
+        }
+    }
+    getTarget() {
+        return this.target;
+    }
+    /** Focusable elements in the panel, in visual order. */
+    fields() {
+        const panel = document.getElementById("propertiesPanel");
+        if (!panel)
+            return [];
+        return Array.from(panel.querySelectorAll(FIELD_SELECTOR)).filter((el) => el.offsetParent !== null);
+    }
+    /** Focus the first field; returns false when the panel is empty. */
+    focusFirst() {
+        const field = this.fields()[0];
+        if (!field)
+            return false;
+        field.focus?.();
+        return true;
+    }
+    /** Focus the last field (Shift+Tab from the map). */
+    focusLast() {
+        const fields = this.fields();
+        const field = fields[fields.length - 1];
+        if (!field)
+            return false;
+        field.focus?.();
+        return true;
+    }
+    /**
+     * Focus the next (or previous) field relative to `current`.
+     * Returns null when the caller should hand focus back to the map.
+     */
+    focusAdjacent(current, backwards) {
+        const fields = this.fields();
+        if (fields.length === 0)
+            return null;
+        const index = current ? fields.indexOf(current) : -1;
+        const next = backwards ? index - 1 : index + 1;
+        if (next < 0 || next >= fields.length)
+            return null;
+        fields[next].focus?.();
+        return fields[next];
+    }
+}
+window.PropertyPanel = PropertyPanel;
+
+"use strict";
 // BCMap Editor - pure render-resolution helpers.
 //
 // BC-faithful sprite selection (wall edge effects, neighbor-aware object
@@ -5668,6 +5801,12 @@ window.KEYBIND_HELP = [
         group: "paint",
     },
     {
+        keys: "Enter (Properties)",
+        description: "Open properties for the cursor cell",
+        scope: "map",
+        group: "navigate",
+    },
+    {
         keys: "d",
         description: "Select the eraser (Passable)",
         scope: "map",
@@ -5887,6 +6026,12 @@ function installEditorKeybinds(actions) {
             run: (e) => {
                 e.preventDefault();
                 const target = e.target;
+                // In Properties mode, Tab from the map enters the panel at
+                // its first field (continuous map <-> field focus cycle).
+                if (actions.isPropertiesMode()) {
+                    actions.focusPropertiesFirst(e.shiftKey);
+                    return true;
+                }
                 // Search-box Tab → map; map-surface Tab → picker resume.
                 // Sidebar-surface Tab never reaches here (sidebar router owns
                 // it: Tab → map, no commit).
@@ -6073,6 +6218,24 @@ function installEditorKeybinds(actions) {
             },
         },
         {
+            keys: "Enter (Properties)",
+            description: "Open properties for the cursor cell",
+            scope: "map",
+            group: "navigate",
+            applies: (e) => e.key === "Enter" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey &&
+                !isEditableTarget(e) &&
+                !isInteractiveTarget(e) &&
+                actions.isPropertiesMode(),
+            run: (e) => {
+                e.preventDefault();
+                actions.openProperties();
+                return true;
+            },
+        },
+        {
             keys: "Space / Enter",
             description: "Paint tiles on the map",
             scope: "map",
@@ -6226,6 +6389,7 @@ window.BCMapEditor = void 0;
 
 
 const history_1 = window;
+const properties_1 = window;
 const mapdata_1 = window;
 const picker_1 = window;
 
@@ -6274,6 +6438,11 @@ class BCMapEditor {
         this.maxZoom = MAX_ZOOM;
         this.minZoom = MIN_ZOOM; // min zoom
         this.currentLayer = "tile";
+        /** Orthogonal to the paint layer: Properties mode never paints. */
+        this.propertiesMode = false;
+        /** Set by init.ts to resync the 4-position radio on mode changes. */
+        this.onSelectorChange = null;
+        this.properties = new properties_1.PropertyPanel();
         this.selectedTile = null;
         this.selectedObject = null;
         this.selectedEffect = null;
@@ -6327,6 +6496,7 @@ class BCMapEditor {
             onSelectObject: (obj) => this.setSelectedObject(obj),
             onSelectEffect: (effect) => this.setSelectedEffect(effect),
             onQuickTool: (obj) => {
+                this.setPropertiesMode(false);
                 this.setCurrentLayer("object");
                 this.setSelectedObject(obj);
             },
@@ -6624,6 +6794,8 @@ class BCMapEditor {
      * Returns whether the map changed, so no-op edits cost no undo entry.
      */
     writeCell(pos) {
+        if (this.propertiesMode)
+            return false;
         if (pos.X < 0 || pos.X >= mapdata_1.MAP_WIDTH || pos.Y < 0 || pos.Y >= mapdata_1.MAP_HEIGHT)
             return false;
         const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
@@ -6787,6 +6959,8 @@ class BCMapEditor {
     }
     /** Write one cell of every layer explicitly (paste path). */
     writeBothLayers(x, y, tileChar, objectChar, effectChar) {
+        if (this.propertiesMode)
+            return false;
         if (x < 0 || x >= mapdata_1.MAP_WIDTH || y < 0 || y >= mapdata_1.MAP_HEIGHT)
             return false;
         const index = x + y * mapdata_1.MAP_WIDTH;
@@ -6901,6 +7075,12 @@ class BCMapEditor {
         this.applyZoom(target, anchor);
     }
     onCanvasMouseDown(e) {
+        // Properties mode: a single plain left-click selects the cell's
+        // object without opening an undo stroke or painting anything.
+        if (this.propertiesMode && e.button === 0 && !e.ctrlKey && !e.metaKey) {
+            this.selectPropertyTarget(this.getTilePosFromMouse(e));
+            return;
+        }
         const isLeftButton = e.button === 0;
         // Panning is done with the right button. Ctrl/Cmd + left does
         // nothing (neither paints nor pans); plain left paints.
@@ -7638,7 +7818,13 @@ class BCMapEditor {
         if (!el)
             return;
         let text;
-        if (this.currentLayer === "effect" && this.selectedEffect) {
+        if (this.propertiesMode) {
+            const target = this.properties.getTarget();
+            text = target
+                ? `Properties: ${target.obj.Type}/${target.obj.Style}`
+                : "Properties: no target";
+        }
+        else if (this.currentLayer === "effect" && this.selectedEffect) {
             text =
                 this.selectedEffect.ID === effects_1.BLANK_EFFECT_ID
                     ? "Selection: Lighting Off (Erase)"
@@ -7687,6 +7873,68 @@ class BCMapEditor {
         this.currentLayer = layer;
         this.applyDefaultSelection();
         this.picker.setLayer(layer);
+        this.onSelectorChange?.();
+    }
+    isPropertiesMode() {
+        return this.propertiesMode;
+    }
+    /** Enter or leave Properties mode; leaving clears the panel target. */
+    setPropertiesMode(enabled) {
+        if (this.propertiesMode === enabled)
+            return;
+        this.propertiesMode = enabled;
+        this.properties.setVisible(enabled);
+        this.updateStatusSelection();
+        this.onSelectorChange?.();
+        this.requestRender();
+    }
+    /** Resolve and display the object under a cell, or clear to placeholder. */
+    selectPropertyTarget(pos) {
+        if (!this.propertiesMode)
+            return;
+        if (pos.X < 0 ||
+            pos.X >= mapdata_1.MAP_WIDTH ||
+            pos.Y < 0 ||
+            pos.Y >= mapdata_1.MAP_HEIGHT) {
+            this.properties.setTarget(null, null);
+            this.updateStatusSelection();
+            return;
+        }
+        const index = pos.X + pos.Y * mapdata_1.MAP_WIDTH;
+        const id = this.mapData.Objects.charCodeAt(index);
+        const obj = this.objectMap.get(id) ?? this.fullObjectMap.get(id) ?? null;
+        // An empty (or legacy empty-space) cell has no object to inspect.
+        const target = obj && !(0, catalog_1.isEmptyObject)(obj) ? obj : null;
+        this.properties.setTarget(target, { X: pos.X, Y: pos.Y });
+        this.updateStatusSelection();
+        this.requestRender();
+    }
+    /** Keyboard path: open Properties on the cell under the vim cursor. */
+    selectPropertiesAtCursor() {
+        const cursor = this.vim.getCursor();
+        if (!cursor)
+            return;
+        this.selectPropertyTarget({ X: cursor.X, Y: cursor.Y });
+    }
+    focusPropertiesFirst(backwards = false) {
+        if (backwards)
+            return this.properties.focusLast();
+        return this.properties.focusFirst();
+    }
+    focusPropertiesAdjacent(current, backwards) {
+        return this.properties.focusAdjacent(current, backwards);
+    }
+    getPropertyPanel() {
+        return this.properties;
+    }
+    /** Re-resolve the panel target after the map contents change. */
+    revalidatePropertyTarget() {
+        if (!this.propertiesMode)
+            return;
+        const target = this.properties.getTarget();
+        if (!target)
+            return;
+        this.selectPropertyTarget(target.pos);
     }
     setSelectedTile(tile) {
         this.selectedTile = tile;
@@ -7700,6 +7948,7 @@ class BCMapEditor {
     }
     /** Select the Passable eraser and switch to the object layer (`d`). */
     selectEraser() {
+        this.setPropertiesMode(false);
         this.setCurrentLayer("object");
         const obj = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ??
             this.fullObjectMap.get(catalog_1.BLANK_OBJECT_ID) ??
@@ -7708,6 +7957,7 @@ class BCMapEditor {
     }
     /** Select the Impassable brush and switch to the object layer (`D`). */
     selectImpassable() {
+        this.setPropertiesMode(false);
         this.setCurrentLayer("object");
         const obj = this.objectMap.get(catalog_1.IMPASSABLE_OBJECT_ID) ??
             this.fullObjectMap.get(catalog_1.IMPASSABLE_OBJECT_ID) ??
@@ -7741,6 +7991,7 @@ class BCMapEditor {
     importMap(code) {
         try {
             this.mapData = (0, mapdata_1.parseMapData)(code, (id) => this.fullTileMap.has(id), (id) => this.fullObjectMap.has(id));
+            this.revalidatePropertyTarget();
             // A wholesale map replacement starts a new history lineage.
             this.history.clearRedo();
             this.vim.clearCursor();
@@ -7863,6 +8114,7 @@ class BCMapEditor {
         this.updateStatusSelection();
         this.syncPickerSelection();
         this.vim.clearCursor();
+        this.revalidatePropertyTarget();
         this.resetView();
         // Wholesale content swap reads as a transition, not a glitch.
         (0, anim_1.fadeIn)(this.canvas);
@@ -7888,6 +8140,7 @@ class BCMapEditor {
         if (!prev)
             return;
         this.applySnapshot(prev);
+        this.revalidatePropertyTarget();
         this.requestRender();
         // History notified before the snapshot was applied; re-notify now so
         // dependent UI reads the restored fog/lighting/dirty state.
@@ -7898,6 +8151,7 @@ class BCMapEditor {
         if (!next)
             return;
         this.applySnapshot(next);
+        this.revalidatePropertyTarget();
         this.requestRender();
         this.notifyHistoryChange();
     }
@@ -8031,37 +8285,66 @@ document.addEventListener("DOMContentLoaded", () => {
     const layerTileRadio = document.getElementById("layerTile");
     const layerObjectRadio = document.getElementById("layerObject");
     const layerEffectRadio = document.getElementById("layerEffect");
-    const setLayer = (layer) => {
-        const radio = layer === "tile"
-            ? layerTileRadio
-            : layer === "object"
-                ? layerObjectRadio
-                : layerEffectRadio;
-        if (radio)
-            radio.checked = true;
-        editor.setCurrentLayer(layer);
-    };
-    // `[` / `]` step one layer at a time and stop at the ends (tiles on the
-    // left, lighting on the right). Directional, not absolute, so the third
-    // layer stays reachable; clamped so a key at an end is a no-op.
-    const LAYER_ORDER = [
+    const layerPropertiesRadio = document.getElementById("layerProperties");
+    const SELECTOR_ORDER = [
         "tile",
         "object",
         "effect",
+        "properties",
     ];
+    const syncSelectorRadio = () => {
+        const mode = editor.isPropertiesMode()
+            ? "properties"
+            : editor.getCurrentLayer();
+        const radio = mode === "tile"
+            ? layerTileRadio
+            : mode === "object"
+                ? layerObjectRadio
+                : mode === "effect"
+                    ? layerEffectRadio
+                    : layerPropertiesRadio;
+        if (radio)
+            radio.checked = true;
+    };
+    editor.onSelectorChange = syncSelectorRadio;
+    const setSelector = (mode) => {
+        const radio = mode === "tile"
+            ? layerTileRadio
+            : mode === "object"
+                ? layerObjectRadio
+                : mode === "effect"
+                    ? layerEffectRadio
+                    : layerPropertiesRadio;
+        if (radio)
+            radio.checked = true;
+        const properties = mode === "properties";
+        editor.setPropertiesMode(properties);
+        if (!properties)
+            editor.setCurrentLayer(mode);
+        appSurface_1.appSurface.set("map");
+    };
+    // `[` / `]` step one position at a time and stop at the ends. From
+    // Properties, `[` returns to lighting and `]` is a no-op (clamped).
     const stepLayer = (delta) => {
-        const index = LAYER_ORDER.indexOf(editor.getCurrentLayer());
-        const next = Math.min(LAYER_ORDER.length - 1, Math.max(0, index + delta));
-        setLayer(LAYER_ORDER[next]);
+        const current = editor.isPropertiesMode()
+            ? "properties"
+            : editor.getCurrentLayer();
+        const index = SELECTOR_ORDER.indexOf(current);
+        const next = Math.min(SELECTOR_ORDER.length - 1, Math.max(0, index + delta));
+        setSelector(SELECTOR_ORDER[next]);
     };
     const layerRadios = document.querySelectorAll('input[name="layer"]');
     layerRadios.forEach((radio) => {
         radio.addEventListener("change", (e) => {
             const target = e.target;
-            if (target.checked) {
-                editor.setCurrentLayer(target.value);
-            }
+            if (target.checked)
+                setSelector(target.value);
         });
+    });
+    document
+        .getElementById("propertiesClose")
+        ?.addEventListener("click", () => {
+        setSelector(editor.getCurrentLayer());
     });
     // New map: a clean map resets instantly; unsaved work gets the shared
     // destructive confirm. doNewMapFlow lives in the slots section below;
@@ -8755,8 +9038,13 @@ document.addEventListener("DOMContentLoaded", () => {
         handleVimKey: (e) => editor.handleVimKey(e),
         selectEraser: () => editor.selectEraser(),
         selectImpassable: () => editor.selectImpassable(),
+        openProperties: () => editor.selectPropertiesAtCursor(),
+        isPropertiesMode: () => editor.isPropertiesMode(),
         openCommandPrompt: () => setCommandPromptOpen(true),
         focusSearch: () => focusSearchSelect(),
+        focusPropertiesFirst: (backwards) => {
+            editor.focusPropertiesFirst(backwards);
+        },
         focusPicker: () => {
             if (editor
                 .getPicker()
@@ -8771,6 +9059,30 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         },
         handleSidebarKey: (e) => {
+            // Properties panel: one continuous Tab cycle across its fields
+            // and the map, with Esc always returning to the map. Field-owned
+            // keys stay with the field (INPUT/TEXTAREA/SELECT/BUTTON).
+            if (editor.isPropertiesMode()) {
+                const fieldTarget = e.target;
+                const isField = fieldTarget?.tagName === "INPUT" ||
+                    fieldTarget?.tagName === "TEXTAREA" ||
+                    fieldTarget?.tagName === "SELECT" ||
+                    fieldTarget?.tagName === "BUTTON";
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    focusMapSurface();
+                    return true;
+                }
+                if (e.key === "Tab") {
+                    e.preventDefault();
+                    const next = editor.focusPropertiesAdjacent(fieldTarget, e.shiftKey);
+                    if (!next)
+                        focusMapSurface();
+                    return true;
+                }
+                if (isField)
+                    return false;
+            }
             // Esc always returns to the map surface (also from the search
             // box inside the sidebar). The command prompt has its own Esc
             // and lives outside the sidebar.
