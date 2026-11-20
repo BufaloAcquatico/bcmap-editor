@@ -109,6 +109,45 @@ describe("createKeybindDispatcher", () => {
 });
 
 describe("installEditorKeybinds", () => {
+    it("wires d to the eraser and Shift+D to the impassable brush, case-exactly", () => {
+        const actions = {
+            toggleGrid: vi.fn(),
+            toggleLighting: vi.fn(),
+            zoomIn: vi.fn(),
+            zoomOut: vi.fn(),
+            selectPrevLayer: vi.fn(),
+            selectNextLayer: vi.fn(),
+            toggleHelp: vi.fn(),
+            undo: vi.fn(),
+            redo: vi.fn(),
+            handleVimKey: vi.fn(() => true),
+            openCommandPrompt: vi.fn(),
+            focusSearch: vi.fn(),
+            focusPicker: vi.fn(),
+            focusMap: vi.fn(),
+            focusFirstMatch: vi.fn(),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
+            handleSidebarKey: vi.fn(() => false),
+        };
+        const dispatch = createKeybindDispatcher(
+            installEditorKeybinds(actions),
+        );
+
+        dispatch(keyEvent("d"));
+        expect(actions.selectEraser).toHaveBeenCalledTimes(1);
+        expect(actions.selectImpassable).not.toHaveBeenCalled();
+
+        dispatch(keyEvent("D", { shiftKey: true }));
+        expect(actions.selectImpassable).toHaveBeenCalledTimes(1);
+        expect(actions.selectEraser).toHaveBeenCalledTimes(1);
+
+        // isCharKey is case-insensitive, so the guard must use exact key
+        // matching: bare lowercase d must not select Impassable.
+        dispatch(keyEvent("d"));
+        expect(actions.selectImpassable).toHaveBeenCalledTimes(1);
+    });
+
     it("wires G to grid, L to lighting, ? to help, Ctrl+Z to undo, Ctrl+Y and Ctrl+Shift+Z to redo", () => {
         const actions = {
             toggleGrid: vi.fn(),
@@ -121,6 +160,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -170,6 +211,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -209,6 +252,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -249,6 +294,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -283,6 +330,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -327,6 +376,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -358,6 +409,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -387,6 +440,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -418,6 +473,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -446,6 +503,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -473,6 +532,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -500,6 +561,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -526,6 +589,8 @@ describe("installEditorKeybinds", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -546,7 +611,7 @@ describe("installEditorKeybinds", () => {
                 "system",
             ]).toContain(binding.group);
         }
-        expect(bindings).toHaveLength(21);
+        expect(bindings).toHaveLength(23);
     });
 });
 
@@ -562,6 +627,8 @@ describe("Keybind registry help-sync", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -634,6 +701,8 @@ describe("Sidebar surface routing", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -661,6 +730,8 @@ describe("Sidebar surface routing", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -687,6 +758,8 @@ describe("Sidebar surface routing", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -721,6 +794,8 @@ describe("Sidebar surface routing", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),
@@ -752,6 +827,8 @@ describe("Sidebar surface routing", () => {
             undo: vi.fn(),
             redo: vi.fn(),
             handleVimKey: vi.fn(() => true),
+            selectEraser: vi.fn(),
+            selectImpassable: vi.fn(),
             openCommandPrompt: vi.fn(),
             focusSearch: vi.fn(),
             focusPicker: vi.fn(),

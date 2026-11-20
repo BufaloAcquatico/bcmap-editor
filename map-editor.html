@@ -59,6 +59,16 @@
       text-align: left;
     }
     button.sprite-item { display: inline-block; }
+    /* Quick eraser tools stay visible above the search box. */
+    .quick-tools { align-items: center; }
+    .quick-tools .quick-tool { flex: 0 0 auto; }
+    .quick-tools::before {
+      content: "Tools";
+      color: #adb5bd;
+      font-size: 0.75rem;
+      align-self: center;
+      margin-right: 0.25rem;
+    }
     button.category-header { width: 100%; }
     .category-caret { font-size: 0.75rem; transition: transform var(--motion-ms) ease-out; }
     .category-caret.expanded { transform: rotate(90deg); }
@@ -332,6 +342,9 @@
         <label class="layer-switch-option" for="layerObject" title="Object Layer"><i class="bi bi-box"></i> Object</label>
         <input type="radio" class="btn-check" name="layer" id="layerEffect" value="effect" autocomplete="off">
         <label class="layer-switch-option" for="layerEffect" title="Lighting Layer"><i class="bi bi-lightbulb"></i> Light</label>
+      </div>
+      <div id="quickTools" class="quick-tools p-2 border-bottom border-secondary d-flex gap-2" role="group" aria-label="Quick object tools">
+        <!-- Populated by MapPicker: Erase (Passable) and Impassable, always visible -->
       </div>
       <div class="p-2 border-bottom border-secondary">
         <div class="input-group input-group-sm">
@@ -872,10 +885,12 @@ function base64ToU16String(b64) {
 // These FULL_* catalogs mirror the official in-game catalogs exactly and are
 // the editor's single source of truth: pickers, renderer, importer, and asset
 // downloader all read these arrays.
-window.FULL_OBJECT_CATALOG = window.FULL_TILE_CATALOG = window.BLANK_OBJECT_ID = void 0;
+window.FULL_OBJECT_CATALOG = window.FULL_TILE_CATALOG = window.IMPASSABLE_OBJECT_ID = window.BLANK_OBJECT_ID = void 0;
 window.isEmptyObject = isEmptyObject;
 /** Object ID used for an empty object cell / the eraser tool. */
 window.BLANK_OBJECT_ID = 100;
+/** Impassable empty-space object, available via the quick eraser tool. */
+window.IMPASSABLE_OBJECT_ID = 101;
 /** True for BC's EmptySpace objects: they render nothing on the map. */
 function isEmptyObject(o) {
     return o.Type === "EmptySpace";
@@ -3325,6 +3340,8 @@ window.SURFACE_HELP_KEYS = {
         "hjkl / arrows",
         "Space / Enter",
         "v",
+        "d",
+        "D",
         "y / Y",
         "p",
         "u",
@@ -3944,6 +3961,59 @@ class MapPicker {
         this.tilePickerItemById = new Map();
         this.objectPickerItemById = new Map();
         this.effectPickerItemById = new Map();
+        this.quickToolById = new Map();
+    }
+    /**
+     * Always-visible eraser tools. They live outside #sidebarContent so the
+     * search filter can never hide them; the two EmptySpace objects remain in
+     * the catalog for import but are not listed as picker categories.
+     */
+    mountQuickTools(objectCatalog) {
+        const container = document.getElementById("quickTools");
+        if (!container)
+            return;
+        container.replaceChildren();
+        this.quickToolById.clear();
+        const tools = [
+            {
+                id: catalog_1.BLANK_OBJECT_ID,
+                icon: BLANK_ERASER_ICON,
+                label: "Erase objects (Passable)",
+                title: "Erase (Passable)",
+            },
+            {
+                id: catalog_1.IMPASSABLE_OBJECT_ID,
+                icon: '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' +
+                    '<img src="assets/objects/EmptySpace/Impassable.png" alt="" width="28" height="28">' +
+                    "</span>",
+                label: "Paint impassable empty space",
+                title: "Impassable",
+            },
+        ];
+        for (const tool of tools) {
+            const obj = objectCatalog.find((o) => o.ID === tool.id);
+            if (!obj)
+                continue;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "quick-tool sprite-item";
+            btn.tabIndex = -1;
+            btn.innerHTML = tool.icon;
+            btn.title = tool.title;
+            btn.setAttribute("aria-label", tool.label);
+            btn.setAttribute("aria-pressed", "false");
+            btn.addEventListener("click", (e) => {
+                this.delegate.onQuickTool(obj);
+                // Keyboard activation returns to the map; a pointer click
+                // keeps focus on the tool for rapid re-picks.
+                if (e.detail === 0) {
+                    document.getElementById("mapCanvas")?.focus?.();
+                    appSurface_1.appSurface.set("map");
+                }
+            });
+            container.appendChild(btn);
+            this.quickToolById.set(tool.id, btn);
+        }
     }
     populate(tileCatalog, objectCatalog, effectCatalog = []) {
         const tileCategories = document.getElementById("tileCategories");
@@ -3959,6 +4029,7 @@ class MapPicker {
         this.tilePickerItemById.clear();
         this.objectPickerItemById.clear();
         this.effectPickerItemById.clear();
+        this.mountQuickTools(objectCatalog);
         const tileGroups = new Map();
         tileCatalog.forEach((t) => {
             if (!tileGroups.has(t.Type))
@@ -3999,6 +4070,10 @@ class MapPicker {
         });
         const objGroups = new Map();
         objectCatalog.forEach((o) => {
+            // R134's empty-space objects are reached only via the quick tools
+            // (sidebar buttons + d/D); they stay in the catalog for import.
+            if ((0, catalog_1.isEmptyObject)(o))
+                return;
             const g = displayGroupFor(o);
             // A display override alone would still show all 21 deprecated
             // aliases under a "Deprecated" header; filter the whole group.
@@ -4168,6 +4243,11 @@ class MapPicker {
         this.effectPickerItemById.forEach((el, id) => {
             el.classList?.toggle("selected", selectedEffectId === id);
             el.setAttribute?.("aria-pressed", selectedEffectId === id ? "true" : "false");
+        });
+        this.quickToolById.forEach((el, id) => {
+            const active = selectedObjectId === id;
+            el.classList?.toggle("selected", active);
+            el.setAttribute?.("aria-pressed", active ? "true" : "false");
         });
     }
     /**
@@ -5588,6 +5668,18 @@ window.KEYBIND_HELP = [
         group: "paint",
     },
     {
+        keys: "d",
+        description: "Select the eraser (Passable)",
+        scope: "map",
+        group: "paint",
+    },
+    {
+        keys: "D",
+        description: "Select the impassable brush",
+        scope: "map",
+        group: "paint",
+    },
+    {
         keys: "y / Y",
         description: "Copy the selected area",
         scope: "map",
@@ -6022,6 +6114,40 @@ function installEditorKeybinds(actions) {
             },
         },
         {
+            keys: "d",
+            description: "Select the eraser (Passable)",
+            scope: "map",
+            group: "paint",
+            // Exact case (not isCharKey): lowercase d only; Shift+D below.
+            applies: (e) => !isEditableTarget(e) &&
+                e.key === "d" &&
+                !e.shiftKey &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey,
+            run: (e) => {
+                e.preventDefault();
+                actions.selectEraser();
+                return true;
+            },
+        },
+        {
+            keys: "D",
+            description: "Select the impassable brush",
+            scope: "map",
+            group: "paint",
+            applies: (e) => !isEditableTarget(e) &&
+                e.key === "D" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey,
+            run: (e) => {
+                e.preventDefault();
+                actions.selectImpassable();
+                return true;
+            },
+        },
+        {
             keys: "y / Y",
             description: "Copy the selected area",
             scope: "map",
@@ -6200,6 +6326,10 @@ class BCMapEditor {
             onSelectTile: (tile) => this.setSelectedTile(tile),
             onSelectObject: (obj) => this.setSelectedObject(obj),
             onSelectEffect: (effect) => this.setSelectedEffect(effect),
+            onQuickTool: (obj) => {
+                this.setCurrentLayer("object");
+                this.setSelectedObject(obj);
+            },
         });
         this.objectMarginTiles = 0;
         /**
@@ -7568,6 +7698,22 @@ class BCMapEditor {
         this.updateStatusSelection();
         this.syncPickerSelection();
     }
+    /** Select the Passable eraser and switch to the object layer (`d`). */
+    selectEraser() {
+        this.setCurrentLayer("object");
+        const obj = this.objectMap.get(catalog_1.BLANK_OBJECT_ID) ??
+            this.fullObjectMap.get(catalog_1.BLANK_OBJECT_ID) ??
+            null;
+        this.setSelectedObject(obj);
+    }
+    /** Select the Impassable brush and switch to the object layer (`D`). */
+    selectImpassable() {
+        this.setCurrentLayer("object");
+        const obj = this.objectMap.get(catalog_1.IMPASSABLE_OBJECT_ID) ??
+            this.fullObjectMap.get(catalog_1.IMPASSABLE_OBJECT_ID) ??
+            null;
+        this.setSelectedObject(obj);
+    }
     setSelectedEffect(effect) {
         this.selectedEffect = effect;
         this.updateStatusSelection();
@@ -8607,6 +8753,8 @@ document.addEventListener("DOMContentLoaded", () => {
         undo: () => editor.undo(),
         redo: () => editor.redo(),
         handleVimKey: (e) => editor.handleVimKey(e),
+        selectEraser: () => editor.selectEraser(),
+        selectImpassable: () => editor.selectImpassable(),
         openCommandPrompt: () => setCommandPromptOpen(true),
         focusSearch: () => focusSearchSelect(),
         focusPicker: () => {

@@ -44,6 +44,8 @@ export interface ObjectDef {
 
 /** Object ID used for an empty object cell / the eraser tool. */
 export const BLANK_OBJECT_ID = 100;
+/** Impassable empty-space object, available via the quick eraser tool. */
+export const IMPASSABLE_OBJECT_ID = 101;
 
 /** True for BC's EmptySpace objects: they render nothing on the map. */
 export function isEmptyObject(o: { Type: string }): boolean {

@@ -54,8 +54,10 @@ test("object picker categories load with thumbnails", async ({
     expect(categories).toContain("Floor Obstacles");
     expect(categories).toContain("Banners");
 
-    // Categories start collapsed; reveal matching sprites via search
-    await page.fill("#searchInput", "Passable");
+    // Categories start collapsed; reveal matching sprites via search.
+    // "Chair" matches real picker objects (the eraser "Passable" is now a
+    // quick tool and correctly yields no picker results).
+    await page.fill("#searchInput", "Chair");
     await page.waitForTimeout(100);
 
     // Check thumbnails load
@@ -64,15 +66,19 @@ test("object picker categories load with thumbnails", async ({
         .count();
     expect(objItems).toBeGreaterThan(0);
 
-    // R134 has one visible eraser: EmptySpace/Passable (ID 100). The 21
-    // legacy blank IDs are kept in the catalog for import but hidden.
+    // R134 erasers are reached through the always-visible quick tools, not
+    // a picker category. The 23 EmptySpace objects stay in the catalog for
+    // import but are not listed in the picker.
     const eraserItem = await page
         .locator(
             "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible",
         )
         .count();
-    expect(eraserItem).toBe(1);
-    expect(categories).toContain("Empty Space");
+    expect(eraserItem).toBe(0);
+    expect(categories).not.toContain("Empty Space");
+    expect(await page.locator("#quickTools .quick-tool:visible").count()).toBe(
+        2,
+    );
 });
 
 test("search filter works for tiles", async ({ page }: { page: Page }) => {

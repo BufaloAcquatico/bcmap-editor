@@ -55,6 +55,8 @@ docker compose up -d
 | **Paint**                              |                                      |
 | Paint tiles on the map                 | `Space` / `Enter`                    |
 | Select an area                         | `v`                                  |
+| Select the eraser (Passable)           | `d`                                  |
+| Select the impassable brush            | `D`                                  |
 | **Clipboard**                          |                                      |
 | Copy the selected area                 | `y` / `Y`                            |
 | Paste what you copied                  | `p`                                  |

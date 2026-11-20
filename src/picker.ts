@@ -7,7 +7,13 @@
 //
 // Extracted from BCMapEditor (src/editor.ts); behavior is unchanged.
 
-import { BLANK_OBJECT_ID, type ObjectDef, type TileDef } from "./catalog";
+import {
+    BLANK_OBJECT_ID,
+    IMPASSABLE_OBJECT_ID,
+    isEmptyObject,
+    type ObjectDef,
+    type TileDef,
+} from "./catalog";
 import { effectColorCss, type EffectDef } from "./effects";
 import { appSurface } from "./appSurface";
 import {
@@ -139,6 +145,8 @@ export interface PickerDelegate {
     onSelectTile(tile: TileDef): void;
     onSelectObject(obj: ObjectDef): void;
     onSelectEffect(effect: EffectDef): void;
+    /** Quick eraser tools switch to the object layer and focus the map. */
+    onQuickTool(obj: ObjectDef): void;
 }
 
 interface CategoryEntry {
@@ -172,8 +180,66 @@ export class MapPicker {
     private tilePickerItemById = new Map<number, HTMLElement>();
     private objectPickerItemById = new Map<number, HTMLElement>();
     private effectPickerItemById = new Map<number, HTMLElement>();
+    private quickToolById = new Map<number, HTMLElement>();
 
     constructor(private delegate: PickerDelegate) {}
+
+    /**
+     * Always-visible eraser tools. They live outside #sidebarContent so the
+     * search filter can never hide them; the two EmptySpace objects remain in
+     * the catalog for import but are not listed as picker categories.
+     */
+    private mountQuickTools(objectCatalog: readonly ObjectDef[]): void {
+        const container = document.getElementById("quickTools");
+        if (!container) return;
+        container.replaceChildren();
+        this.quickToolById.clear();
+        const tools: Array<{
+            id: number;
+            icon: string;
+            label: string;
+            title: string;
+        }> = [
+            {
+                id: BLANK_OBJECT_ID,
+                icon: BLANK_ERASER_ICON,
+                label: "Erase objects (Passable)",
+                title: "Erase (Passable)",
+            },
+            {
+                id: IMPASSABLE_OBJECT_ID,
+                icon:
+                    '<span style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;">' +
+                    '<img src="assets/objects/EmptySpace/Impassable.png" alt="" width="28" height="28">' +
+                    "</span>",
+                label: "Paint impassable empty space",
+                title: "Impassable",
+            },
+        ];
+        for (const tool of tools) {
+            const obj = objectCatalog.find((o) => o.ID === tool.id);
+            if (!obj) continue;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "quick-tool sprite-item";
+            btn.tabIndex = -1;
+            btn.innerHTML = tool.icon;
+            btn.title = tool.title;
+            btn.setAttribute("aria-label", tool.label);
+            btn.setAttribute("aria-pressed", "false");
+            btn.addEventListener("click", (e: MouseEvent) => {
+                this.delegate.onQuickTool(obj);
+                // Keyboard activation returns to the map; a pointer click
+                // keeps focus on the tool for rapid re-picks.
+                if (e.detail === 0) {
+                    document.getElementById("mapCanvas")?.focus?.();
+                    appSurface.set("map");
+                }
+            });
+            container.appendChild(btn);
+            this.quickToolById.set(tool.id, btn);
+        }
+    }
 
     populate(
         tileCatalog: TileDef[],
@@ -193,6 +259,7 @@ export class MapPicker {
         this.tilePickerItemById.clear();
         this.objectPickerItemById.clear();
         this.effectPickerItemById.clear();
+        this.mountQuickTools(objectCatalog);
 
         const tileGroups = new Map<string, TileDef[]>();
         tileCatalog.forEach((t) => {
@@ -239,6 +306,9 @@ export class MapPicker {
 
         const objGroups = new Map<string, ObjectDef[]>();
         objectCatalog.forEach((o) => {
+            // R134's empty-space objects are reached only via the quick tools
+            // (sidebar buttons + d/D); they stay in the catalog for import.
+            if (isEmptyObject(o)) return;
             const g = displayGroupFor(o);
             // A display override alone would still show all 21 deprecated
             // aliases under a "Deprecated" header; filter the whole group.
@@ -440,6 +510,11 @@ export class MapPicker {
                 "aria-pressed",
                 selectedEffectId === id ? "true" : "false",
             );
+        });
+        this.quickToolById.forEach((el, id) => {
+            const active = selectedObjectId === id;
+            el.classList?.toggle("selected", active);
+            el.setAttribute?.("aria-pressed", active ? "true" : "false");
         });
     }
 

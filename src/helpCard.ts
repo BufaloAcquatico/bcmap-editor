@@ -89,6 +89,8 @@ export const SURFACE_HELP_KEYS: Record<AppSurface, string[]> = {
         "hjkl / arrows",
         "Space / Enter",
         "v",
+        "d",
+        "D",
         "y / Y",
         "p",
         "u",

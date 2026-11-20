@@ -167,19 +167,14 @@ describe("Foldable pickers", () => {
         expect((editor as any).picker.searchTerm).toBe("");
     });
 
-    it("renders the EmptySpace eraser as bundled inline SVG, not a CDN glyph", () => {
+    it("does not list the EmptySpace eraser in the picker (quick tools own it)", () => {
         editor.populatePickers();
         const erasers = created.filter(
             (el) =>
                 el.className === "sprite-item" &&
                 el.title === "Passable (Erase)",
         );
-        expect(erasers).toHaveLength(1);
-        for (const item of erasers) {
-            expect(item.innerHTML).toContain("picker-eraser-icon");
-            expect(item.innerHTML).toContain("<svg");
-            expect(item.innerHTML).not.toContain("bi-erase");
-        }
+        expect(erasers).toHaveLength(0);
     });
 
     it("does not replay the expand animation on a redundant fold", () => {
@@ -227,23 +222,14 @@ describe("Foldable pickers", () => {
         ]);
     });
 
-    it("shows only the two live EmptySpace brushes, with the Impassable icon", () => {
-        // All 23 R134 EmptySpace entries reach populate(), but the 21 with
-        // DeprecatedID are hidden; 101 uses PaletteImage as its picker icon
-        // even though it paints nothing visible on the canvas.
+    it("lists no EmptySpace objects in the picker; all 23 stay in the catalog", () => {
         const empty = FULL_OBJECT_CATALOG.filter(
             (o) => o.Type === "EmptySpace",
         );
         expect(empty).toHaveLength(23);
         (editor as any).picker.populate([], empty);
         const icons = created.filter((el) => el.className === "sprite-item");
-        expect(icons).toHaveLength(2);
-        expect(icons[0].title).toBe("Passable (Erase)");
-        expect(icons[0].innerHTML).toContain("picker-eraser-icon");
-        expect(icons[1].title).toBe("Impassable");
-        expect(icons[1].style.backgroundImage).toBe(
-            "url(assets/objects/EmptySpace/Impassable.png)",
-        );
+        expect(icons).toHaveLength(0);
     });
 
     it("builds the eight lighting effects as swatches, Blank as the eraser", () => {

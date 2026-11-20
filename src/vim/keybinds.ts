@@ -66,6 +66,18 @@ export const KEYBIND_HELP: {
         group: "paint",
     },
     {
+        keys: "d",
+        description: "Select the eraser (Passable)",
+        scope: "map",
+        group: "paint",
+    },
+    {
+        keys: "D",
+        description: "Select the impassable brush",
+        scope: "map",
+        group: "paint",
+    },
+    {
         keys: "y / Y",
         description: "Copy the selected area",
         scope: "map",
@@ -217,6 +229,10 @@ export interface EditorKeybindActions {
     focusMap: () => void;
     /** Focus the first matching sprite (`Enter` in search). */
     focusFirstMatch: () => void;
+    /** Select the Passable eraser tool (`d`). */
+    selectEraser: () => void;
+    /** Select the Impassable brush (`D`). */
+    selectImpassable: () => void;
     /**
      * Sidebar key router: navigate/collapse with arrows, printable keys to
      * the search box, Esc back to the map surface. Returns false for keys it
@@ -556,6 +572,42 @@ export function installEditorKeybinds(
             run: (e) => {
                 e.preventDefault();
                 actions.handleVimKey(e);
+                return true;
+            },
+        },
+        {
+            keys: "d",
+            description: "Select the eraser (Passable)",
+            scope: "map",
+            group: "paint",
+            // Exact case (not isCharKey): lowercase d only; Shift+D below.
+            applies: (e) =>
+                !isEditableTarget(e) &&
+                e.key === "d" &&
+                !e.shiftKey &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey,
+            run: (e) => {
+                e.preventDefault();
+                actions.selectEraser();
+                return true;
+            },
+        },
+        {
+            keys: "D",
+            description: "Select the impassable brush",
+            scope: "map",
+            group: "paint",
+            applies: (e) =>
+                !isEditableTarget(e) &&
+                e.key === "D" &&
+                !e.ctrlKey &&
+                !e.metaKey &&
+                !e.altKey,
+            run: (e) => {
+                e.preventDefault();
+                actions.selectImpassable();
                 return true;
             },
         },

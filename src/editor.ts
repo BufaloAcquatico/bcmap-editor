@@ -2,6 +2,7 @@
 
 import {
     BLANK_OBJECT_ID,
+    IMPASSABLE_OBJECT_ID,
     FULL_OBJECT_CATALOG,
     FULL_TILE_CATALOG,
     isEmptyObject,
@@ -168,6 +169,10 @@ export class BCMapEditor {
         onSelectTile: (tile) => this.setSelectedTile(tile),
         onSelectObject: (obj) => this.setSelectedObject(obj),
         onSelectEffect: (effect) => this.setSelectedEffect(effect),
+        onQuickTool: (obj) => {
+            this.setCurrentLayer("object");
+            this.setSelectedObject(obj);
+        },
     });
     private objectMarginTiles = 0;
     /**
@@ -1802,6 +1807,26 @@ export class BCMapEditor {
         this.selectedObject = obj;
         this.updateStatusSelection();
         this.syncPickerSelection();
+    }
+
+    /** Select the Passable eraser and switch to the object layer (`d`). */
+    public selectEraser(): void {
+        this.setCurrentLayer("object");
+        const obj =
+            this.objectMap.get(BLANK_OBJECT_ID) ??
+            this.fullObjectMap.get(BLANK_OBJECT_ID) ??
+            null;
+        this.setSelectedObject(obj);
+    }
+
+    /** Select the Impassable brush and switch to the object layer (`D`). */
+    public selectImpassable(): void {
+        this.setCurrentLayer("object");
+        const obj =
+            this.objectMap.get(IMPASSABLE_OBJECT_ID) ??
+            this.fullObjectMap.get(IMPASSABLE_OBJECT_ID) ??
+            null;
+        this.setSelectedObject(obj);
     }
     public setSelectedEffect(effect: EffectDef | null): void {
         this.selectedEffect = effect;

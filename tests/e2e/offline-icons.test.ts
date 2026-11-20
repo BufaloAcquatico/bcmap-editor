@@ -1,10 +1,9 @@
 import { test, expect, Page } from "playwright/test";
 
-// Regression test: the EmptySpace/Passable (delete-tool) picker icon must
+// Regression test: the EmptySpace/Passable (delete-tool) quick-tool icon must
 // render even when the CDN stylesheets fail (offline use). It is a bundled
-// inline SVG, not a font glyph. Only stylesheets are blocked: the editor
-// bundle needs the CDN-served JS (LZString/Bootstrap) to boot, which is a
-// separate, out-of-scope dependency.
+// inline SVG, not a font glyph. The eraser is no longer in the picker list;
+// it lives in the always-visible quick-tools row in the sidebar.
 test("eraser picker icon renders with CDN stylesheets blocked", async ({
     page,
 }: {
@@ -15,13 +14,13 @@ test("eraser picker icon renders with CDN stylesheets blocked", async ({
     );
     await page.goto("http://localhost:8080/map-editor.html");
     await page.click('label[for="layerObject"]');
-    await page.fill("#searchInput", "Passable");
+    await page.fill("#searchInput", "zzzznomatch");
     await page.waitForTimeout(100);
 
+    // The quick tools stay visible even when the search hides every picker item.
     const icons = page.locator(
-        "#objectCategories .sprite-item:has(svg.picker-eraser-icon):visible svg.picker-eraser-icon",
+        "#quickTools .quick-tool:has(svg.picker-eraser-icon):visible svg.picker-eraser-icon",
     );
-    // R134 has one visible eraser; the 21 deprecated blank IDs are hidden.
     expect(await icons.count()).toBe(1);
     for (const box of await icons.evaluateAll((els) =>
         els.map((el) => el.getBoundingClientRect().toJSON()),
