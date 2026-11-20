@@ -105,6 +105,8 @@ npm run test:e2e:docker
 npm run test:e2e:docker:unit
 ```
 
+**Cleanup:** the test stack must be torn down after every run and stale artifacts removed; see `AGENTS.md` for the required commands.
+
 **Files:**
 
 - `Dockerfile.test` - Test image based on `mcr.microsoft.com/playwright:v1.64.0-jammy`
