@@ -83,7 +83,7 @@ registerPropertyProvider({
             wrap.appendChild(slider("Size", "Size", 50, 200, 100));
             const reset = document.createElement("button");
             reset.type = "button";
-            reset.className = "btn btn-sm btn-outline-secondary mb-2";
+            reset.className = "btn btn-sm btn-outline-light mb-2";
             reset.textContent = "Reset transform";
             reset.addEventListener("click", () => {
                 e.beginObjectSettingsEdit();

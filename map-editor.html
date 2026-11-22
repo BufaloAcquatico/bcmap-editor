@@ -368,7 +368,7 @@
       <div id="propertiesPanel" class="flex-1 overflow-auto p-3 d-none">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h6 id="propertiesTitle" class="mb-0 text-light">Object Properties</h6>
-          <button type="button" id="propertiesClose" class="btn btn-sm btn-outline-secondary" aria-label="Close properties panel">Close</button>
+          <button type="button" id="propertiesClose" class="btn btn-sm btn-outline-light" aria-label="Close properties panel">Close</button>
         </div>
         <div id="propertiesPlaceholder" class="text-secondary">
           Click an object on the map to inspect it, or move the cursor and press Enter.
@@ -7093,7 +7093,7 @@ const DEFAULT_PAD_COLOR = "#3C8CFF";
         row.appendChild(pickBtn);
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
-        removeBtn.className = "btn btn-sm btn-outline-secondary";
+        removeBtn.className = "btn btn-sm btn-outline-light";
         removeBtn.textContent = "Remove";
         removeBtn.addEventListener("click", () => {
             e.removeTeleporterDestination(pos);
@@ -7101,7 +7101,7 @@ const DEFAULT_PAD_COLOR = "#3C8CFF";
         row.appendChild(removeBtn);
         const twoWayBtn = document.createElement("button");
         twoWayBtn.type = "button";
-        twoWayBtn.className = "btn btn-sm btn-outline-secondary";
+        twoWayBtn.className = "btn btn-sm btn-outline-light";
         twoWayBtn.textContent = "Make two-way";
         twoWayBtn.addEventListener("click", () => e.makeTeleporterTwoWay(pos));
         row.appendChild(twoWayBtn);
@@ -7148,7 +7148,6 @@ const DEFAULT_PAD_COLOR = "#3C8CFF";
                 : "No destination";
         removeBtn.classList.toggle("d-none", !dest);
         twoWayBtn.classList.toggle("d-none", !(dest && destIsPad && !twoWay));
-        pickBtn.classList.toggle("btn-outline-light", !e.isTeleporterPickActive());
         host.appendChild(wrap);
     },
 });
@@ -7237,7 +7236,7 @@ function canTransform(obj) {
             wrap.appendChild(slider("Size", "Size", 50, 200, 100));
             const reset = document.createElement("button");
             reset.type = "button";
-            reset.className = "btn btn-sm btn-outline-secondary mb-2";
+            reset.className = "btn btn-sm btn-outline-light mb-2";
             reset.textContent = "Reset transform";
             reset.addEventListener("click", () => {
                 e.beginObjectSettingsEdit();

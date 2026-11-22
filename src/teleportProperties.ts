@@ -57,7 +57,7 @@ registerPropertyProvider({
 
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
-        removeBtn.className = "btn btn-sm btn-outline-secondary";
+        removeBtn.className = "btn btn-sm btn-outline-light";
         removeBtn.textContent = "Remove";
         removeBtn.addEventListener("click", () => {
             e.removeTeleporterDestination(pos);
@@ -66,7 +66,7 @@ registerPropertyProvider({
 
         const twoWayBtn = document.createElement("button");
         twoWayBtn.type = "button";
-        twoWayBtn.className = "btn btn-sm btn-outline-secondary";
+        twoWayBtn.className = "btn btn-sm btn-outline-light";
         twoWayBtn.textContent = "Make two-way";
         twoWayBtn.addEventListener("click", () => e.makeTeleporterTwoWay(pos));
         row.appendChild(twoWayBtn);
@@ -116,10 +116,6 @@ registerPropertyProvider({
               : "No destination";
         removeBtn.classList.toggle("d-none", !dest);
         twoWayBtn.classList.toggle("d-none", !(dest && destIsPad && !twoWay));
-        pickBtn.classList.toggle(
-            "btn-outline-light",
-            !e.isTeleporterPickActive(),
-        );
 
         host.appendChild(wrap);
     },
