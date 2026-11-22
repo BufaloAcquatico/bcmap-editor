@@ -35,6 +35,7 @@ function canTransform(obj: ObjectDef): boolean {
 
 registerPropertyProvider({
     id: "object-settings",
+    title: "Object Appearance",
     matches: (obj) =>
         !hasOwnConfig(obj) &&
         (canTransform(obj) ||
@@ -93,33 +94,52 @@ registerPropertyProvider({
             wrap.appendChild(reset);
         }
 
-        const colorable = (obj.Layers ?? []).filter((l) => l.IsColorable);
-        colorable.forEach((layer, index) => {
+        // Helper: a grid row of name / always-clickable colour picker /
+        // reset-to-default button, used for both layers and the decal.
+        const colourRow = (
+            name: string,
+            pickerLabel: string,
+            resetLabel: string,
+            initial: string,
+            defaultValue: string,
+            onPick: (hex: string) => void,
+            onReset: () => void,
+        ): { row: HTMLElement; input: HTMLInputElement } => {
             const row = document.createElement("div");
-            row.className = "d-flex align-items-center gap-2 mb-1";
+            row.className = "prop-colour-row";
             const label = document.createElement("span");
-            label.className = "text-secondary";
-            label.textContent = layer.Name || "Colour";
+            label.className = "prop-name text-secondary";
+            label.textContent = name;
             const input = document.createElement("input");
             input.type = "color";
             input.className = "form-control form-control-sm";
             input.style.width = "3rem";
-            input.setAttribute("aria-label", `Layer ${index} colour`);
-            const def = document.createElement("input");
-            def.type = "checkbox";
-            def.className = "form-check-input";
-            def.setAttribute("aria-label", `Layer ${index} default colour`);
-            def.checked =
-                current?.Colors?.[index] !== undefined &&
-                current.Colors[index] !== "Default";
-            const value = current?.Colors?.[index];
-            input.value =
-                value && value !== "Default"
-                    ? value.toLowerCase()
-                    : (layer.DefaultColor ?? "#FFFFFF").toLowerCase();
-            const apply = () => {
-                // Read live settings each time so edits to other layers in the
-                // same open panel are not clobbered by a stale snapshot.
+            input.setAttribute("aria-label", pickerLabel);
+            input.value = initial.toLowerCase();
+            input.addEventListener("change", () => onPick(input.value));
+            const reset = document.createElement("button");
+            reset.type = "button";
+            reset.className = "btn btn-sm btn-outline-light";
+            reset.textContent = "Reset";
+            reset.setAttribute("aria-label", resetLabel);
+            reset.addEventListener("click", () => {
+                onReset();
+                input.value = defaultValue.toLowerCase();
+            });
+            row.append(label, input, reset);
+            return { row, input };
+        };
+
+        const colorable = (obj.Layers ?? []).filter((l) => l.IsColorable);
+        colorable.forEach((layer, index) => {
+            const initial =
+                current?.Colors?.[index] && current.Colors[index] !== "Default"
+                    ? current.Colors[index]
+                    : (layer.DefaultColor ?? "#FFFFFF");
+            const defaultValue = layer.DefaultColor ?? "#FFFFFF";
+            const pick = (hex: string) => {
+                // Read live settings so other layers edited in this panel are
+                // not clobbered by a stale render-time snapshot.
                 const live = e.getObjectSettings(pos);
                 const colors = [
                     ...(live?.Colors ??
@@ -127,18 +147,29 @@ registerPropertyProvider({
                         colorable.map(() => "Default")),
                 ];
                 while (colors.length < colorable.length) colors.push("Default");
-                colors[index] = def.checked
-                    ? input.value.toUpperCase()
-                    : "Default";
+                colors[index] = hex.toUpperCase();
                 e.setObjectSettings(pos, { Colors: colors });
             };
-            input.addEventListener("change", apply);
-            def.addEventListener("change", () => {
-                input.disabled = !def.checked;
-                apply();
-            });
-            input.disabled = !def.checked;
-            row.append(label, input, def);
+            const reset = () => {
+                const live = e.getObjectSettings(pos);
+                const colors = [
+                    ...(live?.Colors ??
+                        current?.Colors ??
+                        colorable.map(() => "Default")),
+                ];
+                while (colors.length < colorable.length) colors.push("Default");
+                colors[index] = "Default";
+                e.setObjectSettings(pos, { Colors: colors });
+            };
+            const { row } = colourRow(
+                layer.Name || "Colour",
+                `Layer ${index} colour`,
+                `Reset layer ${index} colour to default`,
+                initial,
+                defaultValue,
+                pick,
+                reset,
+            );
             wrap.appendChild(row);
         });
 
@@ -157,38 +188,17 @@ registerPropertyProvider({
                 select.appendChild(option);
             }
             select.value = current?.Decal ?? "";
-            const colorRow = document.createElement("div");
-            colorRow.className = "d-flex align-items-center gap-2 mb-2";
+            const { row: colorRow } = colourRow(
+                "Decal colour",
+                "Decal colour",
+                "Reset decal colour to default",
+                current?.DecalColor ?? "#FFFFFF",
+                "#FFFFFF",
+                (hex) =>
+                    e.setObjectSettings(pos, { DecalColor: hex.toUpperCase() }),
+                () => e.setObjectSettings(pos, { DecalColor: undefined }),
+            );
             colorRow.classList.toggle("d-none", !current?.Decal);
-            const colorLabel = document.createElement("span");
-            colorLabel.className = "text-secondary";
-            colorLabel.textContent = "Decal colour";
-            const colorInput = document.createElement("input");
-            colorInput.type = "color";
-            colorInput.className = "form-control form-control-sm";
-            colorInput.style.width = "3rem";
-            colorInput.setAttribute("aria-label", "Decal colour");
-            colorInput.value = (current?.DecalColor ?? "#FFFFFF").toLowerCase();
-            const colorDefault = document.createElement("input");
-            colorDefault.type = "checkbox";
-            colorDefault.className = "form-check-input";
-            colorDefault.setAttribute("aria-label", "Default decal colour");
-            colorDefault.checked = !current?.DecalColor;
-            colorInput.disabled = colorDefault.checked;
-            colorInput.addEventListener("change", () => {
-                e.setObjectSettings(pos, {
-                    DecalColor: colorInput.value.toUpperCase(),
-                });
-            });
-            colorDefault.addEventListener("change", () => {
-                colorInput.disabled = colorDefault.checked;
-                e.setObjectSettings(pos, {
-                    DecalColor: colorDefault.checked
-                        ? undefined
-                        : colorInput.value.toUpperCase(),
-                });
-            });
-            colorRow.append(colorLabel, colorInput, colorDefault);
             select.addEventListener("change", () => {
                 e.setObjectSettings(pos, { Decal: select.value || undefined });
                 colorRow.classList.toggle("d-none", !select.value);

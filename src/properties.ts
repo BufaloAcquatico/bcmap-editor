@@ -26,6 +26,8 @@ export interface PropertyContext {
 /** A field provider contributed by a later feature slice. */
 export interface PropertyProvider {
     id: string;
+    /** Section heading shown above this provider's fields. */
+    title: string;
     matches: (obj: ObjectDef, pos: CellPoint) => boolean;
     /** Which CellData config type this provider renders (for refresh logic). */
     configType?: string;
@@ -92,6 +94,11 @@ export class PropertyPanel {
         let rendered = 0;
         for (const provider of providers) {
             if (!provider.matches(target, targetPos)) continue;
+            const heading = document.createElement("div");
+            heading.className =
+                "property-section-title small text-secondary mb-2";
+            heading.textContent = provider.title;
+            fields.appendChild(heading);
             provider.render(fields, context);
             rendered++;
         }

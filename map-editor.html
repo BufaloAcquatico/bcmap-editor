@@ -59,6 +59,24 @@
       text-align: left;
     }
     button.sprite-item { display: inline-block; }
+    /* Object-properties colour rows: name / picker / reset aligned in columns. */
+    .prop-colour-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 3rem auto;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.25rem;
+    }
+    .prop-colour-row .prop-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .property-section-title {
+      border-bottom: 1px solid #2a2a4a;
+      padding-bottom: 0.25rem;
+    }
     /* Quick eraser tools stay visible above the search box. */
     .quick-tools { align-items: center; }
     .quick-tools .quick-tool { flex: 0 0 auto; }
@@ -370,6 +388,7 @@
           <h6 id="propertiesTitle" class="mb-0 text-light">Object Properties</h6>
           <button type="button" id="propertiesClose" class="btn btn-sm btn-outline-light" aria-label="Close properties panel">Close</button>
         </div>
+        <hr class="border-secondary">
         <div id="propertiesPlaceholder" class="text-secondary">
           Click an object on the map to inspect it, or move the cursor and press Enter.
         </div>
@@ -6929,6 +6948,10 @@ class PropertyPanel {
         for (const provider of providers) {
             if (!provider.matches(target, targetPos))
                 continue;
+            const heading = document.createElement("div");
+            heading.className = "property-section-title small text-secondary mb-2";
+            heading.textContent = provider.title;
+            fields.appendChild(heading);
             provider.render(fields, context);
             rendered++;
         }
@@ -7011,6 +7034,7 @@ function inputKind(e) {
 }
 (0, properties_1.registerPropertyProvider)({
     id: "sign",
+    title: "Sign",
     matches: (obj) => SIGN_IDS.has(obj.ID),
     render: (host, context) => {
         const editor = window.editor;
@@ -7065,6 +7089,7 @@ const getTeleportEditor = () => window.editor;
 const DEFAULT_PAD_COLOR = "#3C8CFF";
 (0, properties_1.registerPropertyProvider)({
     id: "teleporter",
+    title: "Teleport Pad",
     configType: "Teleporter",
     matches: (obj) => obj.ID === constants_1.TELEPORTER_OBJECT_ID,
     render: (host, context) => {
@@ -7159,6 +7184,7 @@ const DEFAULT_PAD_COLOR = "#3C8CFF";
 
 (0, properties_1.registerPropertyProvider)({
     id: "tether",
+    title: "Tether",
     configType: "Tether",
     matches: (obj) => constants_1.TETHER_OBJECT_IDS.has(obj.ID),
     render: (host, context) => {
@@ -7199,6 +7225,7 @@ function canTransform(obj) {
 }
 (0, properties_1.registerPropertyProvider)({
     id: "object-settings",
+    title: "Object Appearance",
     matches: (obj) => !hasOwnConfig(obj) &&
         (canTransform(obj) ||
             (obj.Layers?.some((l) => l.IsColorable) ?? false) ||
@@ -7245,53 +7272,62 @@ function canTransform(obj) {
             });
             wrap.appendChild(reset);
         }
-        const colorable = (obj.Layers ?? []).filter((l) => l.IsColorable);
-        colorable.forEach((layer, index) => {
+        // Helper: a grid row of name / always-clickable colour picker /
+        // reset-to-default button, used for both layers and the decal.
+        const colourRow = (name, pickerLabel, resetLabel, initial, defaultValue, onPick, onReset) => {
             const row = document.createElement("div");
-            row.className = "d-flex align-items-center gap-2 mb-1";
+            row.className = "prop-colour-row";
             const label = document.createElement("span");
-            label.className = "text-secondary";
-            label.textContent = layer.Name || "Colour";
+            label.className = "prop-name text-secondary";
+            label.textContent = name;
             const input = document.createElement("input");
             input.type = "color";
             input.className = "form-control form-control-sm";
             input.style.width = "3rem";
-            input.setAttribute("aria-label", `Layer ${index} colour`);
-            const def = document.createElement("input");
-            def.type = "checkbox";
-            def.className = "form-check-input";
-            def.setAttribute("aria-label", `Layer ${index} default colour`);
-            def.checked =
-                current?.Colors?.[index] !== undefined &&
-                    current.Colors[index] !== "Default";
-            const value = current?.Colors?.[index];
-            input.value =
-                value && value !== "Default"
-                    ? value.toLowerCase()
-                    : (layer.DefaultColor ?? "#FFFFFF").toLowerCase();
-            const apply = () => {
-                // Read live settings each time so edits to other layers in the
-                // same open panel are not clobbered by a stale snapshot.
+            input.setAttribute("aria-label", pickerLabel);
+            input.value = initial.toLowerCase();
+            input.addEventListener("change", () => onPick(input.value));
+            const reset = document.createElement("button");
+            reset.type = "button";
+            reset.className = "btn btn-sm btn-outline-light";
+            reset.textContent = "Reset";
+            reset.setAttribute("aria-label", resetLabel);
+            reset.addEventListener("click", () => {
+                onReset();
+                input.value = defaultValue.toLowerCase();
+            });
+            row.append(label, input, reset);
+            return { row, input };
+        };
+        const colorable = (obj.Layers ?? []).filter((l) => l.IsColorable);
+        colorable.forEach((layer, index) => {
+            const initial = current?.Colors?.[index] && current.Colors[index] !== "Default"
+                ? current.Colors[index]
+                : (layer.DefaultColor ?? "#FFFFFF");
+            const defaultValue = layer.DefaultColor ?? "#FFFFFF";
+            const pick = (hex) => {
+                // Read live settings so other layers edited in this panel are
+                // not clobbered by a stale render-time snapshot.
                 const live = e.getObjectSettings(pos);
                 const colors = [
-                    ...(live?.Colors ??
-                        current?.Colors ??
-                        colorable.map(() => "Default")),
+                    ...(live?.Colors ?? current?.Colors ?? colorable.map(() => "Default")),
                 ];
                 while (colors.length < colorable.length)
                     colors.push("Default");
-                colors[index] = def.checked
-                    ? input.value.toUpperCase()
-                    : "Default";
+                colors[index] = hex.toUpperCase();
                 e.setObjectSettings(pos, { Colors: colors });
             };
-            input.addEventListener("change", apply);
-            def.addEventListener("change", () => {
-                input.disabled = !def.checked;
-                apply();
-            });
-            input.disabled = !def.checked;
-            row.append(label, input, def);
+            const reset = () => {
+                const live = e.getObjectSettings(pos);
+                const colors = [
+                    ...(live?.Colors ?? current?.Colors ?? colorable.map(() => "Default")),
+                ];
+                while (colors.length < colorable.length)
+                    colors.push("Default");
+                colors[index] = "Default";
+                e.setObjectSettings(pos, { Colors: colors });
+            };
+            const { row } = colourRow(layer.Name || "Colour", `Layer ${index} colour`, `Reset layer ${index} colour to default`, initial, defaultValue, pick, reset);
             wrap.appendChild(row);
         });
         if (obj.DecalArea) {
@@ -7309,38 +7345,8 @@ function canTransform(obj) {
                 select.appendChild(option);
             }
             select.value = current?.Decal ?? "";
-            const colorRow = document.createElement("div");
-            colorRow.className = "d-flex align-items-center gap-2 mb-2";
+            const { row: colorRow } = colourRow("Decal colour", "Decal colour", "Reset decal colour to default", current?.DecalColor ?? "#FFFFFF", "#FFFFFF", (hex) => e.setObjectSettings(pos, { DecalColor: hex.toUpperCase() }), () => e.setObjectSettings(pos, { DecalColor: undefined }));
             colorRow.classList.toggle("d-none", !current?.Decal);
-            const colorLabel = document.createElement("span");
-            colorLabel.className = "text-secondary";
-            colorLabel.textContent = "Decal colour";
-            const colorInput = document.createElement("input");
-            colorInput.type = "color";
-            colorInput.className = "form-control form-control-sm";
-            colorInput.style.width = "3rem";
-            colorInput.setAttribute("aria-label", "Decal colour");
-            colorInput.value = (current?.DecalColor ?? "#FFFFFF").toLowerCase();
-            const colorDefault = document.createElement("input");
-            colorDefault.type = "checkbox";
-            colorDefault.className = "form-check-input";
-            colorDefault.setAttribute("aria-label", "Default decal colour");
-            colorDefault.checked = !current?.DecalColor;
-            colorInput.disabled = colorDefault.checked;
-            colorInput.addEventListener("change", () => {
-                e.setObjectSettings(pos, {
-                    DecalColor: colorInput.value.toUpperCase(),
-                });
-            });
-            colorDefault.addEventListener("change", () => {
-                colorInput.disabled = colorDefault.checked;
-                e.setObjectSettings(pos, {
-                    DecalColor: colorDefault.checked
-                        ? undefined
-                        : colorInput.value.toUpperCase(),
-                });
-            });
-            colorRow.append(colorLabel, colorInput, colorDefault);
             select.addEventListener("change", () => {
                 e.setObjectSettings(pos, { Decal: select.value || undefined });
                 colorRow.classList.toggle("d-none", !select.value);

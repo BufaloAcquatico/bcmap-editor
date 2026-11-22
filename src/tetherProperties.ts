@@ -14,6 +14,7 @@ type EditorBridge = {
 
 registerPropertyProvider({
     id: "tether",
+    title: "Tether",
     configType: "Tether",
     matches: (obj) => TETHER_OBJECT_IDS.has(obj.ID),
     render: (host, context) => {

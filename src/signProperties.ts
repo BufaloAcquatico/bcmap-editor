@@ -17,6 +17,7 @@ function inputKind(e: Event): "insert" | "delete" {
 
 registerPropertyProvider({
     id: "sign",
+    title: "Sign",
     matches: (obj) => SIGN_IDS.has(obj.ID),
     render: (host, context: PropertyContext) => {
         const editor = (window as any).editor as {

@@ -28,6 +28,7 @@ const DEFAULT_PAD_COLOR = "#3C8CFF";
 
 registerPropertyProvider({
     id: "teleporter",
+    title: "Teleport Pad",
     configType: "Teleporter",
     matches: (obj) => obj.ID === TELEPORTER_OBJECT_ID,
     render: (host, context) => {
